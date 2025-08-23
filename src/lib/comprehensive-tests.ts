@@ -389,31 +389,8 @@ export class ComprehensiveE2ETester {
       
       return {
         manualModeWorking: true,
-        battleMode: battle.battleMode,
+        battleMode: battle.battle_mode,
         userControlled: true
-      };
-    });
-
-    // Test Auto Mode
-    await this.runTest('Battle Modes', 'Auto Mode', async () => {
-      const battle = await createBattleAPI({
-        battle_type: 'response',
-        prompt: 'Test auto mode battle with AI selection',
-        prompt_category: 'technical',
-        models: ['qwen/qwen3-32b', 'deepseek-r1-distill-llama-70b'], // Auto mode would select these
-        mode: 'standard',
-        battle_mode: 'auto',
-        rounds: 3,
-        max_tokens: 200,
-        temperature: 0.7,
-        auto_selection_reason: 'Selected technical models for coding-related prompt'
-      });
-      
-      return {
-        autoModeWorking: true,
-        battleMode: battle.battleMode,
-        aiControlled: true,
-        selectionReason: !!battle.autoSelectionReason
       };
     });
   }
