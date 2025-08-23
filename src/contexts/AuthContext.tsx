@@ -120,6 +120,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('Error in createMissingProfile:', error);
+    }
+  };
+
+  const login = async (email: string, password: string) => {
+    setLoading(true);
+    
+    // Set timeout for login attempt
+    const timeout = setTimeout(() => {
+      setLoading(false);
+      toast.error('Login timeout. Please try again.');
+    }, 30000); // 30 second timeout
+    
+    setAuthTimeout(timeout);
+    
+    try {
+      console.log('Attempting login for:', email);
+      const { data, error } = await signIn(email, password);
+      
+      if (error) {
+        console.error('Login error:', error);
+        throw new Error(error.message || 'Login failed');
+      }
+      
+      console.log('Login successful:', data.user?.id);
+      
+      // Don't set loading to false here - let the auth state change handle it
+    } catch (error: any) {
+      setLoading(false);
+      const message = error.message || 'Login failed';
+      console.log('Login error message:', message);
+      toast.error(message);
+      throw error;
+    } finally {
+      if (authTimeout) {
+        clearTimeout(authTimeout);
+        setAuthTimeout(null);
+      }
+    }
+  };
+
+  const register = async (email: string, password: string, name: string) => {
     setLoading(true);
     
     // Set timeout for registration attempt
@@ -130,9 +171,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     setAuthTimeout(timeout);
     
-    }
+    try {
       console.log('Attempting registration for:', email);
-      toast.error(message);
+      const { data, error } = await signUp(email, password, name);
       
       if (error) {
         console.error('Registration error:', error);
@@ -142,10 +183,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Registration successful:', data.user?.id);
       
       // Don't set loading to false here - let the auth state change handle it
+    } catch (error: any) {
+      setLoading(false);
+      const message = error.message || 'Registration failed';
+      console.log('Registration error message:', message);
+      toast.error(message);
+      throw error;
     } finally {
-      if (authTimeout) {
-        setAuthTimeout(null);
-      }
       if (authTimeout) {
         clearTimeout(authTimeout);
         setAuthTimeout(null);
