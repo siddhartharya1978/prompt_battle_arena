@@ -36,24 +36,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setAuthUser(session.user);
-        loadProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
+      setAuthUser(session?.user || null);
+      setLoading(false);
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
+        setAuthUser(session?.user || null);
         if (session?.user) {
-          setAuthUser(session.user);
-          await loadProfile(session.user.id);
+          loadProfile(session.user.id);
         } else {
-          setAuthUser(null);
           setUser(null);
-          setLoading(false);
         }
       }
     );
@@ -63,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -77,8 +71,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('Error loading profile:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -95,11 +87,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       password,
       options: {
-        data: {
-          name,
-          full_name: name,
-        },
-      },
+        data: { name }
+      }
     });
     if (error) throw error;
   };

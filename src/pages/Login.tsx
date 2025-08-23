@@ -21,14 +21,14 @@ export default function Login() {
     try {
       if (isSignUp) {
         await register(email, password, name);
-        toast.success('Account created successfully!');
+        toast.success('Account created! Please check your email to verify.');
       } else {
         await login(email, password);
-        toast.success('Signed in successfully!');
+        toast.success('Welcome back!');
+        navigate('/dashboard');
       }
-      navigate('/dashboard');
     } catch (error: any) {
-      toast.error(error.message || 'Authentication failed');
+      toast.error(error.message || 'Something went wrong');
     } finally {
       setIsLoading(false);
     }
