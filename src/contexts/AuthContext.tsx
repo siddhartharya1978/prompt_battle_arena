@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const demoUser = {
           id: 'demo-user-id',
           email: email,
-          name: email === 'admin@pba.com' ? 'Demo Admin' : 'Demo User',
+          name: email === 'admin@pba.com' ? 'Demo Admin' : email.split('@')[0] || 'Demo User',
           avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
           plan: 'free' as const,
           role: email === 'admin@pba.com' ? 'admin' as const : 'user' as const,

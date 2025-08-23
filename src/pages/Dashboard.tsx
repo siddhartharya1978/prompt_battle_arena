@@ -66,7 +66,7 @@ export default function Dashboard() {
         {/* Welcome Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Welcome back, {user?.name}!
+            Welcome back, {user?.name || 'User'}!
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
             Ready to pit some AI models against each other?
@@ -135,7 +135,7 @@ export default function Dashboard() {
             <div className="mb-4">
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="text-gray-600 dark:text-gray-300">
-                  {user?.battles_used} / {user?.battles_limit} battles
+                  {user?.battles_used || 0} / {user?.battles_limit || 3} battles
                 </span>
                 <span className="text-gray-600 dark:text-gray-300">
                   {Math.round(usagePercentage)}%

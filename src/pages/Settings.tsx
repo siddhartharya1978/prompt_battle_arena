@@ -29,9 +29,9 @@ export default function Settings() {
 
   // Profile form state
   const [profileData, setProfileData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    avatar_url: user?.avatar_url || ''
+    name: user?.name || 'User',
+    email: user?.email || 'user@example.com',
+    avatar_url: user?.avatar_url || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'
   });
 
   // Notification settings
@@ -110,15 +110,14 @@ export default function Settings() {
             </label>
             <div className="flex items-center space-x-4">
               <img
-                src={profileData.avatar_url || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'}
+                readOnly
                 alt="Profile"
-                className="w-16 h-16 rounded-full"
               />
               <div>
                 <input
                   type="file"
                   id="avatar-upload"
-                  accept="image/*"
+                  src={profileData.avatar_url}
                   onChange={handleAvatarChange}
                   className="hidden"
                 />
@@ -197,7 +196,7 @@ export default function Settings() {
                 <p className="text-sm text-gray-600 dark:text-gray-300">
                   {user?.plan === 'premium' 
                     ? 'Unlimited battles and premium features'
-                    : `${user?.battles_used}/${user?.battles_limit} battles used today`
+                    : `${user?.battles_used || 0}/${user?.battles_limit || 3} battles used today`
                   }
                 </p>
               </div>
