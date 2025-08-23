@@ -304,13 +304,19 @@ export default function AdminPanel() {
                   const total = categoryTests.length;
                   const percentage = (passed / total) * 100;
                   
+                  const getProgressBarColor = (percentage: number) => {
+                    if (percentage === 100) return 'bg-green-500';
+                    if (percentage >= 80) return 'bg-yellow-500';
+                    return 'bg-red-500';
+                  };
+                  
                   return (
                     <div key={category} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">{category}</div>
                       <div className="text-xs text-gray-600 dark:text-gray-300">{passed}/{total} passed</div>
                       <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-1">
                         <div 
-                          className={`h-2 rounded-full ${percentage === 100 ? 'bg-green-500' : percentage >= 80 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                          className={`h-2 rounded-full ${getProgressBarColor(percentage)}`}
                           style={{ width: `${percentage}%` }}
                         />
                       </div>
