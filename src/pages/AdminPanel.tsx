@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useBattle } from '../contexts/BattleContext';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseAdmin } from '../lib/supabase';
 import { runDatabaseTests, displayTestResults } from '../lib/test-database';
 import { runComprehensiveTests } from '../lib/comprehensive-tests';
 import Navigation from '../components/Navigation';
@@ -165,6 +165,18 @@ export default function AdminPanel() {
             <span className="text-gray-600 dark:text-gray-300">Anon Key:</span>
             <p className="font-mono text-gray-900 dark:text-white">
               {import.meta.env.VITE_SUPABASE_ANON_KEY ? '***configured***' : 'Not configured'}
+            </p>
+          </div>
+          <div>
+            <span className="text-gray-600 dark:text-gray-300">Service Role:</span>
+            <p className="font-mono text-gray-900 dark:text-white">
+              {import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY ? '***configured***' : 'Not configured'}
+            </p>
+          </div>
+          <div>
+            <span className="text-gray-600 dark:text-gray-300">Storage Status:</span>
+            <p className="font-mono text-gray-900 dark:text-white">
+              Ready for testing
             </p>
           </div>
         </div>

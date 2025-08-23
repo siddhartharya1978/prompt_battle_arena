@@ -455,6 +455,19 @@ export class ComprehensiveTester {
         avgPerQuery: duration / 5
       };
     });
+
+    // Test storage functionality (without admin operations)
+    await this.runTest('Performance', 'Storage Access', async () => {
+      // Just test if we can access storage without uploading
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .list('', { limit: 1 });
+      
+      return {
+        accessible: !error,
+        message: error ? `Storage not accessible: ${error.message}` : 'Storage accessible'
+      };
+    });
   }
 
   private async runTest(category: string, testName: string, testFn: () => Promise<any>) {
