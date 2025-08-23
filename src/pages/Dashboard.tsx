@@ -73,10 +73,6 @@ export default function Dashboard() {
 
   const recentBattles = battles.slice(0, 5);
 
-  const getModelInfo = (modelId: string) => {
-    return models.find(m => m.id === modelId) || { name: modelId, icon: '🤖' };
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Navigation />
