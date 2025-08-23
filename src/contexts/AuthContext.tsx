@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { signIn, signUp, signOut, getProfile, updateProfile } from '../lib/auth';
 import type { User } from '@supabase/supabase-js';
 import type { Profile } from '../lib/auth';
+import toast from 'react-hot-toast';
 
 interface AuthContextType {
   user: Profile | null;
@@ -23,14 +24,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authTimeout, setAuthTimeout] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    let mounted = true;
+    
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
+      if (mounted && session?.user) {
         setAuthUser(session.user);
         loadUserProfile(session.user.id);
-      } else {
+      } else if (mounted) {
         setLoading(false);
       }
     });
@@ -38,6 +42,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.id);
+        
+        if (!mounted) return;
+        
         if (session?.user) {
           setAuthUser(session.user);
           await loadUserProfile(session.user.id);
@@ -49,71 +57,116 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+      if (authTimeout) {
+        clearTimeout(authTimeout);
+      }
+    };
   }, []);
 
   const loadUserProfile = async (userId: string) => {
+    console.log('Loading profile for user:', userId);
     try {
       const profile = await getProfile(userId);
+      console.log('Profile loaded:', profile);
       if (profile) {
         setUser(profile);
+      } else {
+        console.warn('No profile found for user:', userId);
+        // Try to create profile if it doesn't exist
+        await createMissingProfile(userId);
       }
     } catch (error) {
       console.error('Error loading profile:', error);
-      setLoading(false);
-    }
-  };
-
-  const login = async (email: string, password: string) => {
-    try {
-      // Check if Supabase is properly configured
-      const { data, error } = await signIn(email, password);
-      if (error) throw error;
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+      toast.error('Failed to load user profile');
     } finally {
       setLoading(false);
     }
   };
 
-  const register = async (email: string, password: string, name: string) => {
+  const createMissingProfile = async (userId: string) => {
     try {
-      // Check if Supabase is properly configured
-      if (!supabase.supabaseUrl || supabase.supabaseUrl === 'your-supabase-url') {
-        // Demo mode - create a mock user
-        const demoUser: Profile = {
-          id: 'demo-user-id',
-          email: email,
-          name: name,
-          avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
-          plan: 'free' as const,
-          role: 'user' as const,
-          battles_used: 0,
-          battles_limit: 3,
-          last_reset_at: new Date().toISOString().split('T')[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        setUser(demoUser);
-        setAuthUser({ id: 'demo-user-id', email } as any);
-        return;
+      const { data: authUser } = await supabase.auth.getUser();
+      if (authUser.user && authUser.user.id === userId) {
+        const email = authUser.user.email || '';
+        const name = authUser.user.user_metadata?.name || 
+                    authUser.user.user_metadata?.full_name || 
+                    email.split('@')[0];
+        
+        const { data: newProfile, error } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            email: email,
+            name: name,
+            avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
+            plan: 'free',
+            role: email === 'admin@pba.com' ? 'admin' : 'user',
+            battles_used: 0,
+            battles_limit: 3,
+            last_reset_at: new Date().toISOString().split('T')[0]
+          })
+          .select()
+          .single();
+          
+        if (error) {
+          console.error('Error creating missing profile:', error);
+        } else {
+          console.log('Created missing profile:', newProfile);
+          setUser(newProfile);
+        }
+      }
+    } catch (error) {
+      console.error('Error in createMissingProfile:', error);
+    setLoading(true);
+    
+    // Set timeout for registration attempt
+    const timeout = setTimeout(() => {
+      setLoading(false);
+      toast.error('Registration timeout. Please try again.');
+    }, 30000); // 30 second timeout
+    
+    setAuthTimeout(timeout);
+    
+    }
+      console.log('Attempting registration for:', email);
+      toast.error(message);
+      
+      if (error) {
+        console.error('Registration error:', error);
+        throw new Error(error.message || 'Registration failed');
       }
       
-      const { data, error } = await signUp(email, password, name);
-      if (error) throw error;
-    } catch (error) {
-      console.error('Registration error:', error);
-      throw error;
+      console.log('Registration successful:', data.user?.id);
+      
+      // Don't set loading to false here - let the auth state change handle it
     } finally {
+      if (authTimeout) {
       setLoading(false);
+      const message = error instanceof Error ? error.message : 'Registration failed';
+      toast.error(message);
+      throw error;
+        setAuthTimeout(null);
+      if (authTimeout) {
+        clearTimeout(authTimeout);
+        setAuthTimeout(null);
+      }
     }
   };
 
   const logout = async () => {
-    await signOut();
-    setUser(null);
-    setAuthUser(null);
+    try {
+      await signOut();
+      setUser(null);
+      setAuthUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force logout even if there's an error
+      setUser(null);
+      setAuthUser(null);
+    }
   };
 
   const resetDailyUsage = async () => {

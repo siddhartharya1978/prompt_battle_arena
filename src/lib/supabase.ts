@@ -1,20 +1,26 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Use actual Supabase instance
+// Get Supabase configuration from environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+console.log('Supabase config:', {
+  url: supabaseUrl ? 'configured' : 'missing',
+  key: supabaseAnonKey ? 'configured' : 'missing'
+});
+
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Missing Supabase environment variables. Using demo mode.');
-  // Provide fallback values for development
-  const fallbackUrl = 'https://demo.supabase.co';
-  const fallbackKey = 'demo-key';
-  // Create client with fallback values for demo mode
-  var supabase = createClient(fallbackUrl, fallbackKey);
-} else {
-  // Create client with actual environment variables
-  var supabase = createClient(supabaseUrl, supabaseAnonKey);
+  throw new Error('Missing Supabase environment variables. Please check your .env file.');
 }
+
+// Create Supabase client with actual environment variables
+const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});
 
 export { supabase };
 

@@ -16,6 +16,8 @@ export interface Profile {
 }
 
 export const signUp = async (email: string, password: string, name: string) => {
+  console.log('signUp called with:', { email, name });
+  
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -23,18 +25,23 @@ export const signUp = async (email: string, password: string, name: string) => {
       data: {
         name,
         full_name: name,
+        display_name: name,
       },
     },
   });
 
   if (error) {
     console.error('Supabase signUp error:', error);
-    throw new Error(error.message || 'Failed to create account');
+    throw error;
   }
+  
+  console.log('signUp successful:', data.user?.id);
   return data;
 };
 
 export const signIn = async (email: string, password: string) => {
+  console.log('signIn called with:', email);
+  
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -42,8 +49,10 @@ export const signIn = async (email: string, password: string) => {
 
   if (error) {
     console.error('Supabase signIn error:', error);
-    throw new Error(error.message || 'Failed to sign in');
+    throw error;
   }
+  
+  console.log('signIn successful:', data.user?.id);
   return data;
 };
 
@@ -74,6 +83,8 @@ export const getCurrentUser = async (): Promise<User | null> => {
 };
 
 export const getProfile = async (userId: string): Promise<Profile | null> => {
+  console.log('getProfile called for userId:', userId);
+  
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
@@ -81,12 +92,14 @@ export const getProfile = async (userId: string): Promise<Profile | null> => {
     .single();
 
   if (error) {
+    console.error('getProfile error:', error);
     if (error.code !== 'PGRST116') { // Not found error
-      console.error('Error fetching profile:', error);
+      console.error('Unexpected error fetching profile:', error);
     }
     return null;
   }
 
+  console.log('getProfile successful:', data);
   return data;
 };
 
