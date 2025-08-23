@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { createBattle as createBattleDB, getBattle as getBattleDB, getUserBattles, runBattle as runBattleDB } from '../lib/battles';
 import type { Database } from '../lib/supabase';
 
