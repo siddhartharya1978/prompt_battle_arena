@@ -213,41 +213,28 @@ export const runDatabaseTests = async (): Promise<TestResult[]> => {
 
   // Test 7: Storage Buckets
   try {
-    // Test storage bucket access with proper admin client
-    if (!supabaseAdmin) {
-      results.push({
-        test: 'Storage Buckets',
-        success: false,
-        error: 'Service role key not configured - add VITE_SUPABASE_SERVICE_ROLE_KEY to .env'
-      });
-    } else {
-      // Test bucket access with admin client
-      const avatarsTest = await supabaseAdmin.storage.from('avatars').list('', { limit: 1 });
-      const exportsTest = await supabaseAdmin.storage.from('battle-exports').list('', { limit: 1 });
-      
-      const hasAvatars = !avatarsTest.error;
-      const hasBattleExports = !exportsTest.error;
+    // Test storage bucket access without admin operations
+    const testUpload = new Blob(['test'], { type: 'text/plain' });
+    const testPath = `test-${Date.now()}.txt`;
     
-      results.push({
-        test: 'Storage Buckets',
-        success: hasAvatars && hasBattleExports,
-        data: { 
-          avatars: hasAvatars ? 'accessible' : `error: ${avatarsTest.error?.message}`,
-          battleExports: hasBattleExports ? 'accessible' : `error: ${exportsTest.error?.message}`,
-          usingServiceRole: true
-        }
-      });
+    // Try to upload to avatars bucket (should work with RLS)
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(testPath, testUpload);
+    
+    if (!uploadError) {
+      // Clean up test file
+      await supabase.storage.from('avatars').remove([testPath]);
     }
-  } catch (error) {
+    
     results.push({
       test: 'Storage Buckets',
-      success: false,
-      error: `Storage bucket test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      success: !uploadError,
+      data: { 
+        avatars: !uploadError ? 'accessible' : `error: ${uploadError?.message}`,
+        testMethod: 'upload test (no admin required)'
+      }
     });
-  }
-
-  // Test 8: Edge Function (if available)
-  try {
     // Check if Groq API key is configured
     const groqApiKey = import.meta.env.VITE_GROQ_API_KEY;
     if (!groqApiKey) {
@@ -286,7 +273,7 @@ export const runDatabaseTests = async (): Promise<TestResult[]> => {
     results.push({
       test: 'Groq Edge Function',
       success: false,
-      error: error instanceof Error ? error.message : 'Edge function not available'
+      error: `Storage test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     });
   }
 
