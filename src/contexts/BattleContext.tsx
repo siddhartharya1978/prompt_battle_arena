@@ -662,6 +662,39 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   };
 
   const createBattle = async (battleData: CreateBattleData): Promise<Battle> => {
+    // Check if this is a demo user
+    const demoSession = localStorage.getItem('demo_session');
+    if (demoSession) {
+      // Create mock battle for demo user
+      const mockBattle: Battle = {
+        id: `demo_battle_${Date.now()}`,
+        user_id: user!.id,
+        battle_type: battleData.battle_type,
+        prompt: battleData.prompt,
+        final_prompt: battleData.prompt,
+        prompt_category: battleData.prompt_category,
+        models: battleData.models,
+        mode: battleData.mode,
+        battle_mode: battleData.battle_mode,
+        rounds: battleData.rounds,
+        max_tokens: battleData.max_tokens,
+        temperature: battleData.temperature,
+        status: 'running',
+        winner: null,
+        total_cost: 0,
+        auto_selection_reason: battleData.auto_selection_reason,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        battle_responses: [],
+        battle_scores: [],
+        prompt_evolution: []
+      };
+      
+      setBattles(prev => [mockBattle, ...prev]);
+      setCurrentBattle(mockBattle);
+      return mockBattle;
+    }
+    
     if (!user || !authUser) throw new Error('User not authenticated');
     
     setLoading(true);
@@ -679,6 +712,13 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   };
 
   const getBattle = (id: string): Battle | null => {
+    // Check if this is a demo user
+    const demoSession = localStorage.getItem('demo_session');
+    if (demoSession) {
+      // Return from local mock battles
+      return battles.find(battle => battle.id === id) || null;
+    }
+    
     // Check local state for real battles
     const localBattle = battles.find(battle => battle.id === id);
     if (localBattle) return localBattle;
@@ -698,6 +738,60 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   };
 
   const runBattleHandler = async (battleId: string): Promise<void> => {
+    // Check if this is a demo user
+    const demoSession = localStorage.getItem('demo_session');
+    if (demoSession) {
+      // Simulate battle running for demo user
+      const battle = battles.find(b => b.id === battleId);
+      if (!battle) throw new Error('Battle not found');
+      
+      // Generate mock responses and scores
+      const responses = battle.models.map(modelId => ({
+        id: `resp_${Date.now()}_${modelId}`,
+        model_id: modelId,
+        response: generateMockResponse(battle.prompt, modelId, battle.prompt_category),
+        latency: Math.floor(Math.random() * 2000) + 500,
+        tokens: Math.floor(Math.random() * 200) + 50,
+        cost: Math.random() * 0.5 + 0.05
+      }));
+      
+      const scores = battle.models.reduce((acc, modelId) => ({
+        ...acc,
+        [modelId]: {
+          accuracy: Math.floor(Math.random() * 3) + 7,
+          reasoning: Math.floor(Math.random() * 3) + 7,
+          structure: Math.floor(Math.random() * 3) + 7,
+          creativity: Math.floor(Math.random() * 3) + 7,
+          overall: Math.floor(Math.random() * 3) + 7,
+          notes: generateMockJudgeNotes(battle.battle_mode, battle.prompt_category, battle.battle_type)
+        }
+      }), {});
+      
+      const winner = battle.models[Math.floor(Math.random() * battle.models.length)];
+      const totalCost = responses.reduce((sum, r) => sum + r.cost, 0);
+      
+      const updatedBattle = {
+        ...battle,
+        status: 'completed' as const,
+        winner,
+        total_cost: totalCost,
+        battle_responses: responses,
+        battle_scores: Object.entries(scores).map(([model_id, score]) => ({
+          id: `score_${Date.now()}_${model_id}`,
+          battle_id: battleId,
+          model_id,
+          ...score,
+          created_at: new Date().toISOString()
+        })),
+        prompt_evolution: battle.battle_type === 'prompt' ? 
+          generateMockPromptEvolution(battle.prompt, battle.models, battle.prompt_category, battle.battle_mode) : []
+      };
+      
+      setBattles(prev => prev.map(b => b.id === battleId ? updatedBattle : b));
+      setCurrentBattle(updatedBattle);
+      return;
+    }
+    
     if (!user || !authUser) throw new Error('User not authenticated');
     
     setLoading(true);
@@ -719,6 +813,15 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   };
 
   const generateMockPromptEvolution = (
+    // Check if this is a demo user
+    const demoSession = localStorage.getItem('demo_session');
+    if (demoSession) {
+      // Use mock battles for demo user
+      setBattles(mockBattles);
+      setLoading(false);
+      return;
+    }
+    
     initialPrompt: string, 
     models: string[], 
     category: string, 

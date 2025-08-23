@@ -65,6 +65,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Get initial Supabase session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setAuthUser(session?.user || null);
+      if (session?.user) {
+        loadProfile(session.user.id);
+      }
       setLoading(false);
     });
 
@@ -89,6 +92,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadProfile = async (userId: string) => {
+    // Skip loading profile for demo users
+    const demoSession = localStorage.getItem('demo_session');
+    if (demoSession) {
+      return;
+    }
+    
     if (!userId) {
       console.warn('No userId provided to loadProfile');
       return;

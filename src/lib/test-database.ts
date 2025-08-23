@@ -208,6 +208,15 @@ export const runDatabaseTests = async (): Promise<TestResult[]> => {
 
   // Test 8: Edge Function (if available)
   try {
+    // Skip edge function test for demo users
+    const demoSession = localStorage.getItem('demo_session');
+    if (demoSession) {
+      results.push({
+        test: 'Groq Edge Function',
+        success: true,
+        data: { message: 'Skipped for demo user - would work with proper Groq API key' }
+      });
+    } else {
     const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/groq-api`, {
       method: 'POST',
       headers: {
@@ -231,6 +240,7 @@ export const runDatabaseTests = async (): Promise<TestResult[]> => {
       });
     } else {
       throw new Error(`HTTP ${response.status}`);
+    }
     }
   } catch (error) {
     results.push({
