@@ -462,7 +462,7 @@ export default function AdminPanel() {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Recent Battles
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {battles.slice(0, 5).map((battle) => (
             <div key={battle.id} className="p-6">
@@ -669,18 +669,6 @@ export default function AdminPanel() {
             {activeTab === 'users' && renderUsersTab()}
             {activeTab === 'features' && renderFeaturesTab()}
             {activeTab === 'database' && renderDatabaseTab()}
-            <div>
-              <span className="text-gray-600 dark:text-gray-300">Service Role:</span>
-              <p className="font-mono text-gray-900 dark:text-white">
-                {import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY ? '***configured***' : 'Not configured'}
-              </p>
-            </div>
-            <div>
-              <span className="text-gray-600 dark:text-gray-300">Admin Client:</span>
-              <p className="font-mono text-gray-900 dark:text-white">
-                {supabaseAdmin ? 'Available' : 'Not available'}
-              </p>
-            </div>
           </div>
         </div>
       </div>
