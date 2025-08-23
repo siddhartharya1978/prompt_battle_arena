@@ -5,10 +5,16 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please check your .env file.');
+  console.warn('Missing Supabase environment variables. Using demo mode.');
+  // Provide fallback values for development
+  const fallbackUrl = 'https://demo.supabase.co';
+  const fallbackKey = 'demo-key';
+  
+  export const supabase = createClient(fallbackUrl, fallbackKey);
+} else {
+  export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Database types
 export interface Database {

@@ -596,11 +596,19 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
     // Load battles from Supabase when user is authenticated  
     if (user && authUser) {
       refreshBattles();
+    } else {
+      // Load mock battles for demo mode
+      setBattles(mockBattles);
+      setLoading(false);
     }
   }, [user, authUser]);
 
   const refreshBattles = async () => {
-    if (!user || !authUser) return;
+    if (!user || !authUser) {
+      setBattles(mockBattles);
+      setLoading(false);
+      return;
+    }
     
     setLoading(true);
     try {
