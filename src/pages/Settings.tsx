@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { updateProfileWithAvatar } from '../lib/auth';
 import Navigation from '../components/Navigation';
 import { 
   User, 
@@ -13,7 +14,8 @@ import {
   Sun,
   Monitor,
   Crown,
-  Zap
+  Zap,
+  Upload
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -22,6 +24,8 @@ export default function Settings() {
   const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('profile');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   // Profile form state
   const [profileData, setProfileData] = useState({
@@ -45,16 +49,42 @@ export default function Settings() {
     { id: 'account', label: 'Account', icon: Shield }
   ];
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (user) {
-      updateUserProfile({
-        name: profileData.name,
-        avatar_url: profileData.avatar_url
-      }).then(() => {
+      setUploading(true);
+      try {
+        await updateProfileWithAvatar(
+          user.id,
+          {
+            name: profileData.name,
+            avatar_url: profileData.avatar_url
+          },
+          avatarFile || undefined
+        );
         toast.success('Profile updated successfully!');
-      }).catch(() => {
+        setAvatarFile(null);
+      } catch (error) {
         toast.error('Failed to update profile');
-      });
+      } finally {
+        setUploading(false);
+      }
+    }
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Avatar file must be less than 5MB');
+        return;
+      }
+      setAvatarFile(file);
+      // Preview the image
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setProfileData(prev => ({ ...prev, avatar_url: e.target?.result as string }));
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -84,9 +114,27 @@ export default function Settings() {
                 alt="Profile"
                 className="w-16 h-16 rounded-full"
               />
-              <button className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                Change Photo
-              </button>
+              <div>
+                <input
+                  type="file"
+                  id="avatar-upload"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="avatar-upload"
+                  className="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Change Photo
+                </label>
+                {avatarFile && (
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    New avatar selected: {avatarFile.name}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -111,15 +159,20 @@ export default function Settings() {
               value={profileData.email}
               onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              disabled
             />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Email cannot be changed. Contact support if needed.
+            </p>
           </div>
 
           <button
             onClick={handleSaveProfile}
-            className="flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={uploading}
+            className="flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-5 h-5 mr-2" />
-            Save Changes
+            {uploading ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </div>

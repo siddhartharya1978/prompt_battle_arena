@@ -1,0 +1,270 @@
+import { supabase } from './supabase';
+import { signUp, signIn, getProfile } from './auth';
+import { createBattle, runBattle } from './battles';
+
+export interface TestResult {
+  test: string;
+  success: boolean;
+  error?: string;
+  data?: any;
+}
+
+export const runDatabaseTests = async (): Promise<TestResult[]> => {
+  const results: TestResult[] = [];
+  let testUserId: string | null = null;
+  let testBattleId: string | null = null;
+
+  // Test 1: User Registration
+  try {
+    const testEmail = `test-${Date.now()}@example.com`;
+    const testPassword = 'TestPassword123!';
+    const testName = 'Test User';
+
+    const { data } = await signUp(testEmail, testPassword, testName);
+    testUserId = data.user?.id || null;
+
+    results.push({
+      test: 'User Registration',
+      success: true,
+      data: { userId: testUserId, email: testEmail }
+    });
+  } catch (error) {
+    results.push({
+      test: 'User Registration',
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+
+  // Test 2: Profile Creation (automatic via trigger)
+  if (testUserId) {
+    try {
+      // Wait a moment for trigger to execute
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const profile = await getProfile(testUserId);
+      results.push({
+        test: 'Profile Creation',
+        success: !!profile,
+        data: profile
+      });
+    } catch (error) {
+      results.push({
+        test: 'Profile Creation',
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  // Test 3: Battle Creation
+  if (testUserId) {
+    try {
+      const battle = await createBattle({
+        battle_type: 'response',
+        prompt: 'Test prompt for database verification',
+        prompt_category: 'general',
+        models: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'],
+        mode: 'standard',
+        battle_mode: 'manual',
+        rounds: 1,
+        max_tokens: 100,
+        temperature: 0.7
+      });
+
+      testBattleId = battle.id;
+      results.push({
+        test: 'Battle Creation',
+        success: true,
+        data: { battleId: testBattleId }
+      });
+    } catch (error) {
+      results.push({
+        test: 'Battle Creation',
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  // Test 4: Battle Responses Table
+  if (testBattleId) {
+    try {
+      const { data, error } = await supabase
+        .from('battle_responses')
+        .insert({
+          battle_id: testBattleId,
+          model_id: 'llama-3.1-8b-instant',
+          response: 'Test response for database verification',
+          latency: 1000,
+          tokens: 50,
+          cost: 0.05
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      results.push({
+        test: 'Battle Responses CRUD',
+        success: true,
+        data: { responseId: data.id }
+      });
+    } catch (error) {
+      results.push({
+        test: 'Battle Responses CRUD',
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  // Test 5: Battle Scores Table
+  if (testBattleId) {
+    try {
+      const { data, error } = await supabase
+        .from('battle_scores')
+        .insert({
+          battle_id: testBattleId,
+          model_id: 'llama-3.1-8b-instant',
+          accuracy: 8,
+          reasoning: 7,
+          structure: 9,
+          creativity: 6,
+          overall: 7.5,
+          notes: 'Test scoring for database verification'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      results.push({
+        test: 'Battle Scores CRUD',
+        success: true,
+        data: { scoreId: data.id }
+      });
+    } catch (error) {
+      results.push({
+        test: 'Battle Scores CRUD',
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  // Test 6: Prompt Evolution Table
+  if (testBattleId) {
+    try {
+      const { data, error } = await supabase
+        .from('prompt_evolution')
+        .insert({
+          battle_id: testBattleId,
+          round: 1,
+          prompt: 'Initial test prompt',
+          model_id: 'initial',
+          improvements: ['Added clarity', 'Improved structure'],
+          score: 6.0
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      results.push({
+        test: 'Prompt Evolution CRUD',
+        success: true,
+        data: { evolutionId: data.id }
+      });
+    } catch (error) {
+      results.push({
+        test: 'Prompt Evolution CRUD',
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  // Test 7: Storage Buckets
+  try {
+    const { data, error } = await supabase.storage.listBuckets();
+    if (error) throw error;
+
+    const hasAvatars = data.some(bucket => bucket.name === 'avatars');
+    const hasBattleExports = data.some(bucket => bucket.name === 'battle-exports');
+
+    results.push({
+      test: 'Storage Buckets',
+      success: hasAvatars && hasBattleExports,
+      data: { buckets: data.map(b => b.name) }
+    });
+  } catch (error) {
+    results.push({
+      test: 'Storage Buckets',
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+
+  // Test 8: Edge Function (if available)
+  try {
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/groq-api`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        prompt: 'Test prompt for edge function',
+        max_tokens: 50,
+        temperature: 0.7
+      })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      results.push({
+        test: 'Groq Edge Function',
+        success: true,
+        data: { hasResponse: !!data.response }
+      });
+    } else {
+      throw new Error(`HTTP ${response.status}`);
+    }
+  } catch (error) {
+    results.push({
+      test: 'Groq Edge Function',
+      success: false,
+      error: error instanceof Error ? error.message : 'Edge function not available'
+    });
+  }
+
+  return results;
+};
+
+export const displayTestResults = (results: TestResult[]) => {
+  console.log('\n=== DATABASE TEST RESULTS ===\n');
+  
+  results.forEach((result, index) => {
+    const status = result.success ? '✅ PASS' : '❌ FAIL';
+    console.log(`${index + 1}. ${result.test}: ${status}`);
+    
+    if (result.error) {
+      console.log(`   Error: ${result.error}`);
+    }
+    
+    if (result.data) {
+      console.log(`   Data:`, result.data);
+    }
+    
+    console.log('');
+  });
+
+  const passCount = results.filter(r => r.success).length;
+  const totalCount = results.length;
+  
+  console.log(`=== SUMMARY: ${passCount}/${totalCount} tests passed ===\n`);
+  
+  return { passCount, totalCount, allPassed: passCount === totalCount };
+};

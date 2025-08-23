@@ -95,6 +95,30 @@ export const updateProfile = async (userId: string, updates: Partial<Profile>) =
   return data;
 };
 
+export const updateProfileWithAvatar = async (
+  userId: string, 
+  updates: Partial<Profile>, 
+  avatarFile?: File
+) => {
+  let avatarUrl = updates.avatar_url;
+
+  if (avatarFile) {
+    const { uploadAvatar } = await import('./storage');
+    const { publicUrl } = await uploadAvatar(avatarFile, userId);
+    avatarUrl = publicUrl;
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ ...updates, avatar_url: avatarUrl })
+    .eq('id', userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
 export const incrementBattleUsage = async (userId: string) => {
   const { error } = await supabase.rpc('increment_battle_usage', {
     user_id: userId

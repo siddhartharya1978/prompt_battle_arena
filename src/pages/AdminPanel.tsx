@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useBattle } from '../contexts/BattleContext';
 import { supabase } from '../lib/supabase';
+import { runDatabaseTests, displayTestResults } from '../lib/test-database';
 import Navigation from '../components/Navigation';
 import { 
   Users, 
@@ -16,13 +17,18 @@ import {
   DollarSign,
   Eye,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  Database,
+  Play
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function AdminPanel() {
   const { user } = useAuth();
   const { battles, refreshBattles } = useBattle();
   const [activeTab, setActiveTab] = useState('overview');
+  const [testResults, setTestResults] = useState<any[]>([]);
+  const [runningTests, setRunningTests] = useState(false);
 
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -76,10 +82,98 @@ export default function AdminPanel() {
     );
   }
 
+  const renderDatabaseTab = () => (
+    <div className="space-y-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Database Health Check
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                Test all database operations and API integrations
+              </p>
+            </div>
+            <button
+              onClick={handleRunDatabaseTests}
+              disabled={runningTests}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Play className="w-4 h-4" />
+              <span>{runningTests ? 'Running Tests...' : 'Run Tests'}</span>
+            </button>
+          </div>
+        </div>
+        
+        {testResults.length > 0 && (
+          <div className="p-6">
+            <h4 className="font-medium text-gray-900 dark:text-white mb-4">
+              Test Results ({testResults.filter(r => r.success).length}/{testResults.length} passed)
+            </h4>
+            <div className="space-y-3">
+              {testResults.map((result, index) => (
+                <div
+                  key={index}
+                  className={`p-3 rounded-lg border ${
+                    result.success
+                      ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20'
+                      : 'border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`font-medium ${
+                      result.success
+                        ? 'text-green-800 dark:text-green-200'
+                        : 'text-red-800 dark:text-red-200'
+                    }`}>
+                      {result.success ? '✅' : '❌'} {result.test}
+                    </span>
+                  </div>
+                  {result.error && (
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                      Error: {result.error}
+                    </p>
+                  )}
+                  {result.data && (
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      Data: {JSON.stringify(result.data, null, 2)}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          Database Configuration
+        </h3>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className="text-gray-600 dark:text-gray-300">Supabase URL:</span>
+            <p className="font-mono text-gray-900 dark:text-white break-all">
+              {import.meta.env.VITE_SUPABASE_URL || 'Not configured'}
+            </p>
+          </div>
+          <div>
+            <span className="text-gray-600 dark:text-gray-300">Anon Key:</span>
+            <p className="font-mono text-gray-900 dark:text-white">
+              {import.meta.env.VITE_SUPABASE_ANON_KEY ? '***configured***' : 'Not configured'}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'users', label: 'Users', icon: Users },
-    { id: 'features', label: 'Features', icon: Settings }
+    { id: 'features', label: 'Features', icon: Settings },
+    { id: 'database', label: 'Database', icon: Database }
   ];
 
   const stats = [
@@ -118,6 +212,30 @@ export default function AdminPanel() {
       ...prev,
       [flag]: !prev[flag as keyof typeof prev]
     }));
+  };
+
+  const handleRunDatabaseTests = async () => {
+    setRunningTests(true);
+    toast.loading('Running database tests...');
+    
+    try {
+      const results = await runDatabaseTests();
+      setTestResults(results);
+      const summary = displayTestResults(results);
+      
+      toast.dismiss();
+      if (summary.allPassed) {
+        toast.success(`All ${summary.totalCount} database tests passed!`);
+      } else {
+        toast.error(`${summary.passCount}/${summary.totalCount} tests passed. Check console for details.`);
+      }
+    } catch (error) {
+      toast.dismiss();
+      toast.error('Failed to run database tests');
+      console.error('Database test error:', error);
+    } finally {
+      setRunningTests(false);
+    }
   };
 
   const renderOverviewTab = () => (
@@ -356,6 +474,7 @@ export default function AdminPanel() {
             {activeTab === 'overview' && renderOverviewTab()}
             {activeTab === 'users' && renderUsersTab()}
             {activeTab === 'features' && renderFeaturesTab()}
+            {activeTab === 'database' && renderDatabaseTab()}
           </div>
         </div>
       </div>
