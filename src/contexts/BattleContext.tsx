@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 import { createBattle as createBattleDB, getBattle as getBattleDB, getUserBattles, runBattle as runBattleDB } from '../lib/battles';
 import type { Database } from '../lib/supabase';
 
@@ -589,10 +590,16 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   const [battles, setBattles] = useState<Battle[]>([]);
   const [currentBattle, setCurrentBattle] = useState<Battle | null>(null);
   const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
-    refreshBattles();
-  }, []);
+    // Load mock battles for demo mode, real battles when connected to Supabase
+    if (user?.id === 'demo-user-id' || user?.id === 'demo-admin-id') {
+      setBattles(mockBattles);
+    } else {
+      refreshBattles();
+    }
+  }, [user]);
 
   const refreshBattles = async () => {
     setLoading(true);

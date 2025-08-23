@@ -78,23 +78,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Handle demo logins
       if (email === 'demo@example.com' && password === 'demo123') {
-        // Create demo user if doesn't exist
-        try {
-          await signUp(email, password, 'Demo User');
-        } catch (error) {
-          // User might already exist, try to sign in
-        }
+        // Set demo user directly for development
+        const demoUser = {
+          id: 'demo-user-id',
+          email: 'demo@example.com',
+          name: 'Demo User',
+          avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
+          plan: 'free' as const,
+          role: 'user' as const,
+          battles_used: 2,
+          battles_limit: 3,
+          last_reset_at: new Date().toISOString().split('T')[0],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        setUser(demoUser);
+        setAuthUser({ id: 'demo-user-id', email: 'demo@example.com' } as any);
+        return;
       } else if (email === 'admin@pba.com' && password === 'admin123') {
-        // Create admin user if doesn't exist
-        try {
-          const { user: newUser } = await signUp(email, password, 'Admin User');
-          if (newUser) {
-            // Update to admin role
-            await updateProfile(newUser.id, { role: 'admin', plan: 'premium' });
-          }
-        } catch (error) {
-          // User might already exist, try to sign in
-        }
+        // Set demo admin directly for development
+        const demoAdmin = {
+          id: 'demo-admin-id',
+          email: 'admin@pba.com',
+          name: 'Admin User',
+          avatar_url: 'https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
+          plan: 'premium' as const,
+          role: 'admin' as const,
+          battles_used: 0,
+          battles_limit: -1,
+          last_reset_at: new Date().toISOString().split('T')[0],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        setUser(demoAdmin);
+        setAuthUser({ id: 'demo-admin-id', email: 'admin@pba.com' } as any);
+        return;
       }
 
       await signIn(email, password);
