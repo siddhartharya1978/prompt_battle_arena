@@ -11,7 +11,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login, register, loading } = useAuth();
+  const { login, register } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,13 +27,14 @@ export default function Login() {
           return;
         }
         await register(email, password, name);
+        toast.success('Account created successfully!');
       } else {
         await login(email, password);
+        toast.success('Signed in successfully!');
       }
       navigate('/dashboard');
-    } catch (error) {
-      console.error('Authentication error:', error);
-      // Error is already handled in AuthContext
+    } catch (error: any) {
+      toast.error(error.message || 'Authentication failed');
     } finally {
       setIsLoading(false);
     }
@@ -50,9 +51,10 @@ export default function Login() {
       } else {
         await login('demo@example.com', 'demo123');
       }
+      toast.success('Demo login successful!');
       navigate('/dashboard');
-    } catch (error) {
-      console.error('Demo login failed:', error);
+    } catch (error: any) {
+      toast.error(error.message || 'Demo login failed');
     } finally {
       setIsLoading(false);
     }
@@ -206,8 +208,6 @@ export default function Login() {
             </Link>
           </div>
         </div>
-
-        {/* Additional Info */}
       </div>
     </div>
   );

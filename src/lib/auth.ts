@@ -16,8 +16,6 @@ export interface Profile {
 }
 
 export const signUp = async (email: string, password: string, name: string) => {
-  console.log('signUp called with:', { email, name });
-  
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -55,7 +53,8 @@ export const resetPassword = async (email: string) => {
   });
 
   if (error) throw error;
-}
+};
+
 export const updatePassword = async (password: string) => {
   const { error } = await supabase.auth.updateUser({
     password,
@@ -70,8 +69,6 @@ export const getCurrentUser = async (): Promise<User | null> => {
 };
 
 export const getProfile = async (userId: string): Promise<Profile | null> => {
-  console.log('getProfile called for userId:', userId);
-  
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
@@ -79,14 +76,12 @@ export const getProfile = async (userId: string): Promise<Profile | null> => {
     .single();
 
   if (error) {
-    console.error('getProfile error:', error);
-    if (error.code !== 'PGRST116') { // Not found error
-      console.error('Unexpected error fetching profile:', error);
+    if (error.code !== 'PGRST116') {
+      console.error('Error fetching profile:', error);
     }
     return null;
   }
 
-  console.log('getProfile successful:', data);
   return data;
 };
 
@@ -124,18 +119,4 @@ export const updateProfileWithAvatar = async (
 
   if (error) throw error;
   return data;
-};
-
-export const incrementBattleUsage = async (userId: string) => {
-  const { error } = await supabase.rpc('increment_battle_usage', {
-    user_id: userId
-  });
-
-  if (error) throw error;
-};
-
-// Create RPC function for incrementing battle usage
-export const createIncrementBattleUsageFunction = async () => {
-  const { error } = await supabase.rpc('create_increment_function');
-  if (error) console.error('Error creating increment function:', error);
 };

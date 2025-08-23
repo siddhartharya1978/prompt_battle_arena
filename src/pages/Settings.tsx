@@ -35,7 +35,7 @@ export default function Settings() {
   });
 
   // Update profile data when user changes
-  useEffect(() => {
+  React.useEffect(() => {
     if (user) {
       setProfileData({
         name: user.name || '',

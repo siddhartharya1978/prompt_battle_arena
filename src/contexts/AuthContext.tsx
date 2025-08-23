@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase';
 import { signIn, signUp, signOut, getProfile, updateProfile } from '../lib/auth';
 import type { User } from '@supabase/supabase-js';
 import type { Profile } from '../lib/auth';
-import toast from 'react-hot-toast';
 
 interface AuthContextType {
   user: Profile | null;
@@ -39,8 +38,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.id);
-        
         if (session?.user) {
           setAuthUser(session.user);
           await loadUserProfile(session.user.id);
@@ -71,38 +68,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
-    try {
-      await signIn(email, password);
-      // Auth state change will handle the rest
-    } catch (error: any) {
-      const message = error.message || 'Login failed';
-      toast.error(message);
-      throw error;
-    }
+    await signIn(email, password);
   };
 
   const register = async (email: string, password: string, name: string) => {
-    try {
-      await signUp(email, password, name);
-      // Auth state change will handle the rest
-    } catch (error: any) {
-      const message = error.message || 'Registration failed';
-      toast.error(message);
-      throw error;
-    }
+    await signUp(email, password, name);
   };
 
   const logout = async () => {
-    try {
-      await signOut();
-      setUser(null);
-      setAuthUser(null);
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Force logout even if there's an error
-      setUser(null);
-      setAuthUser(null);
-    }
+    await signOut();
+    setUser(null);
+    setAuthUser(null);
   };
 
   const resetDailyUsage = async () => {
