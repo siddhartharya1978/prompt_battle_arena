@@ -11,10 +11,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   // Provide fallback values for development
   const fallbackUrl = 'https://demo.supabase.co';
   const fallbackKey = 'demo-key';
-  
-  supabase = createClient(fallbackUrl, fallbackKey);
-} else {
-  supabase = createClient(supabaseUrl, supabaseAnonKey);
+}
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables. Please check your .env file.');
 }
 
 export { supabase };
