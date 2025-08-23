@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from '../lib/supabase';
 import { signUp, signIn, getProfile } from './auth';
 import { createBattle, runBattle, getUserBattles } from './battles';
 import { callGroqAPI } from './groq';

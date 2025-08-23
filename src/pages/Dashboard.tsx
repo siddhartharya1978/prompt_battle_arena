@@ -1,6 +1,6 @@
-import { supabase } from './supabase';
-import { signUp, signIn, getProfile } from './auth';
-import { createBattle, runBattle, getUserBattles } from './battles';
+import { supabase } from '../lib/supabase';
+import { signUp, signIn, getProfile } from '../lib/auth';
+import { createBattle, runBattle, getUserBattles } from '../lib/battles';
 import { callGroqAPI } from './groq';
 import { uploadAvatar, uploadBattleExport } from './storage';
 import toast from 'react-hot-toast';
