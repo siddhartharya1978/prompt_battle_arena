@@ -4,17 +4,20 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+let supabase;
+
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Missing Supabase environment variables. Using demo mode.');
   // Provide fallback values for development
   const fallbackUrl = 'https://demo.supabase.co';
   const fallbackKey = 'demo-key';
   
-  export const supabase = createClient(fallbackUrl, fallbackKey);
+  supabase = createClient(fallbackUrl, fallbackKey);
 } else {
-  export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  supabase = createClient(supabaseUrl, supabaseAnonKey);
 }
 
+export { supabase };
 
 // Database types
 export interface Database {
