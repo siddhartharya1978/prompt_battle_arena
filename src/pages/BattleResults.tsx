@@ -76,8 +76,8 @@ export default function BattleResults() {
   };
 
   const winnerModel = battle.winner ? getModelInfo(battle.winner) : null;
-  const winnerResponse = battle.responses.find(r => r.modelId === battle.winner);
-  const winnerScore = battle.winner ? battle.scores[battle.winner] : null;
+  const winnerResponse = battle.responses?.find(r => r.modelId === battle.winner);
+  const winnerScore = battle.winner && battle.scores ? battle.scores[battle.winner] : null;
 
   const handleShare = () => {
     const shareText = battle.battleType === 'prompt' 

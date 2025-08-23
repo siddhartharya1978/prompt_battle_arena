@@ -201,7 +201,7 @@ export default function History() {
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {paginatedBattles.map((battle) => {
                 const winnerModel = battle.winner ? getModelInfo(battle.winner) : null;
-                const winnerScore = battle.winner ? battle.scores[battle.winner] : null;
+                const winnerScore = battle.winner && battle.scores ? battle.scores[battle.winner] : null;
 
                 return (
                   <div key={battle.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
@@ -261,18 +261,18 @@ export default function History() {
                         <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-3">
                           <div className="flex items-center">
                             <Calendar className="w-4 h-4 mr-1" />
-                            {new Date(battle.createdAt).toLocaleDateString('en-IN', {
+                            {battle.createdAt ? new Date(battle.createdAt).toLocaleDateString('en-IN', {
                               day: '2-digit',
                               month: '2-digit',
                               year: 'numeric',
                               hour: '2-digit',
                               minute: '2-digit',
                               timeZone: 'Asia/Kolkata'
-                            })} IST
+                            }) + ' IST' : 'Unknown date'}
                           </div>
                           <div className="flex items-center">
                             <Users className="w-4 h-4 mr-1" />
-                            {battle.models.length} models
+                            {battle.models?.length || 0} models
                           </div>
                           <div className="flex items-center">
                             <Clock className="w-4 h-4 mr-1" />
