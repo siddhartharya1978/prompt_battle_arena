@@ -32,7 +32,7 @@ import toast from 'react-hot-toast';
 
 export default function BattleResults() {
   const { id } = useParams<{ id: string }>();
-  const { getBattle, models } = useBattle();
+  const { getBattle, models, battles } = useBattle();
   const [showConfetti, setShowConfetti] = useState(false);
   const [activeRound, setActiveRound] = useState(0);
   const [activeTab, setActiveTab] = useState<'results' | 'evolution'>('results');

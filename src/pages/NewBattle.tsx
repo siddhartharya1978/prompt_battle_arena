@@ -24,7 +24,7 @@ import {
 import toast from 'react-hot-toast';
 
 export default function NewBattle() {
-  const { user } = useAuth();
+  const { user, incrementBattleUsage } = useAuth();
   const { models, createBattle } = useBattle();
   const navigate = useNavigate();
 
@@ -198,6 +198,9 @@ export default function NewBattle() {
       };
 
       const battle = await createBattle(battleData);
+      
+      // Increment usage for real users
+      await incrementBattleUsage();
       
       toast.success(`${battleType === 'prompt' ? 'Prompt' : 'Response'} battle created successfully!`);
       navigate(`/battle/${battle.id}/results`);

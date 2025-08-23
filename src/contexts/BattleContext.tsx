@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { createBattle as createBattleAPI, getUserBattles, getBattle as getBattleAPI, BattleData, Battle } from '../lib/battles';
+import { createBattle as createBattleAPI, getUserBattles, getBattle as getBattleAPI, runBattle, BattleData, Battle } from '../lib/battles';
 
 interface Model {
   id: string;
@@ -16,7 +16,7 @@ interface BattleContextType {
   models: Model[];
   loading: boolean;
   createBattle: (battleData: BattleData) => Promise<Battle>;
-  getBattle: (battleId: string) => Promise<Battle | null>;
+  getBattle: (battleId: string) => Battle | null;
   refreshBattles: () => Promise<void>;
 }
 
@@ -139,8 +139,82 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
     return battle;
   };
 
-  const getBattle = async (battleId: string): Promise<Battle | null> => {
-    return await getBattleAPI(battleId);
+  const getBattle = (battleId: string): Battle | null => {
+    // First check in current battles array
+    const existingBattle = battles.find(b => b.id === battleId);
+    if (existingBattle) {
+      return existingBattle;
+    }
+
+    // Check if this is a demo user
+    const demoSession = localStorage.getItem('demo_session');
+    if (demoSession) {
+      // Return comprehensive mock battle for demo users
+      if (battleId === 'battle_1') {
+        return {
+          id: 'battle_1',
+          userId: 'demo-user-id',
+          battleType: 'response',
+          prompt: 'Explain the concept of artificial intelligence in simple terms',
+          finalPrompt: null,
+          promptCategory: 'explanation',
+          models: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'],
+          mode: 'standard',
+          battleMode: 'manual',
+          rounds: 1,
+          maxTokens: 500,
+          temperature: 0.7,
+          status: 'completed',
+          winner: 'llama-3.3-70b-versatile',
+          totalCost: 1.25,
+          autoSelectionReason: null,
+          createdAt: new Date(Date.now() - 86400000).toISOString(),
+          updatedAt: new Date(Date.now() - 86400000).toISOString(),
+          responses: [
+            {
+              id: 'response_1',
+              battleId: 'battle_1',
+              modelId: 'llama-3.1-8b-instant',
+              response: 'Artificial Intelligence (AI) is like giving computers the ability to think and learn like humans. Instead of just following pre-programmed instructions, AI systems can analyze information, recognize patterns, and make decisions on their own. Think of it as teaching a computer to be smart - like how your phone can recognize your voice, or how Netflix knows what movies you might like. AI helps computers understand and respond to the world around them, making them more helpful and capable of solving complex problems.',
+              latency: 1200,
+              tokens: 85,
+              cost: 0.62,
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'response_2',
+              battleId: 'battle_1',
+              modelId: 'llama-3.3-70b-versatile',
+              response: 'Artificial Intelligence (AI) refers to computer systems that can perform tasks typically requiring human intelligence. These systems can learn from data, recognize patterns, solve problems, and make decisions. Think of AI as teaching machines to be smart - like how your phone can recognize your voice, how streaming services recommend movies you might like, or how GPS finds the best route to your destination. AI is everywhere around us, helping make technology more intuitive and useful in our daily lives.',
+              latency: 1450,
+              tokens: 78,
+              cost: 0.63,
+              createdAt: new Date().toISOString()
+            }
+          ],
+          scores: {
+            'llama-3.1-8b-instant': {
+              accuracy: 8.2,
+              reasoning: 7.5,
+              structure: 7.8,
+              creativity: 6.9,
+              overall: 7.6,
+              notes: 'Good accuracy and clear explanation, decent structure, reasoning could be improved.'
+            },
+            'llama-3.3-70b-versatile': {
+              accuracy: 9.1,
+              reasoning: 8.7,
+              structure: 8.9,
+              creativity: 8.2,
+              overall: 8.7,
+              notes: 'Excellent accuracy and reasoning, well-structured content, good creative examples.'
+            }
+          }
+        };
+      }
+    }
+
+    return null;
   };
 
   useEffect(() => {

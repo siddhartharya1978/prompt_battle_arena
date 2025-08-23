@@ -318,7 +318,7 @@ export class ComprehensiveE2ETester {
 
     // Test battle creation
     await this.runTest('Battle', 'Battle Creation', async () => {
-      const battle = await createBattle({
+      const battle = await createBattleAPI({
         battle_type: 'response',
         prompt: 'Test prompt for comprehensive E2E testing',
         prompt_category: 'general',
@@ -335,7 +335,7 @@ export class ComprehensiveE2ETester {
       return {
         battleCreated: true,
         battleId: this.testBattleId,
-        battleType: battle.battle_type,
+        battleType: battle.battleType,
         modelsCount: battle.models.length
       };
     }, true);
@@ -348,7 +348,7 @@ export class ComprehensiveE2ETester {
 
     // Test Response Battle
     await this.runTest('Battle Types', 'Response Battle', async () => {
-      const battle = await createBattle({
+      const battle = await createBattleAPI({
         battle_type: 'response',
         prompt: 'Explain quantum computing briefly',
         prompt_category: 'explanation',
@@ -362,7 +362,7 @@ export class ComprehensiveE2ETester {
       
       return {
         responseBattleCreated: true,
-        battleType: battle.battle_type,
+        battleType: battle.battleType,
         battleId: battle.id
       };
     });
@@ -375,7 +375,7 @@ export class ComprehensiveE2ETester {
 
     // Test Manual Mode
     await this.runTest('Battle Modes', 'Manual Mode', async () => {
-      const battle = await createBattle({
+      const battle = await createBattleAPI({
         battle_type: 'response',
         prompt: 'Test manual mode battle',
         prompt_category: 'general',

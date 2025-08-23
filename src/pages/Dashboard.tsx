@@ -35,6 +35,10 @@ export default function Dashboard() {
     favoriteModel: 'N/A'
   });
 
+  const getModelInfo = (modelId: string) => {
+    return models.find(m => m.id === modelId) || { name: modelId, icon: '🤖' };
+  };
+
   useEffect(() => {
     refreshBattles();
   }, [refreshBattles]);

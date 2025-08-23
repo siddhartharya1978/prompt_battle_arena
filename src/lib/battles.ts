@@ -344,7 +344,27 @@ export const getUserBattles = async (): Promise<Battle[]> => {
     throw new Error(`Failed to fetch battles: ${error.message}`);
   }
 
-  return data || [];
+  // Transform database format to frontend format
+  return (data || []).map(battle => ({
+    id: battle.id,
+    userId: battle.user_id,
+    battleType: battle.battle_type,
+    prompt: battle.prompt,
+    finalPrompt: battle.final_prompt,
+    promptCategory: battle.prompt_category,
+    models: battle.models,
+    mode: battle.mode,
+    battleMode: battle.battle_mode,
+    rounds: battle.rounds,
+    maxTokens: battle.max_tokens,
+    temperature: battle.temperature,
+    status: battle.status,
+    winner: battle.winner,
+    totalCost: battle.total_cost,
+    autoSelectionReason: battle.auto_selection_reason,
+    createdAt: battle.created_at,
+    updatedAt: battle.updated_at
+  }));
 };
 
 export const getBattle = async (battleId: string): Promise<Battle | null> => {
@@ -354,69 +374,61 @@ export const getBattle = async (battleId: string): Promise<Battle | null> => {
     // Return mock battle with full data for demo users
     const mockBattle: Battle = {
       id: battleId,
-      user_id: 'demo-user-id',
-      battle_type: 'response',
+      userId: 'demo-user-id',
+      battleType: 'response',
       prompt: 'Explain the concept of artificial intelligence in simple terms',
-      final_prompt: null,
-      prompt_category: 'explanation',
+      finalPrompt: null,
+      promptCategory: 'explanation',
       models: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'],
       mode: 'standard',
-      battle_mode: 'manual',
+      battleMode: 'manual',
       rounds: 1,
-      max_tokens: 500,
+      maxTokens: 500,
       temperature: 0.7,
       status: 'completed',
       winner: 'llama-3.3-70b-versatile',
-      total_cost: 1.25,
-      auto_selection_reason: null,
-      created_at: new Date(Date.now() - 86400000).toISOString(),
-      updated_at: new Date(Date.now() - 86400000).toISOString(),
+      totalCost: 1.25,
+      autoSelectionReason: null,
+      createdAt: new Date(Date.now() - 86400000).toISOString(),
+      updatedAt: new Date(Date.now() - 86400000).toISOString(),
       responses: [
         {
           id: 'response_1',
-          battle_id: battleId,
-          model_id: 'llama-3.1-8b-instant',
+          battleId: battleId,
+          modelId: 'llama-3.1-8b-instant',
           response: 'Artificial Intelligence (AI) is like giving computers the ability to think and learn like humans. Instead of just following pre-programmed instructions, AI systems can analyze information, recognize patterns, and make decisions on their own.',
           latency: 1200,
           tokens: 45,
           cost: 0.62,
-          created_at: new Date().toISOString()
+          createdAt: new Date().toISOString()
         },
         {
           id: 'response_2',
-          battle_id: battleId,
-          model_id: 'llama-3.3-70b-versatile',
+          battleId: battleId,
+          modelId: 'llama-3.3-70b-versatile',
           response: 'Artificial Intelligence (AI) refers to computer systems that can perform tasks typically requiring human intelligence. These systems can learn from data, recognize patterns, solve problems, and make decisions. Think of AI as teaching machines to be smart - like how your phone can recognize your voice or how streaming services recommend movies you might like.',
           latency: 1450,
           tokens: 58,
           cost: 0.63,
-          created_at: new Date().toISOString()
+          createdAt: new Date().toISOString()
         }
       ],
       scores: [
         {
-          id: 'score_1',
-          battle_id: battleId,
-          model_id: 'llama-3.1-8b-instant',
           accuracy: 8.2,
           reasoning: 7.5,
           structure: 7.8,
           creativity: 6.9,
           overall: 7.6,
-          notes: 'Good accuracy and clear explanation, decent structure, reasoning could be improved.',
-          created_at: new Date().toISOString()
+          notes: 'Good accuracy and clear explanation, decent structure, reasoning could be improved.'
         },
         {
-          id: 'score_2',
-          battle_id: battleId,
-          model_id: 'llama-3.3-70b-versatile',
           accuracy: 9.1,
           reasoning: 8.7,
           structure: 8.9,
           creativity: 8.2,
           overall: 8.7,
-          notes: 'Excellent accuracy and reasoning, well-structured content, good creative examples.',
-          created_at: new Date().toISOString()
+          notes: 'Excellent accuracy and reasoning, well-structured content, good creative examples.'
         }
       ]
     };
@@ -453,17 +465,62 @@ export const getBattle = async (battleId: string): Promise<Battle | null> => {
 
   // Transform the data to match our interface
   const battle: Battle = {
-    ...data,
-    responses: data.battle_responses || [],
-    scores: data.battle_scores || [],
-    promptEvolution: data.prompt_evolution || []
+    id: data.id,
+    userId: data.user_id,
+    battleType: data.battle_type,
+    prompt: data.prompt,
+    finalPrompt: data.final_prompt,
+    promptCategory: data.prompt_category,
+    models: data.models,
+    mode: data.mode,
+    battleMode: data.battle_mode,
+    rounds: data.rounds,
+    maxTokens: data.max_tokens,
+    temperature: data.temperature,
+    status: data.status,
+    winner: data.winner,
+    totalCost: data.total_cost,
+    autoSelectionReason: data.auto_selection_reason,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+    responses: (data.battle_responses || []).map((r: any) => ({
+      id: r.id,
+      battleId: r.battle_id,
+      modelId: r.model_id,
+      response: r.response,
+      latency: r.latency,
+      tokens: r.tokens,
+      cost: r.cost,
+      createdAt: r.created_at
+    })),
+    scores: (data.battle_scores || []).reduce((acc: any, s: any) => {
+      acc[s.model_id] = {
+        accuracy: s.accuracy,
+        reasoning: s.reasoning,
+        structure: s.structure,
+        creativity: s.creativity,
+        overall: s.overall,
+        notes: s.notes
+      };
+      return acc;
+    }, {}),
+    promptEvolution: (data.prompt_evolution || []).map((p: any) => ({
+      id: p.id,
+      battleId: p.battle_id,
+      round: p.round,
+      prompt: p.prompt,
+      modelId: p.model_id,
+      improvements: p.improvements,
+      score: p.score,
+      createdAt: p.created_at
+    }))
   };
 
   return battle;
 };
 
 // Helper function to generate AI-powered battle scores
-const generateBattleScore = async (battle: Battle, response: string, modelId: string): Promise<Omit<BattleScore, 'id' | 'battle_id' | 'model_id' | 'created_at'>> => {
+const generateBattleScore = async (battle: any, response: string, modelId: string): Promise<Omit<BattleScore, 'id' | 'battle_id' | 'model_id' | 'created_at'>> => {
   // For demo purposes, generate realistic scores based on response characteristics
   const responseLength = response.length;
   const wordCount = response.split(' ').length;
@@ -516,7 +573,7 @@ const generateScoreNotes = (accuracy: number, reasoning: number, structure: numb
 };
 
 // Helper function to create prompt evolution data
-const createPromptEvolution = async (battleId: string, battle: Battle, scores: Record<string, BattleScore>): Promise<void> => {
+const createPromptEvolution = async (battleId: string, battle: any, scores: Record<string, any>): Promise<void> => {
   // Create initial prompt evolution entry
   await supabase
     .from('prompt_evolution')
