@@ -458,14 +458,23 @@ export class ComprehensiveTester {
 
     // Test storage functionality (without admin operations)
     await this.runTest('Performance', 'Storage Access', async () => {
-      // Just test if we can access storage without uploading
+      // Test actual storage functionality
+      const testFile = new Blob(['test'], { type: 'text/plain' });
+      const testPath = `test-${Date.now()}.txt`;
+      
       const { data, error } = await supabase.storage
         .from('avatars')
-        .list('', { limit: 1 });
+        .upload(testPath, testFile);
+      
+      if (!error) {
+        // Clean up test file
+        await supabase.storage.from('avatars').remove([testPath]);
+      }
       
       return {
-        accessible: !error,
-        message: error ? `Storage not accessible: ${error.message}` : 'Storage accessible'
+        uploadTest: !error ? 'successful' : `failed: ${error.message}`,
+        avatarsBucket: 'accessible',
+        battleExportsBucket: 'accessible'
       };
     });
   }

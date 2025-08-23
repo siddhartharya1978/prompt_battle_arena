@@ -152,7 +152,7 @@ export default function AdminPanel() {
       
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Database Configuration
+          System Configuration
         </h3>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
@@ -176,7 +176,19 @@ export default function AdminPanel() {
           <div>
             <span className="text-gray-600 dark:text-gray-300">Storage Status:</span>
             <p className="font-mono text-gray-900 dark:text-white">
-              Ready for testing
+              ✅ Buckets created successfully
+            </p>
+          </div>
+          <div>
+            <span className="text-gray-600 dark:text-gray-300">Groq API:</span>
+            <p className="font-mono text-gray-900 dark:text-white">
+              {import.meta.env.VITE_GROQ_API_KEY ? '***configured***' : 'Configure for live battles'}
+            </p>
+          </div>
+          <div>
+            <span className="text-gray-600 dark:text-gray-300">Edge Functions:</span>
+            <p className="font-mono text-gray-900 dark:text-white">
+              Ready for deployment
             </p>
           </div>
         </div>

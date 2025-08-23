@@ -22,10 +22,7 @@ export const uploadAvatar = async (file: File, userId: string): Promise<UploadRe
     .from('avatars')
     .getPublicUrl(fileName);
 
-  return {
-    path: data.path,
-    publicUrl
-  };
+  return publicUrl;
 };
 
 export const uploadBattleExport = async (

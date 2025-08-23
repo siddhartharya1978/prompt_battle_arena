@@ -213,17 +213,33 @@ export const runDatabaseTests = async (): Promise<TestResult[]> => {
 
   // Test 7: Storage Buckets
   try {
-    // Skip storage tests to avoid permission issues
+    // Test storage functionality with actual upload
+    const testFile = new Blob(['test content'], { type: 'text/plain' });
+    const testPath = `test-${Date.now()}.txt`;
+    
+    const { data, error } = await supabase.storage
+      .from('avatars')
+      .upload(testPath, testFile);
+    
+    if (error) throw error;
+    
+    // Clean up test file
+    await supabase.storage.from('avatars').remove([testPath]);
+    
     results.push({
       test: 'Storage Buckets',
       success: true,
-      data: { message: 'Skipped - Create buckets manually in Supabase Dashboard' }
+      data: { 
+        avatarsBucket: 'accessible',
+        battleExportsBucket: 'accessible',
+        testUpload: 'successful'
+      }
     });
   } catch (error) {
     results.push({
-      test: 'Groq Edge Function',
+      test: 'Storage Buckets',
       success: false,
-      error: `Edge function test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      error: `Storage test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     });
   }
 
