@@ -90,14 +90,18 @@ export class ComprehensiveTester {
 
     // Test storage buckets
     await this.runTest('Database', 'Storage Buckets', async () => {
-      // Test bucket access instead of listing (which requires admin permissions)
-      const avatarsTest = await supabase.storage.from('avatars').list('', { limit: 1 });
-      const exportsTest = await supabase.storage.from('battle-exports').list('', { limit: 1 });
+      if (!supabaseAdmin) {
+        throw new Error('Service role key required for storage tests');
+      }
+      
+      // Test bucket access with admin client
+      const avatarsTest = await supabaseAdmin.storage.from('avatars').list('', { limit: 1 });
+      const exportsTest = await supabaseAdmin.storage.from('battle-exports').list('', { limit: 1 });
       
       return { 
-        avatars: !avatarsTest.error ? 'accessible' : 'not accessible',
-        battleExports: !exportsTest.error ? 'accessible' : 'not accessible',
-        hasAvatars: !avatarsTest.error
+        avatars: !avatarsTest.error ? 'accessible' : `error: ${avatarsTest.error?.message}`,
+        battleExports: !exportsTest.error ? 'accessible' : `error: ${exportsTest.error?.message}`,
+        bothWorking: !avatarsTest.error && !exportsTest.error
       };
     });
   }

@@ -213,32 +213,36 @@ export const runDatabaseTests = async (): Promise<TestResult[]> => {
 
   // Test 7: Storage Buckets
   try {
-    // Use admin client for storage operations if available
-    const client = supabaseAdmin || supabase;
+    // Test storage bucket access with proper admin client
+    if (!supabaseAdmin) {
+      results.push({
+        test: 'Storage Buckets',
+        success: false,
+        error: 'Service role key not configured - add VITE_SUPABASE_SERVICE_ROLE_KEY to .env'
+      });
+    } else {
+      // Test bucket access with admin client
+      const avatarsTest = await supabaseAdmin.storage.from('avatars').list('', { limit: 1 });
+      const exportsTest = await supabaseAdmin.storage.from('battle-exports').list('', { limit: 1 });
+      
+      const hasAvatars = !avatarsTest.error;
+      const hasBattleExports = !exportsTest.error;
     
-    // Check if buckets exist by trying to list files
-    const avatarsTest = await client.storage.from('avatars').list('', { limit: 1 });
-    const exportsTest = await client.storage.from('battle-exports').list('', { limit: 1 });
-    
-    const hasAvatars = !avatarsTest.error;
-    const hasBattleExports = !exportsTest.error;
-
-    results.push({
-      test: 'Storage Buckets',
-      success: hasAvatars || hasBattleExports, // At least one bucket should exist
-      data: { 
-        avatars: hasAvatars ? 'exists' : 'missing',
-        battleExports: hasBattleExports ? 'exists' : 'missing',
-        usingAdmin: !!supabaseAdmin
-      }
-    });
+      results.push({
+        test: 'Storage Buckets',
+        success: hasAvatars && hasBattleExports,
+        data: { 
+          avatars: hasAvatars ? 'accessible' : `error: ${avatarsTest.error?.message}`,
+          battleExports: hasBattleExports ? 'accessible' : `error: ${exportsTest.error?.message}`,
+          usingServiceRole: true
+        }
+      });
+    }
   } catch (error) {
     results.push({
       test: 'Storage Buckets',
       success: false,
-      error: supabaseAdmin 
-        ? 'Storage bucket access failed even with service role'
-        : 'Storage buckets need service role key or manual setup'
+      error: `Storage bucket test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     });
   }
 
