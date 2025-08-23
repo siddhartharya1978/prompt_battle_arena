@@ -148,7 +148,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {user?.battlesUsed === user?.battlesLimit && (
             {user?.battles_used === user?.battles_limit && (
               <div className="text-center">
                 <p className="text-sm text-red-600 dark:text-red-400 mb-3">
