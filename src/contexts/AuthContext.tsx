@@ -75,8 +75,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(profile);
       } else {
         console.warn('No profile found for user:', userId);
-        // Try to create profile if it doesn't exist
-        await createMissingProfile(userId);
+        // Profile should be created automatically by Supabase trigger
+        // If not found, wait a moment and try again
+        setTimeout(() => loadUserProfile(userId), 1000);
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -86,42 +87,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const createMissingProfile = async (userId: string) => {
-    try {
-      const { data: authUser } = await supabase.auth.getUser();
-      if (authUser.user && authUser.user.id === userId) {
-        const email = authUser.user.email || '';
-        const name = authUser.user.user_metadata?.name || 
-                    authUser.user.user_metadata?.full_name || 
-                    email.split('@')[0];
-        
-        const { data: newProfile, error } = await supabase
-          .from('profiles')
-          .insert({
-            id: userId,
-            email: email,
-            name: name,
-            avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
-            plan: 'free',
-            role: email === 'admin@pba.com' ? 'admin' : 'user',
-            battles_used: 0,
-            battles_limit: 3,
-            last_reset_at: new Date().toISOString().split('T')[0]
-          })
-          .select()
-          .single();
-          
-        if (error) {
-          console.error('Error creating missing profile:', error);
-        } else {
-          console.log('Created missing profile:', newProfile);
-          setUser(newProfile);
-        }
-      }
-    } catch (error) {
-      console.error('Error in createMissingProfile:', error);
-    }
-  };
 
   const login = async (email: string, password: string) => {
     setLoading(true);
