@@ -16,7 +16,9 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading) return;
+    if (isLoading) return;
+
+    setIsLoading(true);
 
     try {
       if (isSignUp) {
@@ -32,13 +34,18 @@ export default function Login() {
       }
       navigate('/dashboard');
     } catch (error) {
+      console.error('Authentication error:', error);
       const message = error instanceof Error ? error.message : 'Authentication failed';
       toast.error(message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleDemoLogin = async (userType: 'user' | 'admin') => {
-    if (loading) return;
+    if (isLoading) return;
+    
+    setIsLoading(true);
     
     try {
       if (userType === 'admin') {
@@ -51,6 +58,8 @@ export default function Login() {
       navigate('/dashboard');
     } catch (error) {
       toast.error('Demo login failed.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -143,10 +152,17 @@ export default function Login() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={isLoading}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
-              {loading ? (isSignUp ? 'Creating Account...' : 'Signing in...') : (isSignUp ? 'Create Account' : 'Sign In')}
+              {isLoading ? (
+                <div className="flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  {isSignUp ? 'Creating Account...' : 'Signing in...'}
+                </div>
+              ) : (
+                isSignUp ? 'Create Account' : 'Sign In'
+              )}
             </button>
           </form>
 

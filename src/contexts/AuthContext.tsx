@@ -65,7 +65,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
-    setLoading(true);
     try {
       // Check if Supabase is properly configured
       if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
@@ -87,14 +86,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAuthUser({ id: 'demo-user-id', email } as any);
         return;
       }
-      await signIn(email, password);
-    } finally {
+      
+      const { data, error } = await signIn(email, password);
+      if (error) throw error;
+      
       setLoading(false);
+      throw error;
     }
   };
 
   const register = async (email: string, password: string, name: string) => {
-    setLoading(true);
     try {
       // Check if Supabase is properly configured
       if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
@@ -116,9 +117,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAuthUser({ id: 'demo-user-id', email } as any);
         return;
       }
-      await signUp(email, password, name);
-    } finally {
+      
+      const { data, error } = await signUp(email, password, name);
+      if (error) throw error;
+      
       setLoading(false);
+      throw error;
     }
   };
 

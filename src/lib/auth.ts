@@ -27,7 +27,10 @@ export const signUp = async (email: string, password: string, name: string) => {
     },
   });
 
-  if (error) throw error;
+  if (error) {
+    console.error('Supabase signUp error:', error);
+    throw new Error(error.message || 'Failed to create account');
+  }
   return data;
 };
 
@@ -37,7 +40,10 @@ export const signIn = async (email: string, password: string) => {
     password,
   });
 
-  if (error) throw error;
+  if (error) {
+    console.error('Supabase signIn error:', error);
+    throw new Error(error.message || 'Failed to sign in');
+  }
   return data;
 };
 
