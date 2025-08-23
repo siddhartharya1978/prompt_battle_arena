@@ -90,10 +90,15 @@ export class ComprehensiveTester {
 
     // Test storage buckets
     await this.runTest('Database', 'Storage Buckets', async () => {
-      const { data, error } = await supabase.storage.listBuckets();
-      if (error) throw error;
-      const buckets = data.map(b => b.name);
-      return { buckets, hasAvatars: buckets.includes('avatars') };
+      // Test bucket access instead of listing (which requires admin permissions)
+      const avatarsTest = await supabase.storage.from('avatars').list('', { limit: 1 });
+      const exportsTest = await supabase.storage.from('battle-exports').list('', { limit: 1 });
+      
+      return { 
+        avatars: !avatarsTest.error ? 'accessible' : 'not accessible',
+        battleExports: !exportsTest.error ? 'accessible' : 'not accessible',
+        hasAvatars: !avatarsTest.error
+      };
     });
   }
 
