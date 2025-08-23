@@ -817,6 +817,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
     models: string[], 
     category: string, 
     battleMode: string
+  ) => {
     const evolution = [
       {
         round: 1,
