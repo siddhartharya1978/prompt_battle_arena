@@ -30,29 +30,17 @@ export const signUp = async (email: string, password: string, name: string) => {
     },
   });
 
-  if (error) {
-    console.error('Supabase signUp error:', error);
-    throw error;
-  }
-  
-  console.log('signUp successful:', data.user?.id);
+  if (error) throw error;
   return data;
 };
 
 export const signIn = async (email: string, password: string) => {
-  console.log('signIn called with:', email);
-  
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
-  if (error) {
-    console.error('Supabase signIn error:', error);
-    throw error;
-  }
-  
-  console.log('signIn successful:', data.user?.id);
+  if (error) throw error;
   return data;
 };
 
@@ -67,8 +55,6 @@ export const resetPassword = async (email: string) => {
   });
 
   if (error) throw error;
-};
-
 export const updatePassword = async (password: string) => {
   const { error } = await supabase.auth.updateUser({
     password,

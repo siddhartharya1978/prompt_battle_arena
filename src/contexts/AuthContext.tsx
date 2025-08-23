@@ -24,17 +24,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [authTimeout, setAuthTimeout] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-    
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (mounted && session?.user) {
+      if (session?.user) {
         setAuthUser(session.user);
         loadUserProfile(session.user.id);
-      } else if (mounted) {
+      } else {
         setLoading(false);
       }
     });
@@ -44,121 +41,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         console.log('Auth state change:', event, session?.user?.id);
         
-        if (!mounted) return;
-        
         if (session?.user) {
           setAuthUser(session.user);
           await loadUserProfile(session.user.id);
         } else {
           setAuthUser(null);
           setUser(null);
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
     return () => {
-      mounted = false;
       subscription.unsubscribe();
-      if (authTimeout) {
-        clearTimeout(authTimeout);
-      }
     };
   }, []);
 
   const loadUserProfile = async (userId: string) => {
-    console.log('Loading profile for user:', userId);
     try {
       const profile = await getProfile(userId);
-      console.log('Profile loaded:', profile);
       if (profile) {
         setUser(profile);
-      } else {
-        console.warn('No profile found for user:', userId);
-        // Profile should be created automatically by Supabase trigger
-        // If not found, wait a moment and try again
-        setTimeout(() => loadUserProfile(userId), 1000);
       }
     } catch (error) {
       console.error('Error loading profile:', error);
-      toast.error('Failed to load user profile');
     } finally {
       setLoading(false);
     }
   };
 
-
   const login = async (email: string, password: string) => {
-    setLoading(true);
-    
-    // Set timeout for login attempt
-    const timeout = setTimeout(() => {
-      setLoading(false);
-      toast.error('Login timeout. Please try again.');
-    }, 30000); // 30 second timeout
-    
-    setAuthTimeout(timeout);
-    
     try {
-      console.log('Attempting login for:', email);
-      const { data, error } = await signIn(email, password);
-      
-      if (error) {
-        console.error('Login error:', error);
-        throw new Error(error.message || 'Login failed');
-      }
-      
-      console.log('Login successful:', data.user?.id);
-      
-      // Don't set loading to false here - let the auth state change handle it
+      await signIn(email, password);
+      // Auth state change will handle the rest
     } catch (error: any) {
-      setLoading(false);
       const message = error.message || 'Login failed';
-      console.log('Login error message:', message);
       toast.error(message);
       throw error;
-    } finally {
-      if (authTimeout) {
-        clearTimeout(authTimeout);
-        setAuthTimeout(null);
-      }
     }
   };
 
   const register = async (email: string, password: string, name: string) => {
-    setLoading(true);
-    
-    // Set timeout for registration attempt
-    const timeout = setTimeout(() => {
-      setLoading(false);
-      toast.error('Registration timeout. Please try again.');
-    }, 30000); // 30 second timeout
-    
-    setAuthTimeout(timeout);
-    
     try {
-      console.log('Attempting registration for:', email);
-      const { data, error } = await signUp(email, password, name);
-      
-      if (error) {
-        console.error('Registration error:', error);
-        throw new Error(error.message || 'Registration failed');
-      }
-      
-      console.log('Registration successful:', data.user?.id);
-      
-      // Don't set loading to false here - let the auth state change handle it
+      await signUp(email, password, name);
+      // Auth state change will handle the rest
     } catch (error: any) {
-      setLoading(false);
       const message = error.message || 'Registration failed';
-      console.log('Registration error message:', message);
       toast.error(message);
       throw error;
-    } finally {
-      if (authTimeout) {
-        clearTimeout(authTimeout);
-        setAuthTimeout(null);
-      }
     }
   };
 
