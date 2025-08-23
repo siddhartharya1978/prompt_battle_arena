@@ -92,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
         localStorage.setItem('demo_session', JSON.stringify(demoUser));
         setUser(demoUser);
+        console.log('Demo user login successful');
         return;
       }
 
@@ -111,13 +112,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
         localStorage.setItem('demo_session', JSON.stringify(adminUser));
         setUser(adminUser);
+        console.log('Demo admin login successful');
         return;
       }
 
       // Real authentication
-      const { user: authUser } = await signIn(email, password);
-      if (authUser) {
-        await loadUserProfile(authUser);
+      try {
+        const { user: authUser } = await signIn(email, password);
+        if (authUser) {
+          await loadUserProfile(authUser);
+        }
+      } catch (supabaseError) {
+        // If Supabase auth fails, provide more context
+        console.error('Supabase authentication failed:', supabaseError);
+        throw new Error(`Authentication failed: ${supabaseError.message}. Please check if Supabase is properly connected or use the demo accounts.`);
       }
     } finally {
       setLoading(false);

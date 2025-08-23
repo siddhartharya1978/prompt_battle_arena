@@ -50,13 +50,18 @@ export default function Login() {
       let errorMessage = 'Something went wrong';
       
       if (error.message?.includes('Invalid login credentials') || error.message?.includes('invalid_credentials')) {
-        errorMessage = 'Invalid email or password. Please try the demo accounts below or check your Supabase setup.';
+        errorMessage = 'Invalid email or password. If using demo accounts, your Supabase project may not be connected. Try the demo accounts below or check your Supabase setup in the top-right corner.';
       } else if (error.message?.includes('Email not confirmed')) {
         errorMessage = 'Please check your email and click the confirmation link.';
       } else if (error.message?.includes('User already registered')) {
         errorMessage = 'An account with this email already exists. Try signing in instead.';
       } else if (error.message) {
         errorMessage = error.message;
+      }
+      
+      // If Supabase auth fails, provide helpful guidance
+      if (error.message?.includes('supabase') || error.message?.includes('fetch')) {
+        errorMessage = 'Unable to connect to authentication service. Please check if Supabase is connected (button in top-right) or try the demo accounts below.';
       }
       
       toast.error(errorMessage);
