@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { supabaseAdmin } from './supabase';
 import { signUp, signIn, getProfile } from './auth';
 import { createBattle, runBattle } from './battles';
 
@@ -212,9 +213,12 @@ export const runDatabaseTests = async (): Promise<TestResult[]> => {
 
   // Test 7: Storage Buckets
   try {
+    // Use admin client for storage operations if available
+    const client = supabaseAdmin || supabase;
+    
     // Check if buckets exist by trying to list files
-    const avatarsTest = await supabase.storage.from('avatars').list('', { limit: 1 });
-    const exportsTest = await supabase.storage.from('battle-exports').list('', { limit: 1 });
+    const avatarsTest = await client.storage.from('avatars').list('', { limit: 1 });
+    const exportsTest = await client.storage.from('battle-exports').list('', { limit: 1 });
     
     const hasAvatars = !avatarsTest.error;
     const hasBattleExports = !exportsTest.error;
@@ -224,14 +228,17 @@ export const runDatabaseTests = async (): Promise<TestResult[]> => {
       success: hasAvatars || hasBattleExports, // At least one bucket should exist
       data: { 
         avatars: hasAvatars ? 'exists' : 'missing',
-        battleExports: hasBattleExports ? 'exists' : 'missing'
+        battleExports: hasBattleExports ? 'exists' : 'missing',
+        usingAdmin: !!supabaseAdmin
       }
     });
   } catch (error) {
     results.push({
       test: 'Storage Buckets',
       success: false,
-      error: 'Storage buckets need to be created manually in Supabase dashboard'
+      error: supabaseAdmin 
+        ? 'Storage bucket access failed even with service role'
+        : 'Storage buckets need service role key or manual setup'
     });
   }
 

@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 // Get Supabase configuration from environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Please check your .env file.');
@@ -17,7 +18,16 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
-export { supabase };
+// Create admin client for operations requiring elevated privileges
+const supabaseAdmin = supabaseServiceKey 
+  ? createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
+  : null;
+export { supabase, supabaseAdmin };
 
 // Database types
 export interface Database {
