@@ -31,7 +31,7 @@ export default function Settings() {
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    avatar_url: user?.avatar_url || ''
+    avatar_url: user?.avatar_url || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'
   });
 
   // Update profile data when user changes
@@ -40,7 +40,7 @@ export default function Settings() {
       setProfileData({
         name: user.name || '',
         email: user.email || '',
-        avatar_url: user.avatar_url || ''
+        avatar_url: user.avatar_url || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'
       });
     }
   }, [user]);
@@ -128,15 +128,14 @@ export default function Settings() {
             </label>
             <div className="flex items-center space-x-4">
               <img
-                src={profileData.avatar_url || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'}
+                readOnly
                 alt="Profile"
-                className="w-16 h-16 rounded-full object-cover"
               />
               <div>
                 <input
                   type="file"
                   id="avatar-upload"
-                  accept="image/*"
+                  src={profileData.avatar_url}
                   onChange={handleAvatarChange}
                   className="hidden"
                 />
