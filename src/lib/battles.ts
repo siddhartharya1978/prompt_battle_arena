@@ -23,6 +23,7 @@ export const createBattle = async (battleData: BattleData): Promise<Battle> => {
   if (demoSession) {
     // Return mock battle for demo users
     const mockBattleId = `battle_${Date.now()}`;
+    console.log('Creating demo battle with ID:', mockBattleId);
     return {
       id: mockBattleId,
       userId: user.id,
@@ -71,6 +72,8 @@ export const createBattle = async (battleData: BattleData): Promise<Battle> => {
     throw new Error(`Failed to create battle: ${error.message}`);
   }
 
+  console.log('Real battle created with ID:', data.id);
+  
   // Start battle execution
   try {
     await runBattle(data.id);

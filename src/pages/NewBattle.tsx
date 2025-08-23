@@ -207,7 +207,14 @@ export default function NewBattle() {
       await incrementBattleUsage();
       
       toast.success(`${battleType === 'prompt' ? 'Prompt' : 'Response'} battle created successfully!`);
-      navigate(`/battle/${battle.id}/results`);
+      
+      // Ensure we have a valid battle ID before navigating
+      if (battle && battle.id) {
+        console.log('Navigating to battle results:', battle.id);
+        navigate(`/battle/${battle.id}/results`);
+      } else {
+        throw new Error('Battle created but no ID returned');
+      }
     } catch (error) {
       console.error('Battle creation error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to create battle');

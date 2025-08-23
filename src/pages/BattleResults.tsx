@@ -38,7 +38,9 @@ export default function BattleResults() {
   const [activeRound, setActiveRound] = useState(0);
   const [activeTab, setActiveTab] = useState<'results' | 'evolution'>('results');
   
+  console.log('BattleResults: Looking for battle with ID:', id);
   const battle = id ? getBattle(id) : null;
+  console.log('BattleResults: Found battle:', battle ? 'Yes' : 'No');
 
   useEffect(() => {
     if (battle?.status === 'completed' && battle.winner) {
@@ -57,12 +59,18 @@ export default function BattleResults() {
         <Navigation />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center">
+            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Target className="w-8 h-8 text-gray-400" />
+            </div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-              Battle Not Found
+              {id ? 'Battle Not Found' : 'Loading Battle...'}
             </h1>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              {id ? `Battle with ID "${id}" could not be found.` : 'Please wait while we load your battle results.'}
+            </p>
             <Link
               to="/dashboard"
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors"
             >
               Return to Dashboard
             </Link>

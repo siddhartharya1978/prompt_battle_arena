@@ -126,11 +126,14 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
 
   const createBattle = async (battleData: BattleData): Promise<Battle> => {
     try {
+      console.log('BattleContext: Creating battle with data:', battleData);
       const battle = await createBattleAPI(battleData);
+      console.log('BattleContext: Battle created successfully:', battle.id);
+      
       // Refresh battles to include the new one
-      if (refreshBattles) {
-        await refreshBattles();
-      }
+      await refreshBattles();
+      console.log('BattleContext: Battles refreshed');
+      
       return battle;
     } catch (error) {
       console.error('Error creating battle:', error);
