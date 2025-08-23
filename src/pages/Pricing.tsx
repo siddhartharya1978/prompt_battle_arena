@@ -121,7 +121,7 @@ export default function Pricing() {
                   <p className="text-gray-600 dark:text-gray-300">
                     {user.plan === 'premium' 
                       ? 'Unlimited battles and premium features'
-                      : `${user.battlesUsed}/${user.battlesLimit} battles used today`
+                      : `${user.battles_used}/${user.battles_limit} battles used today`
                     }
                   </p>
                 </div>
