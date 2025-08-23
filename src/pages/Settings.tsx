@@ -29,11 +29,21 @@ export default function Settings() {
 
   // Profile form state
   const [profileData, setProfileData] = useState({
-    name: user?.name || 'User',
-    email: user?.email || 'user@example.com',
+    name: user?.name || '',
+    email: user?.email || '',
     avatar_url: user?.avatar_url || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'
   });
 
+  // Update profile data when user changes
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        name: user.name || '',
+        email: user.email || '',
+        avatar_url: user.avatar_url || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'
+      });
+    }
+  }, [user]);
   // Notification settings
   const [notifications, setNotifications] = useState({
     battleComplete: true,
@@ -53,7 +63,7 @@ export default function Settings() {
     if (user) {
       setUploading(true);
       try {
-        await updateProfileWithAvatar(
+        const updatedProfile = await updateProfileWithAvatar(
           user.id,
           {
             name: profileData.name,
@@ -61,10 +71,18 @@ export default function Settings() {
           },
           avatarFile || undefined
         );
+        
+        // Update the auth context with new profile data
+        await updateUserProfile({
+          name: profileData.name,
+          avatar_url: updatedProfile.avatar_url || profileData.avatar_url
+        });
+        
         toast.success('Profile updated successfully!');
         setAvatarFile(null);
       } catch (error) {
         toast.error('Failed to update profile');
+        console.error('Profile update error:', error);
       } finally {
         setUploading(false);
       }
