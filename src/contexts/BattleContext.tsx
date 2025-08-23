@@ -128,7 +128,9 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
     try {
       const battle = await createBattleAPI(battleData);
       // Refresh battles to include the new one
-      await refreshBattles();
+      if (refreshBattles) {
+        await refreshBattles();
+      }
       return battle;
     } catch (error) {
       console.error('Error creating battle:', error);

@@ -177,7 +177,7 @@ export default function NewBattle() {
         typeof user.battlesUsed === 'number' && 
         typeof user.battlesLimit === 'number' && 
         user.battlesUsed >= user.battlesLimit) {
-      toast.error(`You've reached your daily limit of ${user.battles_limit} battles. Upgrade to Premium for unlimited battles!`);
+      toast.error(`You've reached your daily limit of ${user.battlesLimit} battles. Upgrade to Premium for unlimited battles!`);
       return;
     }
 
@@ -189,7 +189,7 @@ export default function NewBattle() {
     setIsCreating(true);
 
     try {
-      const battleData = {
+      const battleData: BattleData = {
         battle_type: battleType,
         prompt: prompt.trim(),
         prompt_category: promptCategory,
@@ -212,6 +212,7 @@ export default function NewBattle() {
       console.error('Battle creation error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to create battle');
     } finally {
+      // Always reset creating state
       setIsCreating(false);
     }
   };

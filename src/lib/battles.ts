@@ -22,8 +22,9 @@ export const createBattle = async (battleData: BattleData): Promise<Battle> => {
   const demoSession = localStorage.getItem('demo_session');
   if (demoSession) {
     // Return mock battle for demo users
+    const mockBattleId = `battle_${Date.now()}`;
     return {
-      id: `battle_${Date.now()}`,
+      id: mockBattleId,
       userId: user.id,
       battleType: battleData.battle_type,
       prompt: battleData.prompt,
