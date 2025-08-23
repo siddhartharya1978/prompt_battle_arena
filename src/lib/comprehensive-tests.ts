@@ -701,7 +701,7 @@ export class ComprehensiveE2ETester {
       
       // Clean up test profile
       const { error: profileError } = await supabase
-        battlesConsistent: battles?.every(b => b.user_id === this.testUserId) || true,
+        .from('profiles')
         .delete()
         .eq('id', this.testUserId!);
       

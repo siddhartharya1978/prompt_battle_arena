@@ -204,35 +204,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const incrementBattleUsage = async () => {
-    if (!user) return;
-
-    try {
-      // Handle demo users
-      const demoSession = localStorage.getItem('demo_session');
-      if (demoSession) {
-        const updatedUser = { 
-          ...user, 
-          battles_used: Math.min(user.battles_used + 1, user.battles_limit) 
-        };
-        localStorage.setItem('demo_session', JSON.stringify(updatedUser));
-        setUser(updatedUser);
-        return;
-      }
-
-      // Real user update
-      const updatedProfile = await updateProfile(user.id, {
-        battles_used: Math.min(user.battles_used + 1, user.battles_limit)
-      });
-      setUser({
-        ...updatedProfile,
-        avatar: updatedProfile.avatar_url || user.avatar
-      });
-    } catch (error) {
-      console.error('Error incrementing battle usage:', error);
-    }
-  };
-
   const value = {
     user,
     loading,
@@ -240,7 +211,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     register,
     logout,
     updateUserProfile,
-    incrementBattleUsage
     incrementBattleUsage
   };
 
