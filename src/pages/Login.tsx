@@ -48,8 +48,8 @@ export default function Login() {
     } catch (error: any) {
       let errorMessage = 'Something went wrong';
       
-      if (error.message?.includes('Invalid login credentials')) {
-        errorMessage = 'Invalid email or password. Try the demo accounts below.';
+      if (error.message?.includes('Invalid login credentials') || error.message?.includes('invalid_credentials')) {
+        errorMessage = 'Invalid email or password. Please try the demo accounts below or check your Supabase setup.';
       } else if (error.message?.includes('Email not confirmed')) {
         errorMessage = 'Please check your email and click the confirmation link.';
       } else if (error.message?.includes('User already registered')) {
