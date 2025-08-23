@@ -33,10 +33,10 @@ function App() {
 
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <Router>
-          <BattleProvider>
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+        <AuthProvider>
+          <Router>
+            <BattleProvider>
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<Login />} />
@@ -58,10 +58,10 @@ function App() {
                 isOpen={showOnboarding} 
                 onClose={handleCloseOnboarding} 
               />
-            </div>
-          </BattleProvider>
-        </Router>
-      </AuthProvider>
+            </BattleProvider>
+          </Router>
+        </AuthProvider>
+      </div>
     </ThemeProvider>
   );
 }
