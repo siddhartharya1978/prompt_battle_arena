@@ -27,6 +27,11 @@ export const callGroqAPI = async (
   maxTokens: number = 500,
   temperature: number = 0.7
 ): Promise<{
+  response: string;
+  tokens: number;
+  cost: number;
+  latency: number;
+}> => {
   // Check if this is a demo user - return mock response
   const demoSession = localStorage.getItem('demo_session');
   if (demoSession) {
@@ -41,11 +46,6 @@ export const callGroqAPI = async (
     };
   }
   
-  response: string;
-  tokens: number;
-  cost: number;
-  latency: number;
-}> => {
   // Validate inputs
   if (!model?.trim()) {
     throw new Error('Model is required');

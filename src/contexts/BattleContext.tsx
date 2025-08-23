@@ -813,20 +813,10 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   };
 
   const generateMockPromptEvolution = (
-    // Check if this is a demo user
-    const demoSession = localStorage.getItem('demo_session');
-    if (demoSession) {
-      // Use mock battles for demo user
-      setBattles(mockBattles);
-      setLoading(false);
-      return;
-    }
-    
     initialPrompt: string, 
     models: string[], 
     category: string, 
     battleMode: string
-  ) => {
     const evolution = [
       {
         round: 1,
