@@ -73,7 +73,6 @@ npm run dev
 - **Frontend**: React + TypeScript + Tailwind CSS
 - **Backend**: Supabase (PostgreSQL + Auth + Realtime)
 - **AI API**: Groq Cloud LLMs
-- **Deployment**: Vercel/Netlify/Cloudflare Pages
 
 ## Security
 
