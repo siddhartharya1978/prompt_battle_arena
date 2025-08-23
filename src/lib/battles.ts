@@ -33,6 +33,9 @@ export interface Battle {
   auto_selection_reason: string | null;
   created_at: string;
   updated_at: string;
+  responses?: BattleResponse[];
+  scores?: BattleScore[];
+  promptEvolution?: PromptEvolution[];
 }
 
 export interface BattleResponse {
@@ -342,6 +345,121 @@ export const getUserBattles = async (): Promise<Battle[]> => {
   }
 
   return data || [];
+};
+
+export const getBattle = async (battleId: string): Promise<Battle | null> => {
+  // Check if this is a demo user
+  const demoSession = localStorage.getItem('demo_session');
+  if (demoSession) {
+    // Return mock battle with full data for demo users
+    const mockBattle: Battle = {
+      id: battleId,
+      user_id: 'demo-user-id',
+      battle_type: 'response',
+      prompt: 'Explain the concept of artificial intelligence in simple terms',
+      final_prompt: null,
+      prompt_category: 'explanation',
+      models: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'],
+      mode: 'standard',
+      battle_mode: 'manual',
+      rounds: 1,
+      max_tokens: 500,
+      temperature: 0.7,
+      status: 'completed',
+      winner: 'llama-3.3-70b-versatile',
+      total_cost: 1.25,
+      auto_selection_reason: null,
+      created_at: new Date(Date.now() - 86400000).toISOString(),
+      updated_at: new Date(Date.now() - 86400000).toISOString(),
+      responses: [
+        {
+          id: 'response_1',
+          battle_id: battleId,
+          model_id: 'llama-3.1-8b-instant',
+          response: 'Artificial Intelligence (AI) is like giving computers the ability to think and learn like humans. Instead of just following pre-programmed instructions, AI systems can analyze information, recognize patterns, and make decisions on their own.',
+          latency: 1200,
+          tokens: 45,
+          cost: 0.62,
+          created_at: new Date().toISOString()
+        },
+        {
+          id: 'response_2',
+          battle_id: battleId,
+          model_id: 'llama-3.3-70b-versatile',
+          response: 'Artificial Intelligence (AI) refers to computer systems that can perform tasks typically requiring human intelligence. These systems can learn from data, recognize patterns, solve problems, and make decisions. Think of AI as teaching machines to be smart - like how your phone can recognize your voice or how streaming services recommend movies you might like.',
+          latency: 1450,
+          tokens: 58,
+          cost: 0.63,
+          created_at: new Date().toISOString()
+        }
+      ],
+      scores: [
+        {
+          id: 'score_1',
+          battle_id: battleId,
+          model_id: 'llama-3.1-8b-instant',
+          accuracy: 8.2,
+          reasoning: 7.5,
+          structure: 7.8,
+          creativity: 6.9,
+          overall: 7.6,
+          notes: 'Good accuracy and clear explanation, decent structure, reasoning could be improved.',
+          created_at: new Date().toISOString()
+        },
+        {
+          id: 'score_2',
+          battle_id: battleId,
+          model_id: 'llama-3.3-70b-versatile',
+          accuracy: 9.1,
+          reasoning: 8.7,
+          structure: 8.9,
+          creativity: 8.2,
+          overall: 8.7,
+          notes: 'Excellent accuracy and reasoning, well-structured content, good creative examples.',
+          created_at: new Date().toISOString()
+        }
+      ]
+    };
+    
+    return mockBattle;
+  }
+
+  // Get current user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error('User must be authenticated to view battles');
+  }
+
+  // Fetch battle with all related data
+  const { data, error } = await supabase
+    .from('battles')
+    .select(`
+      *,
+      battle_responses(*),
+      battle_scores(*),
+      prompt_evolution(*)
+    `)
+    .eq('id', battleId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null; // Battle not found
+    }
+    console.error('Error fetching battle:', error);
+    throw new Error(`Failed to fetch battle: ${error.message}`);
+  }
+
+  // Transform the data to match our interface
+  const battle: Battle = {
+    ...data,
+    responses: data.battle_responses || [],
+    scores: data.battle_scores || [],
+    promptEvolution: data.prompt_evolution || []
+  };
+
+  return battle;
 };
 
 // Helper function to generate AI-powered battle scores
