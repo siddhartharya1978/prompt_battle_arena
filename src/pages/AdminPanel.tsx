@@ -600,7 +600,7 @@ export default function AdminPanel() {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                  {userData.plan === 'premium' ? 'Unlimited' : `${userData.battles_used}/${userData.battles_limit}`}
+                  {userData.plan === 'premium' ? 'Unlimited' : `${userData.battles_used || 0}/${userData.battles_limit || 3}`}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                   {new Date(userData.created_at).toLocaleDateString('en-IN')}

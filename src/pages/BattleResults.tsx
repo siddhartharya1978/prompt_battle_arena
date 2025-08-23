@@ -76,8 +76,8 @@ export default function BattleResults() {
   };
 
   const winnerModel = battle.winner ? getModelInfo(battle.winner) : null;
-  const winnerResponse = battle.responses?.find(r => r.modelId === battle.winner);
-  const winnerScore = battle.winner && battle.scores ? battle.scores[battle.winner] : null;
+  const winnerResponse = battle.responses.find(r => r.modelId === battle.winner);
+  const winnerScore = battle.winner ? battle.scores[battle.winner] : null;
 
   const handleShare = () => {
     const shareText = battle.battleType === 'prompt' 
@@ -295,7 +295,7 @@ Total Cost: ₹${battle.totalCost}
                     AI Model Selection Logic
                   </h3>
                   <p className="text-sm text-green-700 dark:text-green-300">
-                    {battle.autoSelectionReason}
+                    {winnerScore?.overall || 0}/10
                   </p>
                 </div>
               </div>

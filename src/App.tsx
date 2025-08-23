@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import ErrorBoundary from './components/ErrorBoundary';
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 import NewBattle from './pages/NewBattle';
@@ -37,17 +38,19 @@ function App() {
         <AuthProvider>
           <Router>
             <BattleProvider>
-              <Routes>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/battle/new" element={<NewBattle />} />
-                <Route path="/battle/:id/results" element={<BattleResults />} />
-                <Route path="/history" element={<History />} />
-                <Route path="/pricing" element={<Pricing />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/admin" element={<AdminPanel />} />
-              </Routes>
+              <ErrorBoundary>
+                <Routes>
+                  <Route path="/" element={<ErrorBoundary><LandingPage /></ErrorBoundary>} />
+                  <Route path="/login" element={<ErrorBoundary><Login /></ErrorBoundary>} />
+                  <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+                  <Route path="/battle/new" element={<ErrorBoundary><NewBattle /></ErrorBoundary>} />
+                  <Route path="/battle/:id/results" element={<ErrorBoundary><BattleResults /></ErrorBoundary>} />
+                  <Route path="/history" element={<ErrorBoundary><History /></ErrorBoundary>} />
+                  <Route path="/pricing" element={<ErrorBoundary><Pricing /></ErrorBoundary>} />
+                  <Route path="/settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
+                  <Route path="/admin" element={<ErrorBoundary><AdminPanel /></ErrorBoundary>} />
+                </Routes>
+              </ErrorBoundary>
               <Toaster 
                 position="top-right"
                 toastOptions={{
