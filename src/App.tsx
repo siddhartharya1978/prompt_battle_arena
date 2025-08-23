@@ -34,8 +34,8 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BattleProvider>
-          <Router>
+        <Router>
+          <BattleProvider>
             <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
               <Routes>
                 <Route path="/" element={<LandingPage />} />
@@ -59,8 +59,8 @@ function App() {
                 onClose={handleCloseOnboarding} 
               />
             </div>
-          </Router>
-        </BattleProvider>
+          </BattleProvider>
+        </Router>
       </AuthProvider>
     </ThemeProvider>
   );
