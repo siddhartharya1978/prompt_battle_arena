@@ -152,7 +152,7 @@ export default function AdminPanel() {
       
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          System Configuration
+          Database Configuration
         </h3>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
@@ -174,23 +174,21 @@ export default function AdminPanel() {
             </p>
           </div>
           <div>
-            <span className="text-gray-600 dark:text-gray-300">Storage Status:</span>
+            <span className="text-gray-600 dark:text-gray-300">Storage Buckets:</span>
             <p className="font-mono text-gray-900 dark:text-white">
-              ✅ Buckets created successfully
+              Create manually in Dashboard
             </p>
           </div>
-          <div>
-            <span className="text-gray-600 dark:text-gray-300">Groq API:</span>
-            <p className="font-mono text-gray-900 dark:text-white">
-              {import.meta.env.VITE_GROQ_API_KEY ? '***configured***' : 'Configure for live battles'}
-            </p>
-          </div>
-          <div>
-            <span className="text-gray-600 dark:text-gray-300">Edge Functions:</span>
-            <p className="font-mono text-gray-900 dark:text-white">
-              Ready for deployment
-            </p>
-          </div>
+        </div>
+        
+        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+          <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Storage Setup Instructions</h4>
+          <ol className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+            <li>1. Go to Storage in your Supabase Dashboard</li>
+            <li>2. Create bucket: <code>avatars</code> (public, 5MB limit)</li>
+            <li>3. Create bucket: <code>battle-exports</code> (private, 10MB limit)</li>
+            <li>4. Policies will be created automatically</li>
+          </ol>
         </div>
       </div>
     </div>
