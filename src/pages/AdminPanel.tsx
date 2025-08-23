@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useBattle } from '../contexts/BattleContext';
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import { runDatabaseTests, displayTestResults } from '../lib/test-database';
-import { runComprehensiveTests } from '../lib/comprehensive-tests';
+import { runComprehensiveE2ETests } from '../lib/comprehensive-tests';
 import Navigation from '../components/Navigation';
 import { 
   Users, 
@@ -265,25 +265,28 @@ export default function AdminPanel() {
 
   const handleRunComprehensiveTests = async () => {
     setRunningComprehensive(true);
-    toast.loading('Running comprehensive smoke tests...');
+    toast.loading('Running COMPREHENSIVE E2E tests - this will take 2-3 minutes...');
     
     try {
-      const results = await runComprehensiveTests();
+      const results = await runComprehensiveE2ETests();
       setComprehensiveResults(results);
       
       const passedCount = results.filter(r => r.success).length;
       const totalCount = results.length;
+      const criticalFailures = results.filter(r => !r.success && r.critical).length;
       
       toast.dismiss();
-      if (passedCount === totalCount) {
-        toast.success(`All ${totalCount} comprehensive tests passed! 🎉`);
+      if (criticalFailures === 0 && passedCount === totalCount) {
+        toast.success(`🎉 ALL ${totalCount} E2E TESTS PASSED! Your app is production-ready!`);
+      } else if (criticalFailures === 0) {
+        toast.success(`✅ Core functionality working! ${passedCount}/${totalCount} tests passed.`);
       } else {
-        toast.error(`${passedCount}/${totalCount} tests passed. Check console for details.`);
+        toast.error(`🚨 ${criticalFailures} critical failures found! ${passedCount}/${totalCount} tests passed.`);
       }
     } catch (error) {
       toast.dismiss();
-      toast.error('Failed to run comprehensive tests');
-      console.error('Comprehensive test error:', error);
+      toast.error('Failed to run E2E tests');
+      console.error('E2E test error:', error);
     } finally {
       setRunningComprehensive(false);
     }
@@ -296,10 +299,10 @@ export default function AdminPanel() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Comprehensive Smoke Tests
+                Comprehensive End-to-End Tests
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                End-to-end testing of all system components, APIs, and edge cases
+                Complete validation of frontend, backend, security, performance, and data integrity
               </p>
             </div>
             <button
@@ -308,7 +311,7 @@ export default function AdminPanel() {
               className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Play className="w-4 h-4" />
-              <span>{runningComprehensive ? 'Running Comprehensive Tests...' : 'Run Full E2E Tests'}</span>
+              <span>{runningComprehensive ? 'Running E2E Tests (2-3 min)...' : 'Run Complete E2E Suite'}</span>
             </button>
           </div>
         </div>
@@ -317,25 +320,46 @@ export default function AdminPanel() {
           <div className="p-6">
             <div className="mb-4">
               <h4 className="font-medium text-gray-900 dark:text-white mb-2">
-                Comprehensive Test Results ({comprehensiveResults.filter(r => r.success).length}/{comprehensiveResults.length} passed)
+                E2E Test Results ({comprehensiveResults.filter(r => r.success).length}/{comprehensiveResults.length} passed)
               </h4>
+              
+              {/* Critical Failures Alert */}
+              {comprehensiveResults.filter(r => !r.success && r.critical).length > 0 && (
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-red-600 dark:text-red-400 font-bold">🚨 CRITICAL FAILURES DETECTED</span>
+                  </div>
+                  <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                    {comprehensiveResults.filter(r => !r.success && r.critical).length} critical issues found that must be addressed before production.
+                  </p>
+                </div>
+              )}
+              
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 {[...new Set(comprehensiveResults.map(r => r.category))].map(category => {
                   const categoryTests = comprehensiveResults.filter(r => r.category === category);
                   const passed = categoryTests.filter(r => r.success).length;
                   const total = categoryTests.length;
+                  const criticalFailed = categoryTests.filter(r => !r.success && r.critical).length;
                   const percentage = (passed / total) * 100;
                   
                   const getProgressBarColor = (percentage: number) => {
+                    if (criticalFailed > 0) return 'bg-red-500';
                     if (percentage === 100) return 'bg-green-500';
                     if (percentage >= 80) return 'bg-yellow-500';
-                    return 'bg-red-500';
+                    return 'bg-orange-500';
                   };
                   
                   return (
                     <div key={category} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">{category}</div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {category}
+                        {criticalFailed > 0 && <span className="text-red-500 ml-1">🚨</span>}
+                      </div>
                       <div className="text-xs text-gray-600 dark:text-gray-300">{passed}/{total} passed</div>
+                      {criticalFailed > 0 && (
+                        <div className="text-xs text-red-600 dark:text-red-400">{criticalFailed} critical</div>
+                      )}
                       <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-1">
                         <div 
                           className={`h-2 rounded-full ${getProgressBarColor(percentage)}`}
@@ -351,7 +375,7 @@ export default function AdminPanel() {
               {comprehensiveResults.map((result, index) => (
                 <div
                   key={index}
-                  className={`p-3 rounded-lg border ${
+                  className={`p-3 rounded-lg border ${result.critical && !result.success ? 'border-red-500 bg-red-50 dark:bg-red-900/30' :
                     result.success
                       ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20'
                       : 'border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20'
@@ -359,11 +383,13 @@ export default function AdminPanel() {
                 >
                   <div className="flex items-center justify-between">
                     <span className={`font-medium ${
+                      result.critical && !result.success ? 'text-red-800 dark:text-red-200' :
                       result.success
                         ? 'text-green-800 dark:text-green-200'
                         : 'text-red-800 dark:text-red-200'
                     }`}>
-                      {result.success ? '✅' : '❌'} {result.category}: {result.test}
+                      {result.success ? '✅' : (result.critical ? '🚨' : '❌')} {result.category}: {result.test}
+                      {result.critical && !result.success && <span className="ml-2 text-xs bg-red-600 text-white px-2 py-1 rounded">CRITICAL</span>}
                     </span>
                     {result.duration && (
                       <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -373,7 +399,7 @@ export default function AdminPanel() {
                   </div>
                   {result.error && (
                     <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                      Error: {result.error}
+                      {result.critical ? '🚨 CRITICAL ERROR: ' : 'Error: '}{result.error}
                     </p>
                   )}
                   {result.data && (
