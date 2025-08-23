@@ -89,9 +89,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const { data, error } = await signIn(email, password);
       if (error) throw error;
-      
-      setLoading(false);
+    } catch (error) {
+      console.error('Login error:', error);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -120,9 +122,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const { data, error } = await signUp(email, password, name);
       if (error) throw error;
-      
-      setLoading(false);
+    } catch (error) {
+      console.error('Registration error:', error);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
