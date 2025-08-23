@@ -67,26 +67,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       // Check if Supabase is properly configured
-      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-        // Demo mode - simulate login
-        const demoUser = {
-          id: 'demo-user-id',
-          email: email,
-          name: email === 'admin@pba.com' ? 'Demo Admin' : 'Demo User',
-          avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
-          plan: 'free' as const,
-          role: email === 'admin@pba.com' ? 'admin' as const : 'user' as const,
-          battles_used: 0,
-          battles_limit: 3,
-          last_reset_at: new Date().toISOString().split('T')[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        setUser(demoUser);
-        setAuthUser({ id: 'demo-user-id', email } as any);
-        return;
-      }
-      
       const { data, error } = await signIn(email, password);
       if (error) throw error;
     } catch (error) {
@@ -100,9 +80,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (email: string, password: string, name: string) => {
     try {
       // Check if Supabase is properly configured
-      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-        // Demo mode - simulate registration
-        const demoUser = {
+      if (!supabase.supabaseUrl || supabase.supabaseUrl === 'your-supabase-url') {
+        // Demo mode - create a mock user
+        const demoUser: Profile = {
           id: 'demo-user-id',
           email: email,
           name: name,
