@@ -23,6 +23,8 @@ export default function Login() {
       setEmail('admin@pba.com');
       setPassword('admin123');
     }
+    // Clear any previous errors
+    toast.dismiss();
   };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
