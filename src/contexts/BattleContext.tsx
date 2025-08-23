@@ -590,28 +590,63 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   const [battles, setBattles] = useState<Battle[]>([]);
   const [currentBattle, setCurrentBattle] = useState<Battle | null>(null);
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth();
+  const { user, authUser } = useAuth();
 
   useEffect(() => {
-    // Load battles from Supabase when user is authenticated
-    if (user) {
+    // Load battles from Supabase when user is authenticated  
+    if (user && authUser) {
       refreshBattles();
-    } else {
-      // Show demo battles for unauthenticated users
-      setBattles(mockBattles);
     }
-  }, [user]);
+  }, [user, authUser]);
 
   const refreshBattles = async () => {
-    if (!user) return;
+    if (!user || !authUser) return;
     
     setLoading(true);
     try {
       const userBattles = await getUserBattles();
-      setBattles(userBattles);
+      // Transform Supabase data to match frontend interface
+      const transformedBattles = userBattles.map(battle => ({
+        ...battle,
+        battleType: battle.battle_type,
+        promptCategory: battle.prompt_category,
+        battleMode: battle.battle_mode,
+        maxTokens: battle.max_tokens,
+        totalCost: battle.total_cost,
+        autoSelectionReason: battle.auto_selection_reason,
+        createdAt: battle.created_at,
+        updatedAt: battle.updated_at,
+        finalPrompt: battle.final_prompt,
+        responses: battle.battle_responses?.map(r => ({
+          id: r.id,
+          modelId: r.model_id,
+          response: r.response,
+          latency: r.latency,
+          tokens: r.tokens,
+          cost: r.cost
+        })) || [],
+        scores: battle.battle_scores?.reduce((acc, score) => ({
+          ...acc,
+          [score.model_id]: {
+            accuracy: score.accuracy,
+            reasoning: score.reasoning,
+            structure: score.structure,
+            creativity: score.creativity,
+            overall: score.overall,
+            notes: score.notes
+          }
+        }), {}) || {},
+        promptEvolution: battle.prompt_evolution?.map(pe => ({
+          round: pe.round,
+          prompt: pe.prompt,
+          modelId: pe.model_id,
+          improvements: pe.improvements || [],
+          score: pe.score
+        })) || []
+      }));
+      setBattles(transformedBattles);
     } catch (error) {
       console.error('Error refreshing battles:', error);
-      // Fallback to empty array on error
       setBattles([]);
     } finally {
       setLoading(false);
@@ -619,7 +654,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   };
 
   const createBattle = async (battleData: CreateBattleData): Promise<Battle> => {
-    if (!user) throw new Error('User not authenticated');
+    if (!user || !authUser) throw new Error('User not authenticated');
     
     setLoading(true);
     try {
@@ -636,16 +671,10 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   };
 
   const getBattle = (id: string): Battle | null => {
-    // Check if it's a demo battle ID
-    if (id.startsWith('battle_') && !user) {
-      return mockBattles.find(battle => battle.id === id) || null;
-    }
-    
     // Check local state for real battles
     const localBattle = battles.find(battle => battle.id === id);
     if (localBattle) return localBattle;
     
-    // If not found locally, try to fetch from database
     getBattleDB(id).then(battle => {
       if (battle) {
         setBattles(prev => {
@@ -661,7 +690,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   };
 
   const runBattleHandler = async (battleId: string): Promise<void> => {
-    if (!user) throw new Error('User not authenticated');
+    if (!user || !authUser) throw new Error('User not authenticated');
     
     setLoading(true);
     try {

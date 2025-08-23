@@ -30,15 +30,17 @@ export const getBattle = async (battleId: string): Promise<Battle | null> => {
     .from('battles')
     .select(`
       *,
-      battle_responses(*),
-      battle_scores(*),
-      prompt_evolution(*)
+      battle_responses!inner(*),
+      battle_scores!inner(*),
+      prompt_evolution!inner(*)
     `)
     .eq('id', battleId)
     .single();
 
   if (error) {
-    console.error('Error fetching battle:', error);
+    if (error.code !== 'PGRST116') {
+      console.error('Error fetching battle:', error);
+    }
     return null;
   }
 
@@ -53,9 +55,9 @@ export const getUserBattles = async (): Promise<Battle[]> => {
     .from('battles')
     .select(`
       *,
-      battle_responses(*),
-      battle_scores(*),
-      prompt_evolution(*)
+      battle_responses!left(*),
+      battle_scores!left(*),
+      prompt_evolution!left(*)
     `)
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });

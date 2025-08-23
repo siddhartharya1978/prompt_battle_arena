@@ -25,7 +25,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   const recentBattles = battles.slice(0, 3);
-  const usagePercentage = user ? (user.battles_used / user.battles_limit) * 100 : 0;
+  const usagePercentage = user ? Math.min(100, (user.battles_used / user.battles_limit) * 100) : 0;
 
   const stats = [
     {
@@ -36,13 +36,17 @@ export default function Dashboard() {
     },
     {
       label: 'Wins',
-      value: battles.filter(b => b.winner && b.responses.some(r => r.modelId === b.winner)).length,
+      value: battles.filter(b => b.winner).length,
       icon: Trophy,
       color: 'text-yellow-600 dark:text-yellow-400'
     },
     {
       label: 'Avg Score',
-      value: '8.7',
+      value: battles.length > 0 ? 
+        (battles.reduce((sum, b) => {
+          const scores = Object.values(b.scores || {});
+          return sum + (scores.length > 0 ? scores.reduce((s, score) => s + score.overall, 0) / scores.length : 0);
+        }, 0) / battles.length).toFixed(1) : '0.0',
       icon: Star,
       color: 'text-green-600 dark:text-green-400'
     },

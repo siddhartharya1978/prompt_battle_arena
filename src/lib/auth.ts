@@ -74,7 +74,9 @@ export const getProfile = async (userId: string): Promise<Profile | null> => {
     .single();
 
   if (error) {
-    console.error('Error fetching profile:', error);
+    if (error.code !== 'PGRST116') { // Not found error
+      console.error('Error fetching profile:', error);
+    }
     return null;
   }
 

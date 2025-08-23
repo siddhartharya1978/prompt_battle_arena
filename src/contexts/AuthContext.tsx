@@ -56,20 +56,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const profile = await getProfile(userId);
       if (profile) {
-        // Check if daily reset is needed
-        const today = new Date().toISOString().split('T')[0];
-        if (profile.last_reset_at !== today) {
-          const updatedProfile = await updateProfile(userId, {
-            battles_used: 0,
-            last_reset_at: today,
-          });
-          setUser(updatedProfile);
-        } else {
-          setUser(profile);
-        }
+        setUser(profile);
       }
     } catch (error) {
       console.error('Error loading profile:', error);
+      setLoading(false);
     }
   };
 
