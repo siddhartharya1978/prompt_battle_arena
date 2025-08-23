@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useBattle } from '../contexts/BattleContext';
 import { supabase } from '../lib/supabase';
 import { runDatabaseTests, displayTestResults } from '../lib/test-database';
+import { runComprehensiveTests } from '../lib/comprehensive-tests';
 import Navigation from '../components/Navigation';
 import { 
   Users, 
@@ -29,6 +30,8 @@ export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('overview');
   const [testResults, setTestResults] = useState<any[]>([]);
   const [runningTests, setRunningTests] = useState(false);
+  const [comprehensiveResults, setComprehensiveResults] = useState<any[]>([]);
+  const [runningComprehensive, setRunningComprehensive] = useState(false);
 
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -238,8 +241,131 @@ export default function AdminPanel() {
     }
   };
 
+  const handleRunComprehensiveTests = async () => {
+    setRunningComprehensive(true);
+    toast.loading('Running comprehensive smoke tests...');
+    
+    try {
+      const results = await runComprehensiveTests();
+      setComprehensiveResults(results);
+      
+      const passedCount = results.filter(r => r.success).length;
+      const totalCount = results.length;
+      
+      toast.dismiss();
+      if (passedCount === totalCount) {
+        toast.success(`All ${totalCount} comprehensive tests passed! 🎉`);
+      } else {
+        toast.error(`${passedCount}/${totalCount} tests passed. Check console for details.`);
+      }
+    } catch (error) {
+      toast.dismiss();
+      toast.error('Failed to run comprehensive tests');
+      console.error('Comprehensive test error:', error);
+    } finally {
+      setRunningComprehensive(false);
+    }
+  };
   const renderOverviewTab = () => (
     <div className="space-y-6">
+      {/* Comprehensive Tests */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Comprehensive Smoke Tests
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                End-to-end testing of all system components, APIs, and edge cases
+              </p>
+            </div>
+            <button
+              onClick={handleRunComprehensiveTests}
+              disabled={runningComprehensive}
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Play className="w-4 h-4" />
+              <span>{runningComprehensive ? 'Running Comprehensive Tests...' : 'Run Full E2E Tests'}</span>
+            </button>
+          </div>
+        </div>
+        
+        {comprehensiveResults.length > 0 && (
+          <div className="p-6">
+            <div className="mb-4">
+              <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+                Comprehensive Test Results ({comprehensiveResults.filter(r => r.success).length}/{comprehensiveResults.length} passed)
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                {[...new Set(comprehensiveResults.map(r => r.category))].map(category => {
+                  const categoryTests = comprehensiveResults.filter(r => r.category === category);
+                  const passed = categoryTests.filter(r => r.success).length;
+                  const total = categoryTests.length;
+                  const percentage = (passed / total) * 100;
+                  
+                  return (
+                    <div key={category} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">{category}</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300">{passed}/{total} passed</div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-1">
+                        <div 
+                          className={`h-2 rounded-full ${percentage === 100 ? 'bg-green-500' : percentage >= 80 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {comprehensiveResults.map((result, index) => (
+                <div
+                  key={index}
+                  className={`p-3 rounded-lg border ${
+                    result.success
+                      ? 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20'
+                      : 'border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`font-medium ${
+                      result.success
+                        ? 'text-green-800 dark:text-green-200'
+                        : 'text-red-800 dark:text-red-200'
+                    }`}>
+                      {result.success ? '✅' : '❌'} {result.category}: {result.test}
+                    </span>
+                    {result.duration && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {result.duration}ms
+                      </span>
+                    )}
+                  </div>
+                  {result.error && (
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                      Error: {result.error}
+                    </p>
+                  )}
+                  {result.data && (
+                    <details className="mt-2">
+                      <summary className="text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+                        View Details
+                      </summary>
+                      <pre className="text-xs text-gray-600 dark:text-gray-400 mt-1 bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto">
+                        {JSON.stringify(result.data, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Basic Database Tests */}
       {/* Stats Grid */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => (
@@ -268,7 +394,7 @@ export default function AdminPanel() {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Recent Battles
           </h3>
-        </div>
+                Basic Database Health Check
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {battles.slice(0, 5).map((battle) => (
             <div key={battle.id} className="p-6">
@@ -464,16 +590,16 @@ export default function AdminPanel() {
                 >
                   <tab.icon className="w-5 h-5" />
                   <span>{tab.label}</span>
-                </button>
+                Quick test of basic database operations
               ))}
             </nav>
           </div>
 
           {/* Tab Content */}
-          <div className="p-6">
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             {activeTab === 'overview' && renderOverviewTab()}
             {activeTab === 'users' && renderUsersTab()}
-            {activeTab === 'features' && renderFeaturesTab()}
+              <span>{runningTests ? 'Running Basic Tests...' : 'Run Basic Tests'}</span>
             {activeTab === 'database' && renderDatabaseTab()}
           </div>
         </div>

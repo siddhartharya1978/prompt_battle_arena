@@ -56,6 +56,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadProfile = async (userId: string) => {
+    if (!userId) {
+      console.warn('No userId provided to loadProfile');
+      return;
+    }
+    
     try {
       const { data } = await supabase
         .from('profiles')
@@ -68,6 +73,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           ...data,
           avatar_url: data.avatar_url || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'
         });
+      } else {
+        console.warn('No profile found for user:', userId);
       }
     } catch (error) {
       console.error('Error loading profile:', error);

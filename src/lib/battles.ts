@@ -11,6 +11,15 @@ type PromptEvolution = Database['public']['Tables']['prompt_evolution']['Row'];
 export const createBattle = async (battleData: Omit<BattleInsert, 'user_id'>): Promise<Battle> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
+  
+  // Validate required fields
+  if (!battleData.prompt?.trim()) {
+    throw new Error('Prompt is required');
+  }
+  
+  if (!battleData.models || battleData.models.length < 2) {
+    throw new Error('At least 2 models are required');
+  }
 
   const { data, error } = await supabase
     .from('battles')

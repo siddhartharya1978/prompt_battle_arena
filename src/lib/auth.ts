@@ -15,6 +15,23 @@ export interface Profile {
 }
 
 export const signUp = async (email: string, password: string, name: string) => {
+  // Validate inputs
+  if (!email?.trim()) {
+    throw new Error('Email is required');
+  }
+  
+  if (!password?.trim()) {
+    throw new Error('Password is required');
+  }
+  
+  if (!name?.trim()) {
+    throw new Error('Name is required');
+  }
+  
+  if (password.length < 6) {
+    throw new Error('Password must be at least 6 characters');
+  }
+  
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -31,6 +48,15 @@ export const signUp = async (email: string, password: string, name: string) => {
 };
 
 export const signIn = async (email: string, password: string) => {
+  // Validate inputs
+  if (!email?.trim()) {
+    throw new Error('Email is required');
+  }
+  
+  if (!password?.trim()) {
+    throw new Error('Password is required');
+  }
+  
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,

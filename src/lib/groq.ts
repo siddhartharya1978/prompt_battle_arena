@@ -32,6 +32,15 @@ export const callGroqAPI = async (
   cost: number;
   latency: number;
 }> => {
+  // Validate inputs
+  if (!model?.trim()) {
+    throw new Error('Model is required');
+  }
+  
+  if (!prompt?.trim()) {
+    throw new Error('Prompt is required');
+  }
+  
   // This will be called via Supabase Edge Function
   const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/groq-api`;
   
@@ -67,7 +76,13 @@ export const callGroqAPI = async (
       latency
     };
   } catch (error) {
-    console.error('API call failed:', error);
+    console.error('Groq API call failed:', error);
+    
+    // If it's a network error, provide more context
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Network error: Unable to connect to Groq API. Check your internet connection.');
+    }
+    
     throw error;
   }
 };
