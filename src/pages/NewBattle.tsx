@@ -228,16 +228,16 @@ export default function NewBattle() {
         </div>
 
         {/* Usage Status */}
-        {user && user.plan === 'free' && (
+        {user && user.plan === 'free' && user.battlesUsed !== undefined && user.battlesLimit !== undefined && (
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4 mb-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Zap className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 <span className="text-blue-900 dark:text-blue-100 font-medium">
-                  Daily Usage: {user.battles_used}/{user.battles_limit} battles
+                  Daily Usage: {user.battlesUsed}/{user.battlesLimit} battles
                 </span>
               </div>
-              {user.battles_used >= user.battles_limit ? (
+              {user.battlesUsed >= user.battlesLimit ? (
                 <div className="flex items-center space-x-2 text-orange-600 dark:text-orange-400">
                   <AlertCircle className="w-4 h-4" />
                   <span className="text-sm">Limit reached</span>
@@ -245,14 +245,14 @@ export default function NewBattle() {
               ) : (
                 <div className="flex items-center space-x-2 text-green-600 dark:text-green-400">
                   <CheckCircle className="w-4 h-4" />
-                  <span className="text-sm">{user.battles_limit - user.battles_used} remaining</span>
+                  <span className="text-sm">{user.battlesLimit - user.battlesUsed} remaining</span>
                 </div>
               )}
             </div>
             <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2 mt-2">
               <div 
                 className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(user.battles_used / user.battles_limit) * 100}%` }}
+                style={{ width: `${(user.battlesUsed / user.battlesLimit) * 100}%` }}
               />
             </div>
           </div>

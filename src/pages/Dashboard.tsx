@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useBattle } from '../contexts/BattleContext';
+import { Battle, BattleScore } from '../types';
 import Navigation from '../components/Navigation';
 import FeedbackWidget from '../components/FeedbackWidget';
 import { 
@@ -36,18 +37,23 @@ export default function Dashboard() {
   });
 
   const getModelInfo = (modelId: string) => {
+    if (!modelId) return { name: 'Unknown', icon: '🤖' };
     return models.find(m => m.id === modelId) || { name: modelId, icon: '🤖' };
   };
 
   useEffect(() => {
-    refreshBattles();
+    if (refreshBattles) {
+      refreshBattles().catch(error => {
+        console.error('Error refreshing battles:', error);
+      });
+    }
   }, [refreshBattles]);
 
   useEffect(() => {
     if (battles.length > 0) {
       const completedBattles = battles.filter(b => b.status === 'completed');
       const totalScore = completedBattles.reduce((sum, battle) => {
-        const winnerScore = battle.winner ? battle.scores[battle.winner] : null;
+        const winnerScore = battle.winner && battle.scores ? battle.scores[battle.winner] : null;
         return sum + (winnerScore?.overall || 0);
       }, 0);
 
@@ -60,7 +66,7 @@ export default function Dashboard() {
       });
       
       const favoriteModelId = Object.entries(modelCounts).sort(([,a], [,b]) => b - a)[0]?.[0];
-      const favoriteModel = favoriteModelId ? models.find(m => m.id === favoriteModelId)?.name || favoriteModelId : 'N/A';
+      const favoriteModel = favoriteModelId ? getModelInfo(favoriteModelId).name : 'N/A';
 
       setStats({
         totalBattles: battles.length,
@@ -71,7 +77,7 @@ export default function Dashboard() {
     }
   }, [battles, models]);
 
-  const recentBattles = battles.slice(0, 5);
+  const recentBattles = (battles || []).slice(0, 5);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -106,7 +112,7 @@ export default function Dashboard() {
         </div>
 
         {/* Usage Status (Free Users) */}
-        {user && user.plan === 'free' && (
+        {user && user.plan === 'free' && user.battlesUsed !== undefined && user.battlesLimit !== undefined && (
           <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-2xl p-6 mb-8 border border-blue-200 dark:border-blue-700">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -114,12 +120,12 @@ export default function Dashboard() {
                   Daily Battle Usage
                 </h3>
                 <p className="text-gray-600 dark:text-gray-300 text-sm">
-                  {user.battles_used}/{user.battles_limit} battles used today
+                  {user.battlesUsed}/{user.battlesLimit} battles used today
                 </p>
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {user.battles_limit - user.battles_used}
+                  {user.battlesLimit - user.battlesUsed}
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-300">remaining</div>
               </div>
@@ -128,7 +134,7 @@ export default function Dashboard() {
             <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-3 mb-4">
               <div 
                 className="bg-gradient-to-r from-blue-600 to-purple-600 h-3 rounded-full transition-all duration-300"
-                style={{ width: `${(user.battles_used / user.battles_limit) * 100}%` }}
+                style={{ width: `${(user.battlesUsed / user.battlesLimit) * 100}%` }}
               />
             </div>
             
@@ -270,7 +276,7 @@ export default function Dashboard() {
                 <div className="divide-y divide-gray-200 dark:divide-gray-700">
                   {recentBattles.map((battle) => {
                     const winnerModel = battle.winner ? getModelInfo(battle.winner) : null;
-                    const winnerScore = battle.winner ? battle.scores[battle.winner] : null;
+                    const winnerScore = battle.winner && battle.scores ? battle.scores[battle.winner] : null;
 
                     return (
                       <div key={battle.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
@@ -310,11 +316,11 @@ export default function Dashboard() {
                             <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
                               <div className="flex items-center">
                                 <Users className="w-4 h-4 mr-1" />
-                                {battle.models.length} models
+                                {battle.models?.length || 0} models
                               </div>
                               <div className="flex items-center">
                                 <Calendar className="w-4 h-4 mr-1" />
-                                {new Date(battle.createdAt).toLocaleDateString('en-IN')}
+                                {battle.createdAt ? new Date(battle.createdAt).toLocaleDateString('en-IN') : 'Unknown'}
                               </div>
                               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                 battle.status === 'completed' 

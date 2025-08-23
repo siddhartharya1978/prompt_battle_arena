@@ -1,15 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { createBattle as createBattleAPI, getUserBattles, getBattle as getBattleAPI, runBattle, BattleData, Battle } from '../lib/battles';
-
-interface Model {
-  id: string;
-  name: string;
-  provider: string;
-  description: string;
-  icon: string;
-  available: boolean;
-  premium: boolean;
-}
+import { createBattle as createBattleAPI, getUserBattles, getBattle as getBattleAPI, runBattle } from '../lib/battles';
+import { Battle, BattleData, Model } from '../types';
 
 interface BattleContextType {
   battles: Battle[];
@@ -124,22 +115,30 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       const userBattles = await getUserBattles();
-      setBattles(userBattles);
+      setBattles(userBattles || []);
     } catch (error) {
       console.error('Error refreshing battles:', error);
+      setBattles([]);
     } finally {
       setLoading(false);
     }
   };
 
   const createBattle = async (battleData: BattleData): Promise<Battle> => {
-    const battle = await createBattleAPI(battleData);
-    // Refresh battles to include the new one
-    await refreshBattles();
-    return battle;
+    try {
+      const battle = await createBattleAPI(battleData);
+      // Refresh battles to include the new one
+      await refreshBattles();
+      return battle;
+    } catch (error) {
+      console.error('Error creating battle:', error);
+      throw error;
+    }
   };
 
   const getBattle = (battleId: string): Battle | null => {
+    if (!battleId) return null;
+    
     // First check in current battles array
     const existingBattle = battles.find(b => b.id === battleId);
     if (existingBattle) {

@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { signUp, signIn, signOut, getProfile, updateProfile, Profile } from '../lib/auth';
+import { signUp, signIn, signOut, getProfile, updateProfile } from '../lib/auth';
+import { Profile, transformProfileFromDB } from '../types';
 import toast from 'react-hot-toast';
 
 interface AuthContextType {
-  user: (Profile & { avatar: string }) | null;
+  user: Profile | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
@@ -17,7 +18,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<(Profile & { avatar: string }) | null>(null);
+  const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -62,10 +63,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const profile = await getProfile(authUser.id);
       if (profile) {
-        setUser({
-          ...profile,
-          avatar: profile.avatar_url || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'
-        });
+        const transformedProfile = transformProfileFromDB(profile);
+        setUser(transformedProfile);
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -82,15 +81,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: 'demo-user-id',
           email: 'demo@example.com',
           name: 'Demo User',
-          avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
-          avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
+          avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
           plan: 'free' as const,
           role: 'user' as const,
-          battles_used: 0,
-          battles_limit: 3,
-          last_reset_at: new Date().toISOString().split('T')[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          battlesUsed: 0,
+          battlesLimit: 3,
+          lastResetAt: new Date().toISOString().split('T')[0],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         };
         localStorage.setItem('demo_session', JSON.stringify(demoUser));
         setUser(demoUser);
@@ -102,15 +100,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: 'admin-user-id',
           email: 'admin@pba.com',
           name: 'Admin User',
-          avatar_url: 'https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
-          avatar: 'https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
+          avatarUrl: 'https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
           plan: 'premium' as const,
           role: 'admin' as const,
-          battles_used: 0,
-          battles_limit: 999,
-          last_reset_at: new Date().toISOString().split('T')[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          battlesUsed: 0,
+          battlesLimit: 999,
+          lastResetAt: new Date().toISOString().split('T')[0],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         };
         localStorage.setItem('demo_session', JSON.stringify(adminUser));
         setUser(adminUser);
@@ -157,18 +154,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Handle demo users
       const demoSession = localStorage.getItem('demo_session');
       if (demoSession) {
-        const updatedUser = { ...user, ...updates };
+        const updatedUser = { 
+          ...user, 
+          ...updates,
+          updatedAt: new Date().toISOString()
+        };
         localStorage.setItem('demo_session', JSON.stringify(updatedUser));
         setUser(updatedUser);
         return;
       }
 
       // Real user update
-      const updatedProfile = await updateProfile(user.id, updates);
-      setUser({
-        ...updatedProfile,
-        avatar: updatedProfile.avatar_url || user.avatar
-      });
+      const dbUpdates: any = {};
+      if (updates.name !== undefined) dbUpdates.name = updates.name;
+      if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
+      
+      const updatedProfile = await updateProfile(user.id, dbUpdates);
+      const transformedProfile = transformProfileFromDB(updatedProfile);
+      setUser(transformedProfile);
     } catch (error) {
       console.error('Error updating profile:', error);
       throw error;
@@ -184,7 +187,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (demoSession) {
         const updatedUser = { 
           ...user, 
-          battles_used: Math.min(user.battles_used + 1, user.battles_limit) 
+          battlesUsed: Math.min(user.battlesUsed + 1, user.battlesLimit),
+          updatedAt: new Date().toISOString()
         };
         localStorage.setItem('demo_session', JSON.stringify(updatedUser));
         setUser(updatedUser);
@@ -193,12 +197,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Real user update
       const updatedProfile = await updateProfile(user.id, {
-        battles_used: Math.min(user.battles_used + 1, user.battles_limit)
+        battles_used: Math.min(user.battlesUsed + 1, user.battlesLimit)
       });
-      setUser({
-        ...updatedProfile,
-        avatar: updatedProfile.avatar_url || user.avatar
-      });
+      const transformedProfile = transformProfileFromDB(updatedProfile);
+      setUser(transformedProfile);
     } catch (error) {
       console.error('Error incrementing battle usage:', error);
     }

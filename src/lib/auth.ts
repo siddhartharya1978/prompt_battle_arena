@@ -1,18 +1,5 @@
 import { supabase } from './supabase';
-
-export interface Profile {
-  id: string;
-  email: string;
-  name: string;
-  avatar_url: string | null;
-  plan: 'free' | 'premium';
-  role: 'user' | 'admin';
-  battles_used: number;
-  battles_limit: number;
-  last_reset_at: string;
-  created_at: string;
-  updated_at: string;
-}
+import { Profile, transformProfileFromDB } from '../types';
 
 export const signUp = async (email: string, password: string, name: string) => {
   // Validate inputs
@@ -98,6 +85,8 @@ export const signOut = async () => {
 };
 
 export const getProfile = async (userId: string): Promise<Profile | null> => {
+  if (!userId) return null;
+  
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
@@ -109,19 +98,30 @@ export const getProfile = async (userId: string): Promise<Profile | null> => {
     return null;
   }
 
-  return data;
+  return data ? transformProfileFromDB(data) : null;
 };
 
 export const updateProfile = async (userId: string, updates: Partial<Profile>) => {
+  if (!userId) throw new Error('User ID is required');
+  
+  // Convert camelCase to snake_case for database
+  const dbUpdates: any = {};
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
+  if (updates.plan !== undefined) dbUpdates.plan = updates.plan;
+  if (updates.role !== undefined) dbUpdates.role = updates.role;
+  if (updates.battlesUsed !== undefined) dbUpdates.battles_used = updates.battlesUsed;
+  if (updates.battlesLimit !== undefined) dbUpdates.battles_limit = updates.battlesLimit;
+  
   const { data, error } = await supabase
     .from('profiles')
-    .update(updates)
+    .update(dbUpdates)
     .eq('id', userId)
     .select()
     .single();
 
   if (error) throw error;
-  return data;
+  return transformProfileFromDB(data);
 };
 
 export const updateProfileWithAvatar = async (
@@ -143,5 +143,10 @@ export const updateProfileWithAvatar = async (
     }
   }
 
+  // Convert camelCase updates to snake_case for database
+  const dbUpdates: any = {};
+  if (finalUpdates.name !== undefined) dbUpdates.name = finalUpdates.name;
+  if (finalUpdates.avatarUrl !== undefined) dbUpdates.avatar_url = finalUpdates.avatarUrl;
+  
   return updateProfile(userId, finalUpdates);
 };
