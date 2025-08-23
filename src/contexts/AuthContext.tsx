@@ -154,9 +154,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Handle demo users
       const demoSession = localStorage.getItem('demo_session');
       if (demoSession) {
-        const updatedUser = { 
-          ...user, 
-          ...updates,
+        const updatedUser = {
+          ...user,
+          name: updates.name !== undefined ? updates.name : user.name,
+          avatarUrl: updates.avatarUrl !== undefined ? updates.avatarUrl : user.avatarUrl,
+          plan: updates.plan !== undefined ? updates.plan : user.plan,
+          role: updates.role !== undefined ? updates.role : user.role,
+          battlesUsed: updates.battlesUsed !== undefined ? updates.battlesUsed : user.battlesUsed,
+          battlesLimit: updates.battlesLimit !== undefined ? updates.battlesLimit : user.battlesLimit,
           updatedAt: new Date().toISOString()
         };
         localStorage.setItem('demo_session', JSON.stringify(updatedUser));
@@ -185,6 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Handle demo users
       const demoSession = localStorage.getItem('demo_session');
       if (demoSession) {
+        if (!user) return;
         const updatedUser = { 
           ...user, 
           battlesUsed: Math.min(user.battlesUsed + 1, user.battlesLimit),
@@ -196,6 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Real user update
+      if (!user) return;
       const updatedProfile = await updateProfile(user.id, {
         battles_used: Math.min(user.battlesUsed + 1, user.battlesLimit)
       });

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useBattle } from '../contexts/BattleContext';
+import { BattleData } from '../types';
 import Navigation from '../components/Navigation';
 import FeedbackWidget from '../components/FeedbackWidget';
 import { 
@@ -172,7 +173,10 @@ export default function NewBattle() {
     }
 
     // Check usage limits
-    if (user.plan === 'free' && user.battles_used >= user.battles_limit) {
+    if (user.plan === 'free' && 
+        typeof user.battlesUsed === 'number' && 
+        typeof user.battlesLimit === 'number' && 
+        user.battlesUsed >= user.battlesLimit) {
       toast.error(`You've reached your daily limit of ${user.battles_limit} battles. Upgrade to Premium for unlimited battles!`);
       return;
     }
@@ -649,7 +653,12 @@ export default function NewBattle() {
             <div className="text-center">
               <button
                 onClick={handleCreateBattle}
-                disabled={!canCreateBattle() || isCreating || (user?.plan === 'free' && user.battlesUsed !== undefined && user.battlesLimit !== undefined && user.battlesUsed >= user.battlesLimit)}
+                disabled={!canCreateBattle() || isCreating || (
+                  user?.plan === 'free' && 
+                  typeof user?.battlesUsed === 'number' && 
+                  typeof user?.battlesLimit === 'number' && 
+                  user.battlesUsed >= user.battlesLimit
+                )}
                 className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg hover:shadow-xl"
               >
                 {isCreating ? (
@@ -672,7 +681,10 @@ export default function NewBattle() {
                 </p>
               )}
               
-              {user?.plan === 'free' && user.battlesUsed !== undefined && user.battlesLimit !== undefined && user.battlesUsed >= user.battlesLimit && (
+              {user?.plan === 'free' && 
+               typeof user?.battlesUsed === 'number' && 
+               typeof user?.battlesLimit === 'number' && 
+               user.battlesUsed >= user.battlesLimit && (
                 <p className="text-sm text-orange-600 dark:text-orange-400 mt-2">
                   Daily limit reached. Upgrade to Premium for unlimited battles!
                 </p>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useBattle } from '../contexts/BattleContext';
+import { Battle, Model } from '../types';
 import Navigation from '../components/Navigation';
 import FeedbackWidget from '../components/FeedbackWidget';
 import { 

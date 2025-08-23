@@ -1,7 +1,8 @@
 import { supabase } from './supabase';
 import { supabaseAdmin } from './supabase';
-import { signUp, signIn, getProfile } from './auth';
-import { createBattle, runBattle } from './battles';
+import { signUp, signIn, getProfile } from '../lib/auth';
+import { createBattle, runBattle } from '../lib/battles';
+import { Profile, Battle } from '../types';
 
 export interface TestResult {
   test: string;

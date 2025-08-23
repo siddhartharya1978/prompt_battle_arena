@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { updateProfileWithAvatar } from '../lib/auth';
+import { updateProfile } from '../lib/auth';
 import Navigation from '../components/Navigation';
 import { 
   User, 
