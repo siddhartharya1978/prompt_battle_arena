@@ -1,7 +1,7 @@
 {
   "functions": {
-    "src/api/**/*.ts": {
-      "runtime": "nodejs18.x"
+    "supabase/functions/**/*.ts": {
+      "runtime": "edge"
     }
   },
   "env": {

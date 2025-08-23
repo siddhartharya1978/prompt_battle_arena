@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useBattle } from '../contexts/BattleContext';
-import { isGroqApiConfigured } from '../lib/groq';
 import Navigation from '../components/Navigation';
-import GroqApiKeyModal from '../components/GroqApiKeyModal';
 import { 
   Zap, 
   Settings, 
@@ -35,7 +33,6 @@ export default function NewBattle() {
   const { models, createBattle, runBattle, loading } = useBattle();
   const navigate = useNavigate();
 
-  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [battleType, setBattleType] = useState<'prompt' | 'response'>('response');
   const [battleMode, setBattleMode] = useState<'auto' | 'manual'>('auto');
   const [prompt, setPrompt] = useState('');
@@ -173,12 +170,6 @@ export default function NewBattle() {
   };
 
   const handleRunBattle = async () => {
-    // Check if Groq API key is configured
-    if (!isGroqApiConfigured()) {
-      setShowApiKeyModal(true);
-      return;
-    }
-
     if (!canRunBattle) {
       toast.error('Daily battle limit reached. Upgrade to Premium for unlimited battles.');
       return;
@@ -827,15 +818,6 @@ export default function NewBattle() {
           </div>
         </div>
       </div>
-
-      <GroqApiKeyModal 
-        isOpen={showApiKeyModal} 
-        onClose={() => setShowApiKeyModal(false)}
-        onSuccess={() => {
-          setShowApiKeyModal(false);
-          handleRunBattle();
-        }}
-      />
     </div>
   );
 }
