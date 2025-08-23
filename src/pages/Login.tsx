@@ -14,12 +14,28 @@ export default function Login() {
   const { login, register } = useAuth();
   const navigate = useNavigate();
 
+  // Demo account helper
+  const fillDemoCredentials = (type: 'user' | 'admin') => {
+    if (type === 'user') {
+      setEmail('demo@example.com');
+      setPassword('demo123');
+    } else {
+      setEmail('admin@pba.com');
+      setPassword('admin123');
+    }
+  };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
       if (isSignUp) {
+        if (!name.trim()) {
+          throw new Error('Name is required');
+        }
+        if (password.length < 6) {
+          throw new Error('Password must be at least 6 characters');
+        }
         await register(email, password, name);
         toast.success('Account created! Please check your email to verify.');
       } else {
@@ -28,7 +44,19 @@ export default function Login() {
         navigate('/dashboard');
       }
     } catch (error: any) {
-      toast.error(error.message || 'Something went wrong');
+      let errorMessage = 'Something went wrong';
+      
+      if (error.message?.includes('Invalid login credentials')) {
+        errorMessage = 'Invalid email or password. Try the demo accounts below.';
+      } else if (error.message?.includes('Email not confirmed')) {
+        errorMessage = 'Please check your email and click the confirmation link.';
+      } else if (error.message?.includes('User already registered')) {
+        errorMessage = 'An account with this email already exists. Try signing in instead.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -55,6 +83,28 @@ export default function Login() {
           </p>
         </div>
 
+        {/* Demo Accounts */}
+        {!isSignUp && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6">
+            <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">Demo Accounts:</h3>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => fillDemoCredentials('user')}
+                className="w-full text-left text-xs text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 p-2 rounded bg-white dark:bg-blue-800/30 hover:bg-blue-100 dark:hover:bg-blue-800/50 transition-colors"
+              >
+                <strong>Demo User:</strong> demo@example.com / demo123
+              </button>
+              <button
+                type="button"
+                onClick={() => fillDemoCredentials('admin')}
+                className="w-full text-left text-xs text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 p-2 rounded bg-white dark:bg-blue-800/30 hover:bg-blue-100 dark:hover:bg-blue-800/50 transition-colors"
+              >
+                <strong>Demo Admin:</strong> admin@pba.com / admin123
+              </button>
+            </div>
+          </div>
+        )}
         {/* Login Form */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
