@@ -1,5 +1,4 @@
 import { supabase } from './supabase';
-import type { User } from '@supabase/supabase-js';
 
 export interface Profile {
   id: string;
@@ -23,7 +22,6 @@ export const signUp = async (email: string, password: string, name: string) => {
       data: {
         name,
         full_name: name,
-        display_name: name,
       },
     },
   });
@@ -47,27 +45,6 @@ export const signOut = async () => {
   if (error) throw error;
 };
 
-export const resetPassword = async (email: string) => {
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/reset-password`,
-  });
-
-  if (error) throw error;
-};
-
-export const updatePassword = async (password: string) => {
-  const { error } = await supabase.auth.updateUser({
-    password,
-  });
-
-  if (error) throw error;
-};
-
-export const getCurrentUser = async (): Promise<User | null> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
-};
-
 export const getProfile = async (userId: string): Promise<Profile | null> => {
   const { data, error } = await supabase
     .from('profiles')
@@ -76,9 +53,7 @@ export const getProfile = async (userId: string): Promise<Profile | null> => {
     .single();
 
   if (error) {
-    if (error.code !== 'PGRST116') {
-      console.error('Error fetching profile:', error);
-    }
+    console.error('Error fetching profile:', error);
     return null;
   }
 
@@ -89,30 +64,6 @@ export const updateProfile = async (userId: string, updates: Partial<Profile>) =
   const { data, error } = await supabase
     .from('profiles')
     .update(updates)
-    .eq('id', userId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
-};
-
-export const updateProfileWithAvatar = async (
-  userId: string, 
-  updates: Partial<Profile>, 
-  avatarFile?: File
-) => {
-  let avatarUrl = updates.avatar_url;
-
-  if (avatarFile) {
-    const { uploadAvatar } = await import('./storage');
-    const { publicUrl } = await uploadAvatar(avatarFile, userId);
-    avatarUrl = publicUrl;
-  }
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .update({ ...updates, avatar_url: avatarUrl })
     .eq('id', userId)
     .select()
     .single();

@@ -16,16 +16,10 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isLoading) return;
-
     setIsLoading(true);
 
     try {
       if (isSignUp) {
-        if (!name.trim()) {
-          toast.error('Please enter your name');
-          return;
-        }
         await register(email, password, name);
         toast.success('Account created successfully!');
       } else {
@@ -35,26 +29,6 @@ export default function Login() {
       navigate('/dashboard');
     } catch (error: any) {
       toast.error(error.message || 'Authentication failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDemoLogin = async (userType: 'user' | 'admin') => {
-    if (isLoading) return;
-    
-    setIsLoading(true);
-    
-    try {
-      if (userType === 'admin') {
-        await login('admin@pba.com', 'admin123');
-      } else {
-        await login('demo@example.com', 'demo123');
-      }
-      toast.success('Demo login successful!');
-      navigate('/dashboard');
-    } catch (error: any) {
-      toast.error(error.message || 'Demo login failed');
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +51,7 @@ export default function Login() {
             {isSignUp ? 'Create Account' : 'Welcome Back'}
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
-            {isSignUp ? 'Join the Prompt Battle Arena' : 'Sign in to your Prompt Battle Arena account'}
+            {isSignUp ? 'Join the Prompt Battle Arena' : 'Sign in to your account'}
           </p>
         </div>
 
@@ -176,29 +150,6 @@ export default function Login() {
             >
               {isSignUp ? 'Already have an account? Sign in' : 'Need an account? Sign up'}
             </button>
-          </div>
-
-          {/* Demo Login Buttons */}
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-center text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Try the demo:
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => handleDemoLogin('user')}
-                disabled={isLoading}
-                className="flex items-center justify-center px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
-              >
-                Demo User
-              </button>
-              <button
-                onClick={() => handleDemoLogin('admin')}
-                disabled={isLoading}
-                className="flex items-center justify-center px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
-              >
-                Demo Admin
-              </button>
-            </div>
           </div>
 
           {/* Footer Links */}
