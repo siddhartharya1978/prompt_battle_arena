@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useBattle } from '../contexts/BattleContext';
+import { isGroqApiConfigured } from '../lib/groq';
 import Navigation from '../components/Navigation';
+import GroqApiKeyModal from '../components/GroqApiKeyModal';
 import { 
   Zap, 
   Settings, 
@@ -30,9 +32,10 @@ import toast from 'react-hot-toast';
 
 export default function NewBattle() {
   const { user, incrementBattleUsage } = useAuth();
-  const { models, createBattle, runBattle } = useBattle();
+  const { models, createBattle, runBattle, loading } = useBattle();
   const navigate = useNavigate();
 
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [battleType, setBattleType] = useState<'prompt' | 'response'>('response');
   const [battleMode, setBattleMode] = useState<'auto' | 'manual'>('auto');
   const [prompt, setPrompt] = useState('');
@@ -47,7 +50,7 @@ export default function NewBattle() {
   const [autoSelectedModels, setAutoSelectedModels] = useState<string[]>([]);
   const [selectionReason, setSelectionReason] = useState('');
 
-  const canRunBattle = user && user.battlesUsed < user.battlesLimit;
+  const canRunBattle = user && user.battles_used < user.battles_limit;
   const promptLength = prompt.length;
   const maxPromptLength = 2000;
 
@@ -170,6 +173,12 @@ export default function NewBattle() {
   };
 
   const handleRunBattle = async () => {
+    // Check if Groq API key is configured
+    if (!isGroqApiConfigured()) {
+      setShowApiKeyModal(true);
+      return;
+    }
+
     if (!canRunBattle) {
       toast.error('Daily battle limit reached. Upgrade to Premium for unlimited battles.');
       return;
@@ -195,16 +204,16 @@ export default function NewBattle() {
     
     try {
       const battle = await createBattle({
-        battleType,
+        battle_type: battleType,
         prompt: prompt.trim(),
+        prompt_category: promptCategory,
         models: modelsToUse,
         mode,
+        battle_mode: battleMode,
         rounds,
-        maxTokens,
+        max_tokens: maxTokens,
         temperature,
-        battleMode,
-        promptCategory,
-        autoSelectionReason: battleMode === 'auto' ? selectionReason : undefined
+        auto_selection_reason: battleMode === 'auto' ? selectionReason : undefined
       });
 
       incrementBattleUsage();
@@ -737,7 +746,7 @@ export default function NewBattle() {
                     Daily limit reached
                   </p>
                   <p className="text-sm text-red-600 dark:text-red-400">
-                    You've used all {user?.battlesLimit} battles for today. Upgrade to Premium for unlimited battles.
+                    You've used all {user?.battles_limit} battles for today. Upgrade to Premium for unlimited battles.
                   </p>
                 </div>
               </div>
@@ -751,11 +760,12 @@ export default function NewBattle() {
               !canRunBattle || 
               !prompt.trim() || 
               (battleMode === 'auto' ? autoSelectedModels.length < 2 : selectedModels.length < 2) || 
-              isRunning
+              isRunning ||
+              loading
             }
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-4 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-2"
           >
-            {isRunning ? (
+            {isRunning || loading ? (
               <>
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 <span>
@@ -817,6 +827,15 @@ export default function NewBattle() {
           </div>
         </div>
       </div>
+
+      <GroqApiKeyModal 
+        isOpen={showApiKeyModal} 
+        onClose={() => setShowApiKeyModal(false)}
+        onSuccess={() => {
+          setShowApiKeyModal(false);
+          handleRunBattle();
+        }}
+      />
     </div>
   );
 }

@@ -20,12 +20,12 @@ import {
 } from 'lucide-react';
 
 export default function Dashboard() {
-  const { user } = useAuth();
-  const { battles } = useBattle();
+  const { user, loading: authLoading } = useAuth();
+  const { battles, loading: battlesLoading } = useBattle();
   const navigate = useNavigate();
 
   const recentBattles = battles.slice(0, 3);
-  const usagePercentage = user ? (user.battlesUsed / user.battlesLimit) * 100 : 0;
+  const usagePercentage = user ? (user.battles_used / user.battles_limit) * 100 : 0;
 
   const stats = [
     {
@@ -131,7 +131,7 @@ export default function Dashboard() {
             <div className="mb-4">
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="text-gray-600 dark:text-gray-300">
-                  {user?.battlesUsed} / {user?.battlesLimit} battles
+                  {user?.battles_used} / {user?.battles_limit} battles
                 </span>
                 <span className="text-gray-600 dark:text-gray-300">
                   {Math.round(usagePercentage)}%
@@ -149,6 +149,7 @@ export default function Dashboard() {
             </div>
 
             {user?.battlesUsed === user?.battlesLimit && (
+            {user?.battles_used === user?.battles_limit && (
               <div className="text-center">
                 <p className="text-sm text-red-600 dark:text-red-400 mb-3">
                   Daily limit reached
@@ -212,11 +213,11 @@ export default function Dashboard() {
                       <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
                         <div className="flex items-center">
                           <Users className="w-4 h-4 mr-1" />
-                          {battle.models.length} models
+                          {battle.models?.length || 0} models
                         </div>
                         <div className="flex items-center">
                           <Clock className="w-4 h-4 mr-1" />
-                          {new Date(battle.createdAt).toLocaleDateString('en-IN')}
+                          {new Date(battle.created_at).toLocaleDateString('en-IN')}
                         </div>
                         {battle.winner && (
                           <div className="flex items-center">
@@ -237,6 +238,13 @@ export default function Dashboard() {
               ))
             ) : (
               <div className="p-12 text-center">
+                {authLoading || battlesLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <span className="ml-3 text-gray-600 dark:text-gray-300">Loading battles...</span>
+                  </div>
+                ) : (
+                  <>
                 <Zap className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                   No battles yet
@@ -251,6 +259,8 @@ export default function Dashboard() {
                   <Plus className="w-5 h-5 mr-2" />
                   Create Your First Battle
                 </Link>
+                  </>
+                )}
               </div>
             )}
           </div>

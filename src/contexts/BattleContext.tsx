@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useState } from 'react';
+import { createBattle as createBattleDB, getBattle as getBattleDB, getUserBattles, runBattle as runBattleDB } from '../lib/battles';
+import type { Database } from '../lib/supabase';
 
+type Battle = Database['public']['Tables']['battles']['Row'] & {
+  battle_responses?: Database['public']['Tables']['battle_responses']['Row'][];
+  battle_scores?: Database['public']['Tables']['battle_scores']['Row'][];
+  prompt_evolution?: Database['public']['Tables']['prompt_evolution']['Row'][];
+};
 interface BattleModel {
   id: string;
   name: string;
@@ -14,59 +21,28 @@ interface BattleModel {
   isPreview?: boolean;
 }
 
-interface BattleResponse {
-  id: string;
-  modelId: string;
-  response: string;
-  latency: number;
-  tokens: number;
-  cost: number;
-}
-
-interface JudgeScore {
-  accuracy: number;
-  reasoning: number;
-  structure: number;
-  creativity: number;
-  overall: number;
-  notes: string;
-}
-
-interface Battle {
-  id: string;
-  battleType: 'prompt' | 'response';
+interface CreateBattleData {
+  battle_type: 'prompt' | 'response';
   prompt: string;
-  promptCategory: string;
+  prompt_category: string;
   models: string[];
   mode: 'standard' | 'turbo';
-  battleMode: 'auto' | 'manual';
+  battle_mode: 'auto' | 'manual';
   rounds: number;
-  maxTokens: number;
+  max_tokens: number;
   temperature: number;
-  createdAt: string;
-  status: 'running' | 'completed' | 'failed';
-  responses: BattleResponse[];
-  scores: Record<string, JudgeScore>;
-  winner: string;
-  totalCost: number;
-  autoSelectionReason?: string;
-  promptEvolution?: Array<{
-    round: number;
-    prompt: string;
-    modelId: string;
-    improvements: string[];
-    score: number;
-  }>;
-  finalPrompt?: string;
+  auto_selection_reason?: string;
 }
 
 interface BattleContextType {
   battles: Battle[];
   currentBattle: Battle | null;
   models: BattleModel[];
-  createBattle: (battleData: Partial<Battle>) => Promise<Battle>;
+  loading: boolean;
+  createBattle: (battleData: CreateBattleData) => Promise<Battle>;
   getBattle: (id: string) => Battle | null;
   runBattle: (battleId: string) => Promise<void>;
+  refreshBattles: () => Promise<void>;
 }
 
 const BattleContext = createContext<BattleContextType | null>(null);
@@ -610,119 +586,72 @@ const mockBattles: Battle[] = [
 ];
 
 export function BattleProvider({ children }: { children: React.ReactNode }) {
-  const [battles, setBattles] = useState<Battle[]>(mockBattles);
+  const [battles, setBattles] = useState<Battle[]>([]);
   const [currentBattle, setCurrentBattle] = useState<Battle | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const createBattle = async (battleData: Partial<Battle>): Promise<Battle> => {
-    const newBattle: Battle = {
-      id: `battle_${Date.now()}`,
-      battleType: battleData.battleType || 'response',
-      prompt: battleData.prompt || '',
-      promptCategory: battleData.promptCategory || 'general',
-      models: battleData.models || [],
-      mode: battleData.mode || 'standard',
-      battleMode: battleData.battleMode || 'manual',
-      rounds: battleData.rounds || 1,
-      maxTokens: battleData.maxTokens || 500,
-      temperature: battleData.temperature || 0.7,
-      createdAt: new Date().toISOString(),
-      status: 'running',
-      responses: [],
-      scores: {},
-      winner: '',
-      totalCost: 0,
-      autoSelectionReason: battleData.autoSelectionReason
-    };
+  useEffect(() => {
+    refreshBattles();
+  }, []);
 
-    setBattles(prev => [newBattle, ...prev]);
-    setCurrentBattle(newBattle);
-    
-    return newBattle;
+  const refreshBattles = async () => {
+    setLoading(true);
+    try {
+      const userBattles = await getUserBattles();
+      setBattles(userBattles);
+    } catch (error) {
+      console.error('Error refreshing battles:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createBattle = async (battleData: CreateBattleData): Promise<Battle> => {
+    setLoading(true);
+    try {
+      const battle = await createBattleDB(battleData);
+      setBattles(prev => [battle, ...prev]);
+      setCurrentBattle(battle);
+      return battle;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getBattle = (id: string): Battle | null => {
-    return battles.find(battle => battle.id === id) || null;
+    // First check local state
+    const localBattle = battles.find(battle => battle.id === id);
+    if (localBattle) return localBattle;
+    
+    // If not found locally, try to fetch from database
+    getBattleDB(id).then(battle => {
+      if (battle) {
+        setBattles(prev => {
+          const exists = prev.find(b => b.id === id);
+          if (exists) return prev;
+          return [battle, ...prev];
+        });
+        setCurrentBattle(battle);
+      }
+    });
+    
+    return null;
   };
 
-  const runBattle = async (battleId: string): Promise<void> => {
-    const battle = battles.find(b => b.id === battleId);
-    if (!battle) return;
-
-    // Simulate battle execution with longer delay for auto mode
-    const delay = battle.battleMode === 'auto' ? 4000 : 2000;
-    await new Promise(resolve => setTimeout(resolve, delay));
-
-    let responses: BattleResponse[] = [];
-    let promptEvolution: Array<{
-      round: number;
-      prompt: string;
-      modelId: string;
-      improvements: string[];
-      score: number;
-    }> = [];
-    let finalPrompt = battle.prompt;
-
-    if (battle.battleType === 'prompt') {
-      // Generate prompt evolution for prompt battles
-      promptEvolution = generateMockPromptEvolution(battle.prompt, battle.models, battle.promptCategory, battle.battleMode);
-      finalPrompt = promptEvolution[promptEvolution.length - 1]?.prompt || battle.prompt;
-    } else {
-      // Generate mock responses for response battles
-      responses = battle.models.map((modelId, index) => ({
-        id: `resp_${Date.now()}_${index}`,
-        modelId,
-        response: generateMockResponse(battle.prompt, modelId, battle.promptCategory),
-        latency: Math.floor(Math.random() * 2000) + 500,
-        tokens: Math.floor(Math.random() * 200) + 50,
-        cost: parseFloat((Math.random() * 0.2 + 0.05).toFixed(2))
-      }));
-    }
-
-    // Generate mock scores and determine winner
-    const scores: Record<string, JudgeScore> = {};
-    let highestScore = 0;
-    let winner = battle.models[0];
-
-    battle.models.forEach(modelId => {
-      // Auto mode tends to achieve higher scores through iteration
-      const baseScore = battle.battleMode === 'auto' ? 8 : 7;
-      const variance = battle.battleMode === 'auto' ? 2 : 3;
+  const runBattleHandler = async (battleId: string): Promise<void> => {
+    setLoading(true);
+    try {
+      await runBattleDB(battleId);
+      await refreshBattles();
       
-      const score = {
-        accuracy: Math.floor(Math.random() * variance) + baseScore,
-        reasoning: Math.floor(Math.random() * variance) + baseScore,
-        structure: Math.floor(Math.random() * variance) + baseScore,
-        creativity: Math.floor(Math.random() * variance) + baseScore,
-        overall: 0,
-        notes: generateMockJudgeNotes(battle.battleMode, battle.promptCategory, battle.battleType)
-      };
-      score.overall = parseFloat(((score.accuracy + score.reasoning + score.structure + score.creativity) / 4).toFixed(1));
-      
-      if (score.overall > highestScore) {
-        highestScore = score.overall;
-        winner = modelId;
+      // Update current battle
+      const updatedBattle = await getBattleDB(battleId);
+      if (updatedBattle) {
+        setCurrentBattle(updatedBattle);
       }
-      
-      scores[modelId] = score;
-    });
-
-    const totalCost = battle.battleType === 'prompt' 
-      ? parseFloat((Math.random() * 0.3 + 0.1).toFixed(2)) // Prompt battles have different cost structure
-      : responses.reduce((sum, resp) => sum + resp.cost, 0);
-
-    const updatedBattle: Battle = {
-      ...battle,
-      status: 'completed',
-      responses,
-      scores,
-      winner,
-      totalCost: parseFloat(totalCost.toFixed(2)),
-      promptEvolution: battle.battleType === 'prompt' ? promptEvolution : undefined,
-      finalPrompt: battle.battleType === 'prompt' ? finalPrompt : undefined
-    };
-
-    setBattles(prev => prev.map(b => b.id === battleId ? updatedBattle : b));
-    setCurrentBattle(updatedBattle);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const generateMockPromptEvolution = (
@@ -960,9 +889,11 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       battles,
       currentBattle,
       models: mockModels,
+      loading,
       createBattle,
       getBattle,
-      runBattle
+      runBattle: runBattleHandler,
+      refreshBattles
     }}>
       {children}
     </BattleContext.Provider>

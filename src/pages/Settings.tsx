@@ -18,7 +18,7 @@ import {
 import toast from 'react-hot-toast';
 
 export default function Settings() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUserProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('profile');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -27,7 +27,7 @@ export default function Settings() {
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    avatar: user?.avatar || ''
+    avatar_url: user?.avatar_url || ''
   });
 
   // Notification settings
@@ -46,8 +46,16 @@ export default function Settings() {
   ];
 
   const handleSaveProfile = () => {
-    // In a real app, this would update the user profile
-    toast.success('Profile updated successfully!');
+    if (user) {
+      updateUserProfile({
+        name: profileData.name,
+        avatar_url: profileData.avatar_url
+      }).then(() => {
+        toast.success('Profile updated successfully!');
+      }).catch(() => {
+        toast.error('Failed to update profile');
+      });
+    }
   };
 
   const handleDeleteAccount = () => {
@@ -72,7 +80,7 @@ export default function Settings() {
             </label>
             <div className="flex items-center space-x-4">
               <img
-                src={profileData.avatar}
+                src={profileData.avatar_url || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'}
                 alt="Profile"
                 className="w-16 h-16 rounded-full"
               />
@@ -136,7 +144,7 @@ export default function Settings() {
                 <p className="text-sm text-gray-600 dark:text-gray-300">
                   {user?.plan === 'premium' 
                     ? 'Unlimited battles and premium features'
-                    : `${user?.battlesUsed}/${user?.battlesLimit} battles used today`
+                    : `${user?.battles_used}/${user?.battles_limit} battles used today`
                   }
                 </p>
               </div>
@@ -262,7 +270,7 @@ export default function Settings() {
           <div className="flex justify-between">
             <span className="text-gray-600 dark:text-gray-300">Member since</span>
             <span className="font-medium text-gray-900 dark:text-white">
-              {user?.joinedAt ? new Date(user.joinedAt).toLocaleDateString('en-IN') : 'N/A'}
+              {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-IN') : 'N/A'}
             </span>
           </div>
           <div className="flex justify-between">
