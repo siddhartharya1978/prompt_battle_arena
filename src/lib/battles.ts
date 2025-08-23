@@ -335,7 +335,12 @@ export const getUserBattles = async (): Promise<Battle[]> => {
 
   const { data, error } = await supabase
     .from('battles')
-    .select('*')
+    .select(`
+      *,
+      battle_responses(*),
+      battle_scores(*),
+      prompt_evolution(*)
+    `)
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
@@ -347,23 +352,54 @@ export const getUserBattles = async (): Promise<Battle[]> => {
   // Transform database format to frontend format
   return (data || []).map(battle => ({
     id: battle.id,
-    userId: battle.user_id,
-    battleType: battle.battle_type,
+    user_id: battle.user_id,
+    battle_type: battle.battle_type,
     prompt: battle.prompt,
-    finalPrompt: battle.final_prompt,
-    promptCategory: battle.prompt_category,
+    final_prompt: battle.final_prompt,
+    prompt_category: battle.prompt_category,
     models: battle.models,
     mode: battle.mode,
-    battleMode: battle.battle_mode,
+    battle_mode: battle.battle_mode,
     rounds: battle.rounds,
-    maxTokens: battle.max_tokens,
+    max_tokens: battle.max_tokens,
     temperature: battle.temperature,
     status: battle.status,
     winner: battle.winner,
-    totalCost: battle.total_cost,
-    autoSelectionReason: battle.auto_selection_reason,
-    createdAt: battle.created_at,
-    updatedAt: battle.updated_at
+    total_cost: battle.total_cost,
+    auto_selection_reason: battle.auto_selection_reason,
+    created_at: battle.created_at,
+    updated_at: battle.updated_at,
+    responses: (battle.battle_responses || []).map((r: any) => ({
+      id: r.id,
+      battle_id: r.battle_id,
+      model_id: r.model_id,
+      response: r.response,
+      latency: r.latency,
+      tokens: r.tokens,
+      cost: r.cost,
+      created_at: r.created_at
+    })),
+    scores: (battle.battle_scores || []).reduce((acc: any, s: any) => {
+      acc[s.model_id] = {
+        accuracy: s.accuracy,
+        reasoning: s.reasoning,
+        structure: s.structure,
+        creativity: s.creativity,
+        overall: s.overall,
+        notes: s.notes
+      };
+      return acc;
+    }, {}),
+    promptEvolution: (battle.prompt_evolution || []).map((p: any) => ({
+      id: p.id,
+      battle_id: p.battle_id,
+      round: p.round,
+      prompt: p.prompt,
+      model_id: p.model_id,
+      improvements: p.improvements,
+      score: p.score,
+      created_at: p.created_at
+    }))
   }));
 };
 
