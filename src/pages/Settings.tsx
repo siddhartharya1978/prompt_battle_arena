@@ -238,7 +238,7 @@ export default function Settings() {
                 <p className="text-sm text-gray-600 dark:text-gray-300">
                   {user?.plan === 'premium' 
                     ? 'Unlimited battles and premium features'
-                    : `${user?.battles_used || 0}/${user?.battles_limit || 3} battles used today`
+                    : `${user?.battlesUsed || 0}/${user?.battlesLimit || 3} battles used today`
                   }
                 </p>
               </div>
@@ -364,7 +364,7 @@ export default function Settings() {
           <div className="flex justify-between">
             <span className="text-gray-600 dark:text-gray-300">Member since</span>
             <span className="font-medium text-gray-900 dark:text-white">
-              {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-IN') : 'N/A'}
+              {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-IN') : 'N/A'}
             </span>
           </div>
           <div className="flex justify-between">

@@ -102,7 +102,7 @@ export default function Navigation() {
             <div className="relative group">
               <button className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                 <img
-                  src={user?.avatar}
+                  src={user?.avatarUrl || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'}
                   alt={user?.name}
                   className="w-8 h-8 rounded-full"
                 />

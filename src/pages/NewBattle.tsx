@@ -228,16 +228,16 @@ export default function NewBattle() {
         </div>
 
         {/* Usage Status */}
-        {user && user.plan === 'free' && user.battlesUsed !== undefined && user.battlesLimit !== undefined && (
+        {user && user.plan === 'free' && (
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4 mb-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Zap className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 <span className="text-blue-900 dark:text-blue-100 font-medium">
-                  Daily Usage: {user.battlesUsed}/{user.battlesLimit} battles
+                  Daily Usage: {user.battles_used}/{user.battles_limit} battles
                 </span>
               </div>
-              {user.battlesUsed >= user.battlesLimit ? (
+              {user.battles_used >= user.battles_limit ? (
                 <div className="flex items-center space-x-2 text-orange-600 dark:text-orange-400">
                   <AlertCircle className="w-4 h-4" />
                   <span className="text-sm">Limit reached</span>
@@ -245,14 +245,14 @@ export default function NewBattle() {
               ) : (
                 <div className="flex items-center space-x-2 text-green-600 dark:text-green-400">
                   <CheckCircle className="w-4 h-4" />
-                  <span className="text-sm">{user.battlesLimit - user.battlesUsed} remaining</span>
+                  <span className="text-sm">{user.battles_limit - user.battles_used} remaining</span>
                 </div>
               )}
             </div>
             <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2 mt-2">
               <div 
                 className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(user.battlesUsed / user.battlesLimit) * 100}%` }}
+                style={{ width: `${(user.battles_used / user.battles_limit) * 100}%` }}
               />
             </div>
           </div>
@@ -649,7 +649,7 @@ export default function NewBattle() {
             <div className="text-center">
               <button
                 onClick={handleCreateBattle}
-                disabled={!canCreateBattle() || isCreating || (user?.plan === 'free' && user.battles_used >= user.battles_limit)}
+                disabled={!canCreateBattle() || isCreating || (user?.plan === 'free' && user.battlesUsed !== undefined && user.battlesLimit !== undefined && user.battlesUsed >= user.battlesLimit)}
                 className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg hover:shadow-xl"
               >
                 {isCreating ? (
@@ -672,7 +672,7 @@ export default function NewBattle() {
                 </p>
               )}
               
-              {user?.plan === 'free' && user.battles_used >= user.battles_limit && (
+              {user?.plan === 'free' && user.battlesUsed !== undefined && user.battlesLimit !== undefined && user.battlesUsed >= user.battlesLimit && (
                 <p className="text-sm text-orange-600 dark:text-orange-400 mt-2">
                   Daily limit reached. Upgrade to Premium for unlimited battles!
                 </p>
