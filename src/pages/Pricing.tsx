@@ -278,7 +278,6 @@ export default function Pricing() {
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
                   Upgrade to Premium
                 </h3>
-                    : `${user?.battlesUsed || 0}/${user?.battlesLimit || 3} battles used today`
                   Unlock unlimited battles and premium features for just ₹999/month
                 </p>
               </div>
