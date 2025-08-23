@@ -166,27 +166,6 @@ export default function Login() {
           </div>
 
           {/* Demo Login Buttons */}
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-4">
-              Try the demo:
-            </p>
-            <div className="space-y-2">
-              <button
-                onClick={() => handleDemoLogin('user')}
-                disabled={loading}
-                className="w-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
-              >
-                Demo User Login
-              </button>
-              <button
-                onClick={() => handleDemoLogin('admin')}
-                disabled={loading}
-                className="w-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
-              >
-                Demo Admin Login
-              </button>
-            </div>
-          </div>
 
           {/* Footer Links */}
           <div className="mt-6 text-center text-sm">
@@ -197,15 +176,6 @@ export default function Login() {
         </div>
 
         {/* Additional Info */}
-        <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-          {!isSignUp && (
-            <>
-              <p className="mb-2">Demo credentials:</p>
-              <p>User: demo@example.com / demo123</p>
-              <p>Admin: admin@pba.com / admin123</p>
-            </>
-          )}
-        </div>
       </div>
     </div>
   );

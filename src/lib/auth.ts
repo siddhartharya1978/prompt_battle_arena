@@ -31,11 +31,6 @@ export const signUp = async (email: string, password: string, name: string) => {
 };
 
 export const signIn = async (email: string, password: string) => {
-  // Handle demo mode
-  if (!import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL.includes('xyzcompany')) {
-    throw new Error('Demo mode: Use demo credentials (demo@example.com / demo123 or admin@pba.com / admin123)');
-  }
-
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,

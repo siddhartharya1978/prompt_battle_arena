@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useBattle } from '../contexts/BattleContext';
+import { supabase } from '../lib/supabase';
 import Navigation from '../components/Navigation';
 import { 
   Users, 
@@ -19,43 +21,34 @@ import {
 
 export default function AdminPanel() {
   const { user } = useAuth();
-  const { battles } = useBattle();
+  const { battles, refreshBattles } = useBattle();
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Mock admin data
-  const mockUsers = [
-    {
-      id: 'user_1',
-      name: 'Arjun Sharma',
-      email: 'arjun@example.com',
-      plan: 'free',
-      battlesUsed: 2,
-      battlesLimit: 3,
-      joinedAt: '2024-01-15T10:30:00.000Z',
-      lastActive: '2024-01-20T14:30:00.000Z'
-    },
-    {
-      id: 'user_2',
-      name: 'Priya Patel',
-      email: 'priya@example.com',
-      plan: 'premium',
-      battlesUsed: 15,
-      battlesLimit: -1,
-      joinedAt: '2024-01-10T08:15:00.000Z',
-      lastActive: '2024-01-20T16:45:00.000Z'
-    },
-    {
-      id: 'user_3',
-      name: 'Rahul Kumar',
-      email: 'rahul@example.com',
-      plan: 'free',
-      battlesUsed: 3,
-      battlesLimit: 3,
-      joinedAt: '2024-01-18T12:00:00.000Z',
-      lastActive: '2024-01-19T10:20:00.000Z'
-    }
-  ];
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
 
+  // Load real users from Supabase
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        setUsers(data || []);
+      } catch (error) {
+        console.error('Error loading users:', error);
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    if (user?.role === 'admin') {
+      loadUsers();
+    }
+  }, [user]);
   const [featureFlags, setFeatureFlags] = useState({
     newBattleMode: true,
     advancedJudging: false,
@@ -92,7 +85,7 @@ export default function AdminPanel() {
   const stats = [
     {
       label: 'Total Users',
-      value: mockUsers.length,
+      value: users.length,
       change: '+12%',
       icon: Users,
       color: 'text-blue-600 dark:text-blue-400'
@@ -106,7 +99,7 @@ export default function AdminPanel() {
     },
     {
       label: 'Premium Users',
-      value: mockUsers.filter(u => u.plan === 'premium').length,
+      value: users.filter((u: any) => u.plan === 'premium').length,
       change: '+25%',
       icon: Crown,
       color: 'text-yellow-600 dark:text-yellow-400'
@@ -196,7 +189,13 @@ export default function AdminPanel() {
           User Management
         </h3>
       </div>
-      <div className="overflow-x-auto">
+      {loadingUsers ? (
+        <div className="p-12 text-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-300">Loading users...</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-gray-50 dark:bg-gray-700/50">
             <tr>
@@ -218,42 +217,43 @@ export default function AdminPanel() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {mockUsers.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+            {users.map((userData: any) => (
+              <tr key={userData.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div>
                     <div className="text-sm font-medium text-gray-900 dark:text-white">
-                      {user.name}
+                      {userData.name}
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {user.email}
+                      {userData.email}
                     </div>
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    user.plan === 'premium'
+                    userData.plan === 'premium'
                       ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
                   }`}>
-                    {user.plan === 'premium' && <Crown className="w-3 h-3 mr-1" />}
-                    {user.plan}
+                    {userData.plan === 'premium' && <Crown className="w-3 h-3 mr-1" />}
+                    {userData.plan}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                  {user.plan === 'premium' ? 'Unlimited' : `${user.battlesUsed}/${user.battlesLimit}`}
+                  {userData.plan === 'premium' ? 'Unlimited' : `${userData.battles_used}/${userData.battles_limit}`}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  {new Date(user.joinedAt).toLocaleDateString('en-IN')}
+                  {new Date(userData.created_at).toLocaleDateString('en-IN')}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  {new Date(user.lastActive).toLocaleDateString('en-IN')}
+                  {new Date(userData.updated_at).toLocaleDateString('en-IN')}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
+        </div>
+      )}
     </div>
   );
 

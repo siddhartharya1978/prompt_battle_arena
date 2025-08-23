@@ -593,40 +593,55 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Load mock battles for demo mode, real battles when connected to Supabase
-    if (user?.id === 'demo-user-id' || user?.id === 'demo-admin-id') {
-      setBattles(mockBattles);
-    } else {
+    // Load battles from Supabase when user is authenticated
+    if (user) {
       refreshBattles();
+    } else {
+      // Show demo battles for unauthenticated users
+      setBattles(mockBattles);
     }
   }, [user]);
 
   const refreshBattles = async () => {
+    if (!user) return;
+    
     setLoading(true);
     try {
       const userBattles = await getUserBattles();
       setBattles(userBattles);
     } catch (error) {
       console.error('Error refreshing battles:', error);
+      // Fallback to empty array on error
+      setBattles([]);
     } finally {
       setLoading(false);
     }
   };
 
   const createBattle = async (battleData: CreateBattleData): Promise<Battle> => {
+    if (!user) throw new Error('User not authenticated');
+    
     setLoading(true);
     try {
       const battle = await createBattleDB(battleData);
       setBattles(prev => [battle, ...prev]);
       setCurrentBattle(battle);
       return battle;
+    } catch (error) {
+      console.error('Error creating battle:', error);
+      throw error;
     } finally {
       setLoading(false);
     }
   };
 
   const getBattle = (id: string): Battle | null => {
-    // First check local state
+    // Check if it's a demo battle ID
+    if (id.startsWith('battle_') && !user) {
+      return mockBattles.find(battle => battle.id === id) || null;
+    }
+    
+    // Check local state for real battles
     const localBattle = battles.find(battle => battle.id === id);
     if (localBattle) return localBattle;
     
@@ -646,6 +661,8 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   };
 
   const runBattleHandler = async (battleId: string): Promise<void> => {
+    if (!user) throw new Error('User not authenticated');
+    
     setLoading(true);
     try {
       await runBattleDB(battleId);
@@ -656,6 +673,9 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       if (updatedBattle) {
         setCurrentBattle(updatedBattle);
       }
+    } catch (error) {
+      console.error('Error running battle:', error);
+      throw error;
     } finally {
       setLoading(false);
     }
