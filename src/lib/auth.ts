@@ -40,10 +40,36 @@ export const signUp = async (email: string, password: string, name: string) => {
         name,
         full_name: name,
       },
+      emailRedirectTo: undefined, // Disable email confirmation
     },
   });
 
   if (error) throw error;
+  
+  // Create profile immediately after signup
+  if (data.user && !data.user.email_confirmed_at) {
+    // For demo purposes, we'll create the profile immediately
+    try {
+      const profileData = {
+        id: data.user.id,
+        email: data.user.email!,
+        name: name,
+        avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
+        plan: 'free' as const,
+        role: data.user.email === 'admin@pba.com' ? 'admin' as const : 'user' as const,
+        battles_used: 0,
+        battles_limit: data.user.email === 'admin@pba.com' ? 999 : 3,
+        last_reset_at: new Date().toISOString().split('T')[0],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      await supabase.from('profiles').insert(profileData);
+    } catch (profileError) {
+      console.error('Error creating profile during signup:', profileError);
+    }
+  }
+  
   return data;
 };
 

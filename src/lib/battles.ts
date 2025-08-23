@@ -9,6 +9,33 @@ type BattleScore = Database['public']['Tables']['battle_scores']['Row'];
 type PromptEvolution = Database['public']['Tables']['prompt_evolution']['Row'];
 
 export const createBattle = async (battleData: Omit<BattleInsert, 'user_id'>): Promise<Battle> => {
+  // Check if this is a demo user
+  const demoSession = localStorage.getItem('demo_session');
+  if (demoSession) {
+    // Return mock battle for demo users
+    const mockBattle: Battle = {
+      id: `battle_${Date.now()}`,
+      user_id: 'demo-user-id',
+      battle_type: battleData.battle_type,
+      prompt: battleData.prompt,
+      final_prompt: battleData.battle_type === 'prompt' ? `Refined: ${battleData.prompt}` : null,
+      prompt_category: battleData.prompt_category,
+      models: battleData.models,
+      mode: battleData.mode || 'standard',
+      battle_mode: battleData.battle_mode || 'manual',
+      rounds: battleData.rounds || 1,
+      max_tokens: battleData.max_tokens || 500,
+      temperature: battleData.temperature || 0.7,
+      status: 'completed',
+      winner: battleData.models[0],
+      total_cost: 0.25,
+      auto_selection_reason: battleData.auto_selection_reason || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    return mockBattle;
+  }
+  
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
   
@@ -21,6 +48,31 @@ export const createBattle = async (battleData: Omit<BattleInsert, 'user_id'>): P
     throw new Error('At least 2 models are required');
   }
 
+  // Ensure user profile exists before creating battle
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', user.id)
+    .single();
+    
+  if (!profile) {
+    // Create profile if it doesn't exist
+    const newProfile = {
+      id: user.id,
+      email: user.email!,
+      name: user.user_metadata?.name || user.email!.split('@')[0],
+      avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
+      plan: 'free' as const,
+      role: user.email === 'admin@pba.com' ? 'admin' as const : 'user' as const,
+      battles_used: 0,
+      battles_limit: user.email === 'admin@pba.com' ? 999 : 3,
+      last_reset_at: new Date().toISOString().split('T')[0],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    await supabase.from('profiles').insert(newProfile);
+  }
   const { data, error } = await supabase
     .from('battles')
     .insert({
@@ -57,6 +109,55 @@ export const getBattle = async (battleId: string): Promise<Battle | null> => {
 };
 
 export const getUserBattles = async (): Promise<Battle[]> => {
+  // Check if this is a demo user
+  const demoSession = localStorage.getItem('demo_session');
+  if (demoSession) {
+    // Return mock battles for demo users
+    const mockBattles: Battle[] = [
+      {
+        id: 'battle_1',
+        user_id: 'demo-user-id',
+        battle_type: 'response',
+        prompt: 'Explain quantum computing in simple terms',
+        final_prompt: null,
+        prompt_category: 'explanation',
+        models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'],
+        mode: 'standard',
+        battle_mode: 'manual',
+        rounds: 1,
+        max_tokens: 500,
+        temperature: 0.7,
+        status: 'completed',
+        winner: 'llama-3.3-70b-versatile',
+        total_cost: 0.15,
+        auto_selection_reason: null,
+        created_at: new Date(Date.now() - 86400000).toISOString(),
+        updated_at: new Date(Date.now() - 86400000).toISOString()
+      },
+      {
+        id: 'battle_2',
+        user_id: 'demo-user-id',
+        battle_type: 'prompt',
+        prompt: 'Write about AI',
+        final_prompt: 'Write a comprehensive analysis of artificial intelligence, covering its current applications, potential benefits, ethical considerations, and future implications for society',
+        prompt_category: 'analysis',
+        models: ['llama-3.3-70b-versatile', 'qwen/qwen3-32b'],
+        mode: 'standard',
+        battle_mode: 'auto',
+        rounds: 3,
+        max_tokens: 500,
+        temperature: 0.7,
+        status: 'completed',
+        winner: 'llama-3.3-70b-versatile',
+        total_cost: 0.25,
+        auto_selection_reason: 'Selected models with strong analytical and prompt engineering capabilities',
+        created_at: new Date(Date.now() - 172800000).toISOString(),
+        updated_at: new Date(Date.now() - 172800000).toISOString()
+      }
+    ];
+    return mockBattles;
+  }
+  
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 

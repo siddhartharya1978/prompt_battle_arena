@@ -108,7 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .maybeSingle();
+        .single();
 
       if (data) {
         setUser({
@@ -116,11 +116,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           avatar_url: data.avatar_url || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'
         });
       } else {
-        console.warn('No profile found for user:', userId);
+        // If no profile exists, create one
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const newProfile = {
+            id: authUser.id,
+            email: authUser.email!,
+            name: authUser.user_metadata?.name || authUser.email!.split('@')[0],
+            avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
+            plan: 'free' as const,
+            role: authUser.email === 'admin@pba.com' ? 'admin' as const : 'user' as const,
+            battles_used: 0,
+            battles_limit: authUser.email === 'admin@pba.com' ? 999 : 3,
+            last_reset_at: new Date().toISOString().split('T')[0],
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          
+          const { data: createdProfile, error } = await supabase
+            .from('profiles')
+            .insert(newProfile)
+            .select()
+            .single();
+            
+          if (!error && createdProfile) {
+            setUser(createdProfile);
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading profile:', error);
-      // Don't throw error, just log it
+      // If profile doesn't exist, try to create it
+      if (error.code === 'PGRST116') {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          try {
+            const newProfile = {
+              id: authUser.id,
+              email: authUser.email!,
+              name: authUser.user_metadata?.name || authUser.email!.split('@')[0],
+              avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
+              plan: 'free' as const,
+              role: authUser.email === 'admin@pba.com' ? 'admin' as const : 'user' as const,
+              battles_used: 0,
+              battles_limit: authUser.email === 'admin@pba.com' ? 999 : 3,
+              last_reset_at: new Date().toISOString().split('T')[0],
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            
+            const { data: createdProfile, error: createError } = await supabase
+              .from('profiles')
+              .insert(newProfile)
+              .select()
+              .single();
+              
+            if (!createError && createdProfile) {
+              setUser(createdProfile);
+            }
+          } catch (createError) {
+            console.error('Error creating profile:', createError);
+          }
+        }
+      }
     }
   };
 
