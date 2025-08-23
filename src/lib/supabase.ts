@@ -4,16 +4,16 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-let supabase;
-
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Missing Supabase environment variables. Using demo mode.');
   // Provide fallback values for development
   const fallbackUrl = 'https://demo.supabase.co';
   const fallbackKey = 'demo-key';
-}
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please check your .env file.');
+  // Create client with fallback values for demo mode
+  var supabase = createClient(fallbackUrl, fallbackKey);
+} else {
+  // Create client with actual environment variables
+  var supabase = createClient(supabaseUrl, supabaseAnonKey);
 }
 
 export { supabase };
