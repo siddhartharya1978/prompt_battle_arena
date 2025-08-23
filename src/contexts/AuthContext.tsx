@@ -1,18 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { signIn, signUp, signOut, getProfile } from '../lib/auth';
 import type { User } from '@supabase/supabase-js';
-
-interface Profile {
-  id: string;
-  email: string;
-  name: string;
-  avatar_url: string | null;
-  plan: 'free' | 'premium';
-  role: 'user' | 'admin';
-  battles_used: number;
-  battles_limit: number;
-  created_at: string;
-}
+import type { Profile } from '../lib/auth';
 
 interface AuthContextType {
   user: Profile | null;
@@ -37,17 +27,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setAuthUser(session?.user || null);
-      setLoading(false);
+      if (session?.user) {
+        loadProfile(session.user.id);
+      } else {
+        setLoading(false);
+      }
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setAuthUser(session?.user || null);
         if (session?.user) {
-          loadProfile(session.user.id);
+          await loadProfile(session.user.id);
         } else {
           setUser(null);
+          setLoading(false);
         }
       }
     );
@@ -57,44 +52,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadProfile = async (userId: string) => {
     try {
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (data) {
+      const profile = await getProfile(userId);
+      if (profile) {
         setUser({
-          ...data,
-          avatar_url: data.avatar_url || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'
+          ...profile,
+          avatar_url: profile.avatar_url || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'
         });
       }
     } catch (error) {
       console.error('Error loading profile:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const login = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) throw error;
+    setLoading(true);
+    try {
+      await signIn(email, password);
+    } catch (error) {
+      setLoading(false);
+      throw error;
+    }
   };
 
   const register = async (email: string, password: string, name: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { name }
-      }
-    });
-    if (error) throw error;
+    setLoading(true);
+    try {
+      await signUp(email, password, name);
+    } catch (error) {
+      setLoading(false);
+      throw error;
+    }
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    await signOut();
   };
 
   const incrementBattleUsage = async () => {

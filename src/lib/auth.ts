@@ -81,13 +81,11 @@ export const updateProfileWithAvatar = async (
 
   if (avatarFile) {
     try {
-      // Import uploadAvatar function dynamically to avoid circular dependencies
       const { uploadAvatar } = await import('./storage');
-      const avatarUrl = await uploadAvatar(userId, avatarFile);
-      finalUpdates.avatar_url = avatarUrl;
+      const result = await uploadAvatar(avatarFile, userId);
+      finalUpdates.avatar_url = result.publicUrl;
     } catch (error) {
       console.error('Avatar upload failed:', error);
-      // Continue with profile update even if avatar upload fails
     }
   }
 
