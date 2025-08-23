@@ -144,11 +144,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Don't set loading to false here - let the auth state change handle it
     } finally {
       if (authTimeout) {
-      setLoading(false);
-      const message = error instanceof Error ? error.message : 'Registration failed';
-      toast.error(message);
-      throw error;
         setAuthTimeout(null);
+      }
       if (authTimeout) {
         clearTimeout(authTimeout);
         setAuthTimeout(null);
