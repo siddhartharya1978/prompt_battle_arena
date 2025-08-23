@@ -18,6 +18,7 @@ import {
   Upload
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { supabase } from '../lib/supabase';
 
 export default function Settings() {
   const { user, logout, updateUserProfile } = useAuth();
@@ -61,28 +62,50 @@ export default function Settings() {
 
   const handleSaveProfile = async () => {
     if (user) {
+      if (!profileData.name.trim()) {
+        toast.error('Name is required');
+        return;
+      }
+      
       setUploading(true);
       try {
-        const updatedProfile = await updateProfileWithAvatar(
-          user.id,
-          {
-            name: profileData.name,
-            avatar_url: profileData.avatar_url
-          },
-          avatarFile || undefined
-        );
+        let avatarUrl = profileData.avatar_url;
+        
+        // Upload avatar if a new file was selected
+        if (avatarFile) {
+          try {
+            const { uploadAvatar } = await import('../lib/storage');
+            avatarUrl = await uploadAvatar(avatarFile, user.id);
+          } catch (error) {
+            console.error('Avatar upload failed:', error);
+            toast.error('Avatar upload failed, but profile will still be updated');
+          }
+        }
+        
+        // Update profile in database
+        const { data, error } = await supabase
+          .from('profiles')
+          .update({
+            name: profileData.name.trim(),
+            avatar_url: avatarUrl
+          })
+          .eq('id', user.id)
+          .select()
+          .single();
+        
+        if (error) throw error;
         
         // Update the auth context with new profile data
         await updateUserProfile({
-          name: profileData.name,
-          avatar_url: updatedProfile.avatar_url || profileData.avatar_url
+          name: profileData.name.trim(),
+          avatar_url: avatarUrl
         });
         
         toast.success('Profile updated successfully!');
         setAvatarFile(null);
       } catch (error) {
-        toast.error('Failed to update profile');
         console.error('Profile update error:', error);
+        toast.error('Failed to update profile');
       } finally {
         setUploading(false);
       }
@@ -128,14 +151,15 @@ export default function Settings() {
             </label>
             <div className="flex items-center space-x-4">
               <img
-                readOnly
+                src={profileData.avatar_url}
                 alt="Profile"
+                className="w-16 h-16 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600"
               />
               <div>
                 <input
                   type="file"
                   id="avatar-upload"
-                  src={profileData.avatar_url}
+                  accept="image/*"
                   onChange={handleAvatarChange}
                   className="hidden"
                 />
