@@ -91,7 +91,7 @@ Your task is to create a significantly improved version that:
             const score = await scorePromptQuality(refinedPrompt, battleData.prompt_category, currentPrompt);
             totalCost += 0.01; // Estimate for scoring call
             
-            console.log(`📊 ${modelId} refined prompt score: ${score.overall}/10`);
+            console.log('[SCORE] ' + modelId + ' refined prompt score: ' + score.overall + '/10');
             
             // Generate improvements list
             const improvements = await generateImprovementsList(currentPrompt, refinedPrompt);
