@@ -192,14 +192,10 @@ export default function NewBattle() {
     }
 
     setIsCreating(true);
-    console.log('🚀 NewBattle: Starting COMPLETE battle execution process');
+    console.log('🚀 STARTING ACTUAL BATTLE EXECUTION');
     
     // Show progress toast
-    const progressToast = toast.loading(
-      battleType === 'prompt' 
-        ? `Creating ${battleMode} prompt refinement battle...`
-        : `Creating ${battleMode} response battle...`
-    );
+    const progressToast = toast.loading('Executing battle with AI models...');
 
     try {
       const battleData: BattleData = {
@@ -214,53 +210,34 @@ export default function NewBattle() {
         temperature
       };
 
-      console.log('🎯 NewBattle: Battle data prepared:', {
-        type: battleData.battle_type,
-        mode: battleData.battle_mode,
-        models: battleData.models.length,
-        prompt: battleData.prompt.substring(0, 50) + '...'
-      });
-      
-      // Update progress
-      toast.loading('Executing battle and generating responses...', { id: progressToast });
+      console.log('🎯 EXECUTING BATTLE WITH DATA:', battleData);
       
       const battle = await createBattle(battleData);
-      console.log('🏆 NewBattle: Battle COMPLETED with ID:', battle?.id);
-      console.log('📊 Battle results:', {
-        winner: battle.winner,
-        responses: battle.responses?.length || 0,
-        scores: Object.keys(battle.scores || {}).length
-      });
+      console.log('🏆 BATTLE COMPLETED:', battle.id, 'Winner:', battle.winner);
       
       // Increment usage for real users
       await incrementBattleUsage();
-      console.log('✅ NewBattle: Usage incremented');
       
       // Dismiss progress toast and show success
       toast.dismiss(progressToast);
       toast.success(
-        `🎉 ${battleType === 'prompt' ? 'Prompt refinement' : 'Response'} battle completed! Winner: ${battle.winner ? getModelInfo(battle.winner).name : 'TBD'}`,
-        { duration: 4000 }
+        `🎉 Battle completed! Winner: ${battle.winner ? getModelInfo(battle.winner).name : 'TBD'}`
       );
       
       // Ensure we have a valid battle ID before navigating
       if (battle && battle.id) {
-        console.log('🔄 Navigating to battle results:', battle.id);
+        console.log('🔄 NAVIGATING TO RESULTS:', battle.id);
         navigate(`/battle/${battle.id}/results`);
       } else {
-        console.error('NewBattle: Battle created but no ID returned:', battle);
         throw new Error('Battle created but no ID returned');
       }
     } catch (error) {
       console.error('Battle creation error:', error);
       toast.dismiss(progressToast);
       toast.error(
-        `Failed to execute battle: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        { duration: 6000 }
+        `Failed to execute battle: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     } finally {
-      // Always reset creating state
-      console.log('🔄 NewBattle: Resetting isCreating state');
       setIsCreating(false);
     }
   };
