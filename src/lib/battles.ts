@@ -282,7 +282,7 @@ const generateAIScore = async (battle: Battle, response: BattleResponse): Promis
   // Adjust based on prompt category
   if (battle.promptCategory === 'creative') creativity += 1;
   if (battle.promptCategory === 'technical') reasoning += 1;
-  let creativity = Math.min(10, Math.max(1, 6 + Math.random() * 3 + (battle.temperature > 0.7 ? 1 : 0)));
+  creativity = Math.min(10, Math.max(1, 6 + Math.random() * 3 + (battle.temperature > 0.7 ? 1 : 0)));
   
   // Ensure scores are within bounds
   accuracy = Math.min(10, Math.max(1, accuracy));
@@ -780,7 +780,7 @@ export const getBattle = async (battleId: string): Promise<Battle | null> => {
 };
 
 // Helper function to generate AI-powered battle scores
-const generateAIScore = async (battle: Battle, response: BattleResponse): Promise<BattleScore> => {
+const generateBattleScore = async (battle: Battle, response: BattleResponse): Promise<BattleScore> => {
   // For demo purposes, generate realistic scores based on response characteristics
   const responseLength = response.response.length;
   const wordCount = response.response.split(' ').length;
