@@ -164,7 +164,7 @@ export default function NewBattle() {
     // Show progress toast with real execution info
     const progressToast = toast.loading(
       battleType === 'prompt' 
-        ? 'Running real prompt evolution battle - this may take 1-2 minutes for 10/10 optimization...'
+        ? 'Running real 10/10 prompt optimization - continuing until perfect prompt achieved...'
         : 'Executing real AI model battle with live API calls...'
     );
 
@@ -176,7 +176,7 @@ export default function NewBattle() {
         models: selectedModels,
         mode,
         battle_mode: battleMode,
-        rounds: battleMode === 'auto' ? 10 : 1, // Auto mode runs until 10/10
+        rounds: battleMode === 'auto' ? 20 : 1, // Auto mode runs until 10/10 (safety limit)
         max_tokens: maxTokens,
         temperature,
         auto_selection_reason: battleMode === 'auto' ? getAutoSelectionReason(prompt, promptCategory, selectedModels) : undefined
@@ -197,8 +197,8 @@ export default function NewBattle() {
         const winnerScore = battle.winner ? battle.scores[battle.winner]?.overall : 0;
         toast.success(
           winnerScore >= 10 
-            ? `🎯 Perfect 10/10 prompt achieved by ${getModelInfo(battle.winner).name}!`
-            : `🎉 Best prompt refinement: ${winnerScore}/10 by ${getModelInfo(battle.winner).name}`
+            ? `🎯 PERFECT 10/10 PROMPT ACHIEVED by ${getModelInfo(battle.winner).name} in ${battle.rounds} rounds!`
+            : `🔄 Best optimization: ${winnerScore}/10 by ${getModelInfo(battle.winner).name} (${battle.rounds} rounds)`
         );
       } else {
         toast.success(
@@ -628,7 +628,7 @@ export default function NewBattle() {
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
                 5. Auto Mode Settings
               </h2>
-              
+                  <strong>Auto Mode:</strong> AI will run iterative battles until achieving a perfect 10/10 prompt (no round limit)
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

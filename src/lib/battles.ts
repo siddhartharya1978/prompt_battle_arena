@@ -2,9 +2,9 @@ import { callGroqAPI } from './groq';
 import { Battle, BattleData, BattleResponse, BattleScore, PromptEvolution } from '../types';
 import { AVAILABLE_MODELS, getModelInfo, selectOptimalModels, getAutoSelectionReason } from './models';
 
-// REAL battle execution - Production ready, no mocks
+// REAL 10/10 PROMPT OPTIMIZATION ENGINE - NO MOCKS, NO SHORTCUTS
 export const createBattle = async (battleData: BattleData): Promise<Battle> => {
-  console.log('🚀 STARTING REAL BATTLE EXECUTION:', battleData);
+  console.log('🚀 STARTING REAL 10/10 OPTIMIZATION BATTLE:', battleData);
   
   if (!battleData.prompt?.trim()) {
     throw new Error('Prompt is required');
@@ -21,57 +21,92 @@ export const createBattle = async (battleData: BattleData): Promise<Battle> => {
   
   try {
     if (battleData.battle_type === 'prompt') {
-      // PROMPT BATTLE: Real prompt evolution through multiple rounds
-      console.log('🔄 EXECUTING REAL PROMPT EVOLUTION BATTLE');
+      // REAL PROMPT OPTIMIZATION LOOP - CONTINUES UNTIL 10/10 ACHIEVED
+      console.log('🔄 STARTING REAL 10/10 PROMPT OPTIMIZATION ENGINE');
       
       let currentPrompt = battleData.prompt;
       let bestScore = 0;
       let bestPrompt = currentPrompt;
       let bestModelId = '';
       let round = 1;
-      const maxRounds = 10; // Safety limit
+      const maxRounds = 20; // Safety limit to prevent infinite loops
+      let consecutiveFailures = 0;
+      const maxConsecutiveFailures = 3;
       
-      // Add initial prompt to evolution
+      // Add initial prompt to evolution with baseline score
+      const initialScore = await scorePromptQuality(currentPrompt, battleData.prompt_category, '');
+      totalCost += 0.01; // Estimate for scoring call
+      
       promptEvolution.push({
         id: `evolution_${Date.now()}_0`,
         battleId,
         round: 1,
         prompt: currentPrompt,
         modelId: 'initial',
-        improvements: [],
-        score: 5.0, // Starting baseline
+        improvements: ['Original prompt'],
+        score: initialScore.overall,
         createdAt: new Date().toISOString()
       });
+      
+      bestScore = initialScore.overall;
+      console.log(`📊 INITIAL PROMPT SCORE: ${bestScore}/10`);
 
-      // AUTO MODE: Keep refining until 10/10 score achieved
-      while (bestScore < 10.0 && round <= maxRounds) {
-        console.log(`🔄 PROMPT EVOLUTION ROUND ${round}`);
+      // CORE OPTIMIZATION LOOP - CONTINUES UNTIL 10/10 OR NO FURTHER IMPROVEMENT POSSIBLE
+      while (bestScore < 10.0 && round <= maxRounds && consecutiveFailures < maxConsecutiveFailures) {
+        console.log(`🔄 OPTIMIZATION ROUND ${round} - Current Best: ${bestScore}/10`);
         
+        let roundImproved = false;
+        const roundResults: Array<{modelId: string, prompt: string, score: number, improvements: string[]}> = [];
+        
+        // Each model attempts to improve the current best prompt
         for (const modelId of battleData.models) {
           try {
-            // Create refinement prompt for this model
-            const refinementPrompt = `You are an expert prompt engineer. Your task is to improve and refine the following prompt to make it more effective, clear, and likely to produce better AI responses.
-
-Original prompt: "${currentPrompt}"
-Category: ${battleData.prompt_category}
-
-Please provide an improved version that:
-1. Is more specific and clear
-2. Includes better context or examples if needed
-3. Uses more effective phrasing
-4. Maintains the original intent but enhances clarity
-5. Makes it more likely to get high-quality responses
-
-Return ONLY the improved prompt, nothing else.`;
-
-            console.log(`🤖 Calling ${modelId} for prompt refinement...`);
-            const result = await callGroqAPI(modelId, refinementPrompt, 300, 0.3);
-            const refinedPrompt = result.response.trim().replace(/^["']|["']$/g, ''); // Remove quotes
+            console.log(`🤖 ${modelId} attempting to improve prompt (current best: ${bestScore}/10)...`);
             
-            // Score the refined prompt using AI
+            // Create competitive refinement prompt
+            const refinementPrompt = `You are an expert prompt engineer in a competitive optimization challenge. Your goal is to improve the following prompt to achieve a perfect 10/10 score.
+
+CURRENT PROMPT TO IMPROVE: "${currentPrompt}"
+CURRENT SCORE: ${bestScore}/10
+CATEGORY: ${battleData.prompt_category}
+
+Your task is to create a significantly improved version that:
+1. Is more specific, clear, and actionable than the current version
+2. Includes better context, examples, or constraints where helpful
+3. Uses more effective phrasing and structure
+4. Addresses any weaknesses in the current prompt
+5. Aims for a perfect 10/10 score in clarity, specificity, structure, and effectiveness
+
+CRITICAL: You must create a meaningfully improved prompt, not just rephrase the existing one. If you cannot improve it significantly, respond with "CANNOT_IMPROVE" followed by your reasoning.
+
+Return ONLY the improved prompt (or CANNOT_IMPROVE + reasoning), nothing else.`;
+
+            const result = await callGroqAPI(modelId, refinementPrompt, 400, 0.3);
+            totalCost += result.cost;
+            
+            const refinedPrompt = result.response.trim();
+            
+            // Check if model claims it cannot improve
+            if (refinedPrompt.startsWith('CANNOT_IMPROVE')) {
+              console.log(`❌ ${modelId} cannot improve further: ${refinedPrompt}`);
+              continue;
+            }
+            
+            // Score the refined prompt
             const score = await scorePromptQuality(refinedPrompt, battleData.prompt_category, currentPrompt);
+            totalCost += 0.01; // Estimate for scoring call
             
-            console.log(`✅ Model ${modelId} refined prompt (Score: ${score.overall}/10)`);
+            console.log(`📊 ${modelId} refined prompt score: ${score.overall}/10`);
+            
+            // Generate improvements list
+            const improvements = await generateImprovementsList(currentPrompt, refinedPrompt);
+            
+            roundResults.push({
+              modelId,
+              prompt: refinedPrompt,
+              score: score.overall,
+              improvements
+            });
             
             // Add to evolution
             promptEvolution.push({
@@ -80,25 +115,24 @@ Return ONLY the improved prompt, nothing else.`;
               round: round + 1,
               prompt: refinedPrompt,
               modelId,
-              improvements: generateImprovements(currentPrompt, refinedPrompt),
+              improvements,
               score: score.overall,
               createdAt: new Date().toISOString()
             });
             
-            // Track best prompt
+            // Check if this is the new best
             if (score.overall > bestScore) {
               bestScore = score.overall;
               bestPrompt = refinedPrompt;
               bestModelId = modelId;
+              roundImproved = true;
               console.log(`🏆 NEW BEST PROMPT: ${bestScore}/10 by ${modelId}`);
-            }
-            
-            totalCost += result.cost;
-            
-            // If we achieve 10/10, we're done!
-            if (score.overall >= 10.0) {
-              console.log(`🎯 PERFECT 10/10 PROMPT ACHIEVED by ${modelId}!`);
-              break;
+              
+              // If we achieved 10/10, we're done!
+              if (score.overall >= 10.0) {
+                console.log(`🎯 PERFECT 10/10 PROMPT ACHIEVED by ${modelId}!`);
+                break;
+              }
             }
             
           } catch (error) {
@@ -107,22 +141,31 @@ Return ONLY the improved prompt, nothing else.`;
           }
         }
         
-        // Update current prompt for next round if we found a better one
-        if (bestPrompt !== currentPrompt) {
-          currentPrompt = bestPrompt;
+        // Check if we achieved 10/10
+        if (bestScore >= 10.0) {
+          console.log(`🎉 OPTIMIZATION COMPLETE: Perfect 10/10 prompt achieved in ${round} rounds!`);
+          break;
         }
         
-        // Stop if we've achieved perfect score
-        if (bestScore >= 10.0) {
-          console.log(`🎉 BATTLE COMPLETE: Perfect 10/10 prompt achieved in ${round} rounds!`);
-          break;
+        // Check if any model improved this round
+        if (!roundImproved) {
+          consecutiveFailures++;
+          console.log(`⚠️ No improvement in round ${round}. Consecutive failures: ${consecutiveFailures}/${maxConsecutiveFailures}`);
+        } else {
+          consecutiveFailures = 0; // Reset failure counter
+          currentPrompt = bestPrompt; // Use the best prompt for next round
         }
         
         round++;
       }
       
-      if (bestScore < 10.0 && round > maxRounds) {
-        console.log(`⚠️ Battle ended after ${maxRounds} rounds. Best score: ${bestScore}/10`);
+      // Final status logging
+      if (bestScore >= 10.0) {
+        console.log(`🎉 SUCCESS: Perfect 10/10 prompt achieved by ${bestModelId} in ${round - 1} rounds!`);
+      } else if (consecutiveFailures >= maxConsecutiveFailures) {
+        console.log(`⚠️ OPTIMIZATION PLATEAU: No model could improve further after ${consecutiveFailures} attempts. Best score: ${bestScore}/10`);
+      } else if (round > maxRounds) {
+        console.log(`⚠️ MAX ROUNDS REACHED: Stopped after ${maxRounds} rounds. Best score: ${bestScore}/10`);
       }
       
       // Create final battle object for prompt battle
@@ -238,41 +281,43 @@ Return ONLY the improved prompt, nothing else.`;
 // Real AI-powered prompt quality scoring
 const scorePromptQuality = async (prompt: string, category: string, originalPrompt: string): Promise<BattleScore> => {
   try {
-    const scoringPrompt = `You are an expert prompt evaluator. Score this prompt on a scale of 1-10 for each category:
+    const scoringPrompt = `You are an expert prompt evaluator. Score this prompt on a scale of 1-10 for each category. Be strict - only award 10/10 for truly perfect prompts that cannot be improved.
 
 Prompt to evaluate: "${prompt}"
-Original prompt: "${originalPrompt}"
+${originalPrompt ? `Original prompt: "${originalPrompt}"` : ''}
 Category: ${category}
 
 Rate the prompt on:
-1. CLARITY (1-10): How clear and unambiguous is the prompt?
-2. SPECIFICITY (1-10): How specific and detailed are the instructions?
-3. STRUCTURE (1-10): How well-structured and organized is the prompt?
-4. EFFECTIVENESS (1-10): How likely is this prompt to produce high-quality responses?
+1. CLARITY (1-10): How clear and unambiguous is the prompt? 10/10 means crystal clear with no possible confusion.
+2. SPECIFICITY (1-10): How specific and detailed are the instructions? 10/10 means perfectly specific with all necessary details.
+3. STRUCTURE (1-10): How well-structured and organized is the prompt? 10/10 means perfect logical flow and organization.
+4. EFFECTIVENESS (1-10): How likely is this prompt to produce high-quality responses? 10/10 means guaranteed excellent results.
+
+Be critical and honest. Most prompts should score 6-8. Only truly exceptional prompts deserve 9-10.
 
 Respond in this exact format:
 CLARITY: [score]
 SPECIFICITY: [score]
 STRUCTURE: [score]
 EFFECTIVENESS: [score]
-NOTES: [brief explanation of the scores]`;
+NOTES: [brief explanation of the scores and any areas for improvement]`;
 
     const result = await callGroqAPI('llama-3.3-70b-versatile', scoringPrompt, 200, 0.1);
     
     // Parse the response
     const lines = result.response.split('\n');
-    let clarity = 7, specificity = 7, structure = 7, effectiveness = 7;
+    let clarity = 6, specificity = 6, structure = 6, effectiveness = 6;
     let notes = 'AI-generated scoring';
     
     for (const line of lines) {
       if (line.includes('CLARITY:')) {
-        clarity = parseFloat(line.split(':')[1].trim()) || 7;
+        clarity = parseFloat(line.split(':')[1].trim()) || 6;
       } else if (line.includes('SPECIFICITY:')) {
-        specificity = parseFloat(line.split(':')[1].trim()) || 7;
+        specificity = parseFloat(line.split(':')[1].trim()) || 6;
       } else if (line.includes('STRUCTURE:')) {
-        structure = parseFloat(line.split(':')[1].trim()) || 7;
+        structure = parseFloat(line.split(':')[1].trim()) || 6;
       } else if (line.includes('EFFECTIVENESS:')) {
-        effectiveness = parseFloat(line.split(':')[1].trim()) || 7;
+        effectiveness = parseFloat(line.split(':')[1].trim()) || 6;
       } else if (line.includes('NOTES:')) {
         notes = line.split(':')[1].trim() || notes;
       }
@@ -292,13 +337,39 @@ NOTES: [brief explanation of the scores]`;
     console.error('Error scoring prompt quality:', error);
     // Fallback to basic scoring if AI scoring fails
     return {
-      accuracy: 7,
-      reasoning: 7,
-      structure: 7,
-      creativity: 7,
-      overall: 7,
+      accuracy: 6,
+      reasoning: 6,
+      structure: 6,
+      creativity: 6,
+      overall: 6,
       notes: 'Fallback scoring due to API error'
     };
+  }
+};
+
+// Generate improvements list using AI analysis
+const generateImprovementsList = async (originalPrompt: string, refinedPrompt: string): Promise<string[]> => {
+  try {
+    const analysisPrompt = `Compare these two prompts and identify the specific improvements made in the refined version.
+
+Original: "${originalPrompt}"
+Refined: "${refinedPrompt}"
+
+List the specific improvements made (e.g., "Added specific examples", "Improved clarity", "Better structure", etc.). 
+Respond with a comma-separated list of improvements, maximum 5 items.`;
+
+    const result = await callGroqAPI('llama-3.1-8b-instant', analysisPrompt, 100, 0.1);
+    
+    const improvements = result.response
+      .split(',')
+      .map(item => item.trim())
+      .filter(item => item.length > 0)
+      .slice(0, 5);
+    
+    return improvements.length > 0 ? improvements : ['General refinement'];
+  } catch (error) {
+    console.error('Error generating improvements list:', error);
+    return ['General refinement'];
   }
 };
 
@@ -400,29 +471,6 @@ const generatePromptScores = (promptEvolution: PromptEvolution[], models: string
   }
   
   return scores;
-};
-
-// Generate realistic improvements list
-const generateImprovements = (original: string, refined: string): string[] => {
-  const improvements: string[] = [];
-  
-  if (refined.length > original.length * 1.2) {
-    improvements.push('Added context');
-  }
-  if (refined.includes('specific') || refined.includes('example')) {
-    improvements.push('Increased specificity');
-  }
-  if (refined.includes('format') || refined.includes('structure')) {
-    improvements.push('Better structure');
-  }
-  if (refined.toLowerCase().includes('please') || refined.includes('step')) {
-    improvements.push('Enhanced clarity');
-  }
-  if (refined !== original) {
-    improvements.push('General refinement');
-  }
-  
-  return improvements.length > 0 ? improvements : ['General refinement'];
 };
 
 // Store battle in localStorage for demo
