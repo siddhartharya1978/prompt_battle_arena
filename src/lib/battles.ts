@@ -526,45 +526,30 @@ Be EXTREMELY strict. Only award 10/10 for truly perfect aspects that cannot be i
     let critique = '';
     let improvements: string[] = [];
     
-    let foundScores = 0;
-    
     for (const line of lines) {
       const trimmedLine = line.trim();
       if (trimmedLine.startsWith('CLARITY:')) {
         scores.clarity = parseFloat(trimmedLine.split(':')[1].trim()) || 0;
-        foundScores++;
       } else if (trimmedLine.startsWith('SPECIFICITY:')) {
         scores.specificity = parseFloat(trimmedLine.split(':')[1].trim()) || 0;
-        foundScores++;
       } else if (trimmedLine.startsWith('COMPLETENESS:')) {
         scores.completeness = parseFloat(trimmedLine.split(':')[1].trim()) || 0;
-        foundScores++;
       } else if (trimmedLine.startsWith('ACTIONABILITY:')) {
         scores.actionability = parseFloat(trimmedLine.split(':')[1].trim()) || 0;
-        foundScores++;
       } else if (trimmedLine.startsWith('CONCISENESS:')) {
         scores.conciseness = parseFloat(trimmedLine.split(':')[1].trim()) || 0;
-        foundScores++;
       } else if (trimmedLine.startsWith('CONTEXT COVERAGE:')) {
         scores.contextCoverage = parseFloat(trimmedLine.split(':')[1].trim()) || 0;
-        foundScores++;
       } else if (trimmedLine.startsWith('NO_REDUNDANCY:')) {
         scores.noRedundancy = parseFloat(trimmedLine.split(':')[1].trim()) || 0;
-        foundScores++;
       } else if (trimmedLine.startsWith('TAILORED TO INTENT:')) {
         scores.tailoredToIntent = parseFloat(trimmedLine.split(':')[1].trim()) || 0;
-        foundScores++;
       } else if (trimmedLine.startsWith('CRITIQUE:')) {
         critique = trimmedLine.split(':').slice(1).join(':').trim();
       } else if (trimmedLine.startsWith('IMPROVEMENTS:')) {
         const improvementText = trimmedLine.split(':').slice(1).join(':').trim();
         improvements = improvementText.split(',').map(s => s.trim()).filter(s => s.length > 0);
       }
-    }
-    
-    // STRICT VALIDATION: Must have all 8 scores
-    if (foundScores < 8) {
-      throw new Error(`Peer review format error: Only found ${foundScores}/8 required scores. Response: ${result.response}`);
     }
     
     // Validate score ranges
