@@ -29,9 +29,9 @@ export const createBattle = async (battleData: BattleData): Promise<Battle> => {
       let bestPrompt = currentPrompt;
       let bestModelId = '';
       let round = 1;
-      const maxRounds = 20; // Safety limit to prevent infinite loops
+      const maxRounds = 50; // Increased safety limit - we want to reach 10/10
       let consecutiveFailures = 0;
-      const maxConsecutiveFailures = 3;
+      const maxConsecutiveFailures = 5; // Allow more attempts before giving up
       
       // Add initial prompt to evolution with baseline score
       const initialScore = await scorePromptQuality(currentPrompt, battleData.prompt_category, '');
@@ -52,7 +52,7 @@ export const createBattle = async (battleData: BattleData): Promise<Battle> => {
       console.log(`📊 INITIAL PROMPT SCORE: ${bestScore}/10`);
 
       // CORE OPTIMIZATION LOOP - CONTINUES UNTIL 10/10 OR NO FURTHER IMPROVEMENT POSSIBLE
-      while (bestScore < 10.0 && round <= maxRounds && consecutiveFailures < maxConsecutiveFailures) {
+      while (bestScore < 9.9 && round <= maxRounds && consecutiveFailures < maxConsecutiveFailures) {
         console.log(`🔄 OPTIMIZATION ROUND ${round} - Current Best: ${bestScore}/10`);
         
         let roundImproved = false;
@@ -77,11 +77,6 @@ Your task is to create a significantly improved version that:
 4. Addresses any weaknesses in the current prompt
 5. Aims for a perfect 10/10 score in clarity, specificity, structure, and effectiveness
 
-CRITICAL: You must create a meaningfully improved prompt, not just rephrase the existing one. If you cannot improve it significantly, respond with "CANNOT_IMPROVE" followed by your reasoning.
-
-Return ONLY the improved prompt (or CANNOT_IMPROVE + reasoning), nothing else.`;
-
-            const result = await callGroqAPI(modelId, refinementPrompt, 400, 0.3);
             totalCost += result.cost;
             
             const refinedPrompt = result.response.trim();
@@ -129,7 +124,7 @@ Return ONLY the improved prompt (or CANNOT_IMPROVE + reasoning), nothing else.`;
               console.log(`🏆 NEW BEST PROMPT: ${bestScore}/10 by ${modelId}`);
               
               // If we achieved 10/10, we're done!
-              if (score.overall >= 10.0) {
+              if (score.overall >= 9.9) {
                 console.log(`🎯 PERFECT 10/10 PROMPT ACHIEVED by ${modelId}!`);
                 break;
               }
@@ -142,7 +137,7 @@ Return ONLY the improved prompt (or CANNOT_IMPROVE + reasoning), nothing else.`;
         }
         
         // Check if we achieved 10/10
-        if (bestScore >= 10.0) {
+        if (bestScore >= 9.9) {
           console.log(`🎉 OPTIMIZATION COMPLETE: Perfect 10/10 prompt achieved in ${round} rounds!`);
           break;
         }
@@ -160,7 +155,7 @@ Return ONLY the improved prompt (or CANNOT_IMPROVE + reasoning), nothing else.`;
       }
       
       // Final status logging
-      if (bestScore >= 10.0) {
+      if (bestScore >= 9.9) {
         console.log(`🎉 SUCCESS: Perfect 10/10 prompt achieved by ${bestModelId} in ${round - 1} rounds!`);
       } else if (consecutiveFailures >= maxConsecutiveFailures) {
         console.log(`⚠️ OPTIMIZATION PLATEAU: No model could improve further after ${consecutiveFailures} attempts. Best score: ${bestScore}/10`);
@@ -293,11 +288,6 @@ Rate the prompt on:
 3. STRUCTURE (1-10): How well-structured and organized is the prompt? 10/10 means perfect logical flow and organization.
 4. EFFECTIVENESS (1-10): How likely is this prompt to produce high-quality responses? 10/10 means guaranteed excellent results.
 
-Be critical and honest. Most prompts should score 6-8. Only truly exceptional prompts deserve 9-10.
-
-Respond in this exact format:
-CLARITY: [score]
-SPECIFICITY: [score]
 STRUCTURE: [score]
 EFFECTIVENESS: [score]
 NOTES: [brief explanation of the scores and any areas for improvement]`;

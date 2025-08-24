@@ -629,38 +629,42 @@ export default function NewBattle() {
                 5. Auto Mode Settings
               </h2>
                   <strong>Auto Mode:</strong> AI will run iterative battles until achieving a perfect 10/10 prompt (no round limit)
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Maximum Rounds
-                  </label>
-                  <input
-                    type="number"
-                    value={rounds}
-                    onChange={(e) => setRounds(Number(e.target.value))}
-                    min="1"
-                    max="5"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Auto mode will stop early if optimal results are achieved
-                  </p>
+              <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-xl p-6 border border-green-200 dark:border-green-700">
+                <div className="flex items-center space-x-3 mb-4">
+                  <Brain className="w-8 h-8 text-green-600 dark:text-green-400" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-green-900 dark:text-green-100">
+                      Fully Automated 10/10 Optimization
+                    </h3>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      AI will run competitive rounds until a perfect 10/10 prompt is achieved
+                    </p>
+                  </div>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Target Quality
-                  </label>
-                  <select
-                    value={mode}
-                    onChange={(e) => setMode(e.target.value as 'standard' | 'turbo')}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    <option value="standard">Standard (8/10 score)</option>
-                    <option value="turbo">High Quality (9/10 score)</option>
-                  </select>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Higher quality targets may require more rounds
+                
+                <div className="grid md:grid-cols-2 gap-4 text-sm">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <span className="text-green-700 dark:text-green-300">No round limits - continues until 10/10</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <span className="text-green-700 dark:text-green-300">AI-judged perfection criteria</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <span className="text-green-700 dark:text-green-300">Complete evolution tracking</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <span className="text-green-700 dark:text-green-300">Stops only when no improvement possible</span>
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-green-600">
+                  <p className="text-xs text-gray-600 dark:text-gray-300">
+                    <strong>How it works:</strong> Models compete in rounds to improve your prompt. Each round, the best prompt becomes the new baseline. 
+                    The battle continues until one model creates a prompt that scores 10/10 and no other model can improve it further.
                   </p>
                 </div>
               </div>
