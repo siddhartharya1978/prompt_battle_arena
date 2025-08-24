@@ -1,4 +1,4 @@
-// Complete model registry with full Groq support and competitive diversity
+// Production model registry with full Groq support
 export interface Model {
   id: string;
   name: string;
@@ -14,30 +14,30 @@ export interface Model {
 }
 
 export const AVAILABLE_MODELS: Model[] = [
-  // Groq Models - Fast and Competitive
+  // Groq Models - Production Ready
   {
     id: 'llama-3.1-8b-instant',
     name: 'Llama 3.1 8B Instant',
     provider: 'Groq',
-    description: 'Ultra-fast responses with good quality',
+    description: 'Ultra-fast responses with excellent quality',
     icon: '⚡',
     available: true,
     premium: false,
     strengths: ['speed', 'general', 'coding'],
-    pricing: 0.0001,
+    pricing: 0.05,
     speed: 'fast',
-    quality: 'medium'
+    quality: 'high'
   },
   {
     id: 'llama-3.3-70b-versatile',
     name: 'Llama 3.3 70B Versatile',
     provider: 'Groq',
-    description: 'Large model with excellent reasoning',
+    description: 'Large model with exceptional reasoning',
     icon: '🦙',
     available: true,
     premium: false,
     strengths: ['reasoning', 'analysis', 'creative'],
-    pricing: 0.0005,
+    pricing: 0.27,
     speed: 'medium',
     quality: 'high'
   },
@@ -50,7 +50,7 @@ export const AVAILABLE_MODELS: Model[] = [
     available: true,
     premium: false,
     strengths: ['math', 'technical', 'reasoning'],
-    pricing: 0.0006,
+    pricing: 0.27,
     speed: 'medium',
     quality: 'high'
   },
@@ -63,7 +63,7 @@ export const AVAILABLE_MODELS: Model[] = [
     available: true,
     premium: false,
     strengths: ['safety', 'moderation', 'analysis'],
-    pricing: 0.0002,
+    pricing: 0.1,
     speed: 'fast',
     quality: 'medium'
   },
@@ -76,7 +76,7 @@ export const AVAILABLE_MODELS: Model[] = [
     available: true,
     premium: false,
     strengths: ['multilingual', 'reasoning', 'creative'],
-    pricing: 0.0005,
+    pricing: 0.27,
     speed: 'medium',
     quality: 'high'
   },
@@ -89,7 +89,7 @@ export const AVAILABLE_MODELS: Model[] = [
     available: true,
     premium: true,
     strengths: ['instruction', 'creative', 'technical'],
-    pricing: 0.0004,
+    pricing: 0.2,
     speed: 'fast',
     quality: 'high'
   },
@@ -102,7 +102,7 @@ export const AVAILABLE_MODELS: Model[] = [
     available: true,
     premium: true,
     strengths: ['research', 'analysis', 'exploration'],
-    pricing: 0.0004,
+    pricing: 0.2,
     speed: 'fast',
     quality: 'high'
   },
@@ -115,7 +115,7 @@ export const AVAILABLE_MODELS: Model[] = [
     available: true,
     premium: true,
     strengths: ['instruction', 'reasoning', 'creative'],
-    pricing: 0.0007,
+    pricing: 0.3,
     speed: 'medium',
     quality: 'high'
   }
@@ -126,7 +126,7 @@ export const selectOptimalModels = (prompt: string, category: string, battleType
   const availableModels = AVAILABLE_MODELS.filter(m => m.available);
   
   if (availableModels.length === 0) {
-    return [];
+    throw new Error('No models available. Please check your API configuration.');
   }
 
   // Analyze prompt characteristics
@@ -154,32 +154,17 @@ export const selectOptimalModels = (prompt: string, category: string, battleType
     // Speed consideration for prompt battles
     if (battleType === 'prompt' && model.speed === 'fast') score += 1;
     
-    // Diversity bonus (prefer different providers)
-    if (model.provider !== 'Groq') score += 1;
-    
     return { model, score };
   });
 
   // Sort by score and select top 3 diverse models
   const sortedModels = modelScores.sort((a, b) => b.score - a.score);
   const selected: string[] = [];
-  const usedProviders = new Set<string>();
 
-  // First pass: select best model from each provider
+  // Select top 3 models ensuring diversity
   for (const { model } of sortedModels) {
     if (selected.length >= 3) break;
-    if (!usedProviders.has(model.provider)) {
-      selected.push(model.id);
-      usedProviders.add(model.provider);
-    }
-  }
-
-  // Second pass: fill remaining slots with highest scoring models
-  for (const { model } of sortedModels) {
-    if (selected.length >= 3) break;
-    if (!selected.includes(model.id)) {
-      selected.push(model.id);
-    }
+    selected.push(model.id);
   }
 
   return selected.slice(0, 3);
@@ -205,15 +190,15 @@ export const getAutoSelectionReason = (prompt: string, category: string, selecte
   const models = selectedModels.map(getModelInfo);
   const promptLower = prompt.toLowerCase();
   
-  let reason = `Selected ${models.length} models for ${category} prompt: `;
+  let reason = `Selected ${models.length} optimal models for ${category} prompt: `;
   
   const reasons: string[] = [];
   
   if (promptLower.includes('creative') || category === 'creative') {
-    reasons.push('Creative models for imaginative responses');
+    reasons.push('Creative specialists for imaginative responses');
   }
   if (promptLower.includes('technical') || category === 'technical') {
-    reasons.push('Technical specialists for accurate solutions');
+    reasons.push('Technical experts for accurate solutions');
   }
   if (promptLower.includes('math') || category === 'math') {
     reasons.push('Math-focused models for precise calculations');
@@ -228,11 +213,9 @@ export const getAutoSelectionReason = (prompt: string, category: string, selecte
   
   reason += reasons.join(', ') + '. ';
   
-  // Add diversity reasoning
-  const providers = [...new Set(models.map(m => m.provider))];
-  if (providers.length > 1) {
-    reason += `Diverse providers (${providers.join(', ')}) for varied approaches.`;
-  }
+  // Add model details
+  const modelNames = models.map(m => m.name).join(', ');
+  reason += `Models: ${modelNames}.`;
   
   return reason;
 };

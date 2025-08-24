@@ -1,10 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
+import { corsHeaders } from '../_shared/cors.ts';
 
 interface GroqRequest {
   model: string;
@@ -35,23 +29,22 @@ interface GroqResponse {
 
 const calculateGroqCost = (model: string, tokens: number): number => {
   const rates: Record<string, number> = {
-    'llama-3.1-8b-instant': 0.0001,
-    'llama-3.3-70b-versatile': 0.0005,
-    'meta-llama/llama-guard-4-12b': 0.0002,
-    'openai/gpt-oss-120b': 0.0008,
-    'openai/gpt-oss-20b': 0.0003,
-    'deepseek-r1-distill-llama-70b': 0.0006,
-    'meta-llama/llama-4-maverick-17b-128e-instruct': 0.0004,
-    'meta-llama/llama-4-scout-17b-16e-instruct': 0.0004,
-    'moonshotai/kimi-k2-instruct': 0.0007,
-    'qwen/qwen3-32b': 0.0005
+    'llama-3.1-8b-instant': 0.00005,
+    'llama-3.3-70b-versatile': 0.00027,
+    'meta-llama/llama-guard-4-12b': 0.0001,
+    'deepseek-r1-distill-llama-70b': 0.00027,
+    'meta-llama/llama-4-maverick-17b-128e-instruct': 0.0002,
+    'meta-llama/llama-4-scout-17b-16e-instruct': 0.0002,
+    'moonshotai/kimi-k2-instruct': 0.0003,
+    'qwen/qwen3-32b': 0.00027
   };
 
-  const rate = rates[model] || 0.0005;
-  return parseFloat((tokens * rate).toFixed(4));
+  const rate = rates[model] || 0.00027;
+  return parseFloat((tokens * rate).toFixed(6));
 };
 
 Deno.serve(async (req: Request) => {
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 200,
@@ -62,14 +55,21 @@ Deno.serve(async (req: Request) => {
   try {
     const { model, prompt, max_tokens, temperature }: GroqRequest = await req.json();
 
+    // Validate inputs
+    if (!model || !prompt) {
+      throw new Error('Model and prompt are required');
+    }
+
     // Get Groq API key from environment
     const groqApiKey = Deno.env.get('GROQ_API_KEY');
     if (!groqApiKey) {
-      throw new Error('Groq API key not configured');
+      throw new Error('GROQ_API_KEY environment variable is not set. Please configure it in your Supabase Edge Function settings.');
     }
 
+    console.log(`🤖 Calling Groq API with model: ${model}`);
     const startTime = Date.now();
 
+    // Make real API call to Groq
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -84,21 +84,34 @@ Deno.serve(async (req: Request) => {
             content: prompt
           }
         ],
-        max_tokens,
-        temperature,
+        max_tokens: max_tokens || 500,
+        temperature: temperature || 0.7,
         stream: false
       })
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(`Groq API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+      console.error('Groq API Error:', response.status, errorData);
+      
+      if (response.status === 401) {
+        throw new Error('Invalid Groq API key. Please check your GROQ_API_KEY configuration.');
+      } else if (response.status === 429) {
+        throw new Error('Groq API rate limit exceeded. Please try again later.');
+      } else if (response.status === 400) {
+        throw new Error(`Invalid request to Groq API: ${errorData.error?.message || 'Bad request'}`);
+      } else {
+        throw new Error(`Groq API error (${response.status}): ${errorData.error?.message || 'Unknown error'}`);
+      }
     }
 
     const data: GroqResponse = await response.json();
     const latency = Date.now() - startTime;
     const cost = calculateGroqCost(model, data.usage.total_tokens);
 
+    console.log(`✅ Groq API success: ${data.usage.total_tokens} tokens, $${cost}, ${latency}ms`);
+
+    // Return successful response
     return new Response(
       JSON.stringify({
         response: data.choices[0]?.message?.content || '',
@@ -114,11 +127,11 @@ Deno.serve(async (req: Request) => {
       }
     );
   } catch (error) {
-    console.error('Groq API call failed:', error);
+    console.error('Edge Function Error:', error);
     
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
       }),
       {
         status: 500,

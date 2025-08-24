@@ -159,10 +159,14 @@ export default function NewBattle() {
     }
 
     setIsCreating(true);
-    console.log('🚀 STARTING ACTUAL BATTLE EXECUTION');
+    console.log('🚀 STARTING REAL PRODUCTION BATTLE EXECUTION');
     
-    // Show progress toast
-    const progressToast = toast.loading('Executing battle with AI models...');
+    // Show progress toast with real execution info
+    const progressToast = toast.loading(
+      battleType === 'prompt' 
+        ? 'Running real prompt evolution battle - this may take 1-2 minutes for 10/10 optimization...'
+        : 'Executing real AI model battle with live API calls...'
+    );
 
     try {
       const battleData: BattleData = {
@@ -172,39 +176,60 @@ export default function NewBattle() {
         models: selectedModels,
         mode,
         battle_mode: battleMode,
-        rounds: battleMode === 'auto' ? Math.max(rounds, 1) : 1,
+        rounds: battleMode === 'auto' ? 10 : 1, // Auto mode runs until 10/10
         max_tokens: maxTokens,
         temperature,
         auto_selection_reason: battleMode === 'auto' ? getAutoSelectionReason(prompt, promptCategory, selectedModels) : undefined
       };
 
-      console.log('🎯 EXECUTING BATTLE WITH DATA:', battleData);
+      console.log('🎯 EXECUTING REAL BATTLE WITH LIVE API CALLS:', battleData);
       
       const battle = await createBattle(battleData);
-      console.log('🏆 BATTLE COMPLETED:', battle.id, 'Winner:', battle.winner);
+      console.log('🏆 REAL BATTLE COMPLETED:', battle.id, 'Winner:', battle.winner, 'Final Score:', battle.scores[battle.winner]?.overall);
       
       // Increment usage for real users
       await incrementBattleUsage();
       
       // Dismiss progress toast and show success
       toast.dismiss(progressToast);
-      toast.success(
-        `🎉 Battle completed! Winner: ${battle.winner ? getModelInfo(battle.winner).name : 'TBD'}`
-      );
+      
+      if (battleType === 'prompt') {
+        const winnerScore = battle.winner ? battle.scores[battle.winner]?.overall : 0;
+        toast.success(
+          winnerScore >= 10 
+            ? `🎯 Perfect 10/10 prompt achieved by ${getModelInfo(battle.winner).name}!`
+            : `🎉 Best prompt refinement: ${winnerScore}/10 by ${getModelInfo(battle.winner).name}`
+        );
+      } else {
+        toast.success(
+          `🏆 Battle winner: ${getModelInfo(battle.winner).name} with ${battle.scores[battle.winner]?.overall}/10!`
+        );
+      }
       
       // Ensure we have a valid battle ID before navigating
       if (battle && battle.id) {
-        console.log('🔄 NAVIGATING TO RESULTS:', battle.id);
+        console.log('🔄 NAVIGATING TO REAL BATTLE RESULTS:', battle.id);
         navigate(`/battle/${battle.id}/results`);
       } else {
         throw new Error('Battle created but no ID returned');
       }
     } catch (error) {
-      console.error('Battle creation error:', error);
+      console.error('REAL BATTLE EXECUTION ERROR:', error);
       toast.dismiss(progressToast);
-      toast.error(
-        `Failed to execute battle: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      
+      // Show detailed error for API issues
+      let errorMessage = 'Failed to execute battle';
+      if (error instanceof Error) {
+        if (error.message.includes('Supabase')) {
+          errorMessage = 'API Configuration Error: Please ensure Supabase and Groq API are properly configured.';
+        } else if (error.message.includes('Groq')) {
+          errorMessage = 'Groq API Error: Please check your API key configuration.';
+        } else {
+          errorMessage = `Battle Error: ${error.message}`;
+        }
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setIsCreating(false);
     }

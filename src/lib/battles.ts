@@ -1,11 +1,10 @@
-import { supabase } from './supabase';
 import { callGroqAPI } from './groq';
-import { Battle, BattleData, BattleResponse, BattleScore, PromptEvolution, transformBattleFromDB } from '../types';
+import { Battle, BattleData, BattleResponse, BattleScore, PromptEvolution } from '../types';
 import { AVAILABLE_MODELS, getModelInfo, selectOptimalModels, getAutoSelectionReason } from './models';
 
-// REAL battle execution - no mocks, no fakes
+// REAL battle execution - Production ready, no mocks
 export const createBattle = async (battleData: BattleData): Promise<Battle> => {
-  console.log('🚀 REAL BATTLE EXECUTION STARTING:', battleData);
+  console.log('🚀 STARTING REAL BATTLE EXECUTION:', battleData);
   
   if (!battleData.prompt?.trim()) {
     throw new Error('Prompt is required');
@@ -23,12 +22,14 @@ export const createBattle = async (battleData: BattleData): Promise<Battle> => {
   try {
     if (battleData.battle_type === 'prompt') {
       // PROMPT BATTLE: Real prompt evolution through multiple rounds
-      console.log('🔄 EXECUTING PROMPT EVOLUTION BATTLE');
+      console.log('🔄 EXECUTING REAL PROMPT EVOLUTION BATTLE');
       
       let currentPrompt = battleData.prompt;
       let bestScore = 0;
       let bestPrompt = currentPrompt;
       let bestModelId = '';
+      let round = 1;
+      const maxRounds = 10; // Safety limit
       
       // Add initial prompt to evolution
       promptEvolution.push({
@@ -42,8 +43,8 @@ export const createBattle = async (battleData: BattleData): Promise<Battle> => {
         createdAt: new Date().toISOString()
       });
 
-      // Execute refinement rounds
-      for (let round = 1; round <= (battleData.rounds || 3); round++) {
+      // AUTO MODE: Keep refining until 10/10 score achieved
+      while (bestScore < 10.0 && round <= maxRounds) {
         console.log(`🔄 PROMPT EVOLUTION ROUND ${round}`);
         
         for (const modelId of battleData.models) {
@@ -59,16 +60,18 @@ Please provide an improved version that:
 2. Includes better context or examples if needed
 3. Uses more effective phrasing
 4. Maintains the original intent but enhances clarity
+5. Makes it more likely to get high-quality responses
 
 Return ONLY the improved prompt, nothing else.`;
 
-            const result = await callGroqAPI(modelId, refinementPrompt, 200, 0.3);
+            console.log(`🤖 Calling ${modelId} for prompt refinement...`);
+            const result = await callGroqAPI(modelId, refinementPrompt, 300, 0.3);
             const refinedPrompt = result.response.trim().replace(/^["']|["']$/g, ''); // Remove quotes
             
-            // Score the refined prompt
-            const score = await scorePromptQuality(refinedPrompt, battleData.prompt_category);
+            // Score the refined prompt using AI
+            const score = await scorePromptQuality(refinedPrompt, battleData.prompt_category, currentPrompt);
             
-            console.log(`✅ Model ${modelId} refined prompt (Score: ${score.overall})`);
+            console.log(`✅ Model ${modelId} refined prompt (Score: ${score.overall}/10)`);
             
             // Add to evolution
             promptEvolution.push({
@@ -87,34 +90,45 @@ Return ONLY the improved prompt, nothing else.`;
               bestScore = score.overall;
               bestPrompt = refinedPrompt;
               bestModelId = modelId;
+              console.log(`🏆 NEW BEST PROMPT: ${bestScore}/10 by ${modelId}`);
             }
             
             totalCost += result.cost;
             
-            // If we achieve high quality, we can stop early
-            if (score.overall >= 9.5) {
-              console.log(`🎯 OPTIMAL PROMPT ACHIEVED: ${score.overall}/10`);
+            // If we achieve 10/10, we're done!
+            if (score.overall >= 10.0) {
+              console.log(`🎯 PERFECT 10/10 PROMPT ACHIEVED by ${modelId}!`);
               break;
             }
             
           } catch (error) {
             console.error(`❌ Error with model ${modelId} in round ${round}:`, error);
+            // Continue with other models
           }
         }
         
-        // Update current prompt for next round
+        // Update current prompt for next round if we found a better one
         if (bestPrompt !== currentPrompt) {
           currentPrompt = bestPrompt;
         }
         
-        // Stop if we've achieved excellent results
-        if (bestScore >= 9.5) break;
+        // Stop if we've achieved perfect score
+        if (bestScore >= 10.0) {
+          console.log(`🎉 BATTLE COMPLETE: Perfect 10/10 prompt achieved in ${round} rounds!`);
+          break;
+        }
+        
+        round++;
+      }
+      
+      if (bestScore < 10.0 && round > maxRounds) {
+        console.log(`⚠️ Battle ended after ${maxRounds} rounds. Best score: ${bestScore}/10`);
       }
       
       // Create final battle object for prompt battle
       const battle: Battle = {
         id: battleId,
-        userId: 'demo-user-id',
+        userId: 'current-user-id',
         battleType: 'prompt',
         prompt: battleData.prompt,
         finalPrompt: bestPrompt,
@@ -122,7 +136,7 @@ Return ONLY the improved prompt, nothing else.`;
         models: battleData.models,
         mode: battleData.mode,
         battleMode: battleData.battle_mode,
-        rounds: battleData.rounds,
+        rounds: round - 1,
         maxTokens: battleData.max_tokens,
         temperature: battleData.temperature,
         status: 'completed',
@@ -136,11 +150,14 @@ Return ONLY the improved prompt, nothing else.`;
         promptEvolution
       };
       
+      // Store battle in localStorage for demo
+      storeBattleInCache(battle);
+      
       return battle;
       
     } else {
       // RESPONSE BATTLE: Real competitive response generation
-      console.log('🔄 EXECUTING RESPONSE GENERATION BATTLE');
+      console.log('🔄 EXECUTING REAL RESPONSE GENERATION BATTLE');
       
       for (const modelId of battleData.models) {
         try {
@@ -161,19 +178,19 @@ Return ONLY the improved prompt, nothing else.`;
           responses.push(response);
           totalCost += result.cost;
           
-          console.log(`✅ Model ${modelId} responded (${result.tokens} tokens, ₹${result.cost})`);
+          console.log(`✅ Model ${modelId} responded (${result.tokens} tokens, $${result.cost})`);
           
         } catch (error) {
           console.error(`❌ Error with model ${modelId}:`, error);
-          // Continue with other models
+          throw new Error(`Failed to get response from ${modelId}: ${error.message}`);
         }
       }
       
       if (responses.length === 0) {
-        throw new Error('No models were able to generate responses. Check your API configuration.');
+        throw new Error('No models were able to generate responses. Please check your API configuration.');
       }
       
-      // Generate competitive scores
+      // Generate competitive scores using AI
       const scores = await generateCompetitiveScores(responses, battleData.prompt, battleData.prompt_category);
       
       // Determine winner based on overall scores
@@ -185,7 +202,7 @@ Return ONLY the improved prompt, nothing else.`;
       
       const battle: Battle = {
         id: battleId,
-        userId: 'demo-user-id',
+        userId: 'current-user-id',
         battleType: 'response',
         prompt: battleData.prompt,
         finalPrompt: null,
@@ -193,7 +210,7 @@ Return ONLY the improved prompt, nothing else.`;
         models: battleData.models,
         mode: battleData.mode,
         battleMode: battleData.battle_mode,
-        rounds: battleData.rounds,
+        rounds: 1,
         maxTokens: battleData.max_tokens,
         temperature: battleData.temperature,
         status: 'completed',
@@ -206,126 +223,156 @@ Return ONLY the improved prompt, nothing else.`;
         scores
       };
       
+      // Store battle in localStorage for demo
+      storeBattleInCache(battle);
+      
       return battle;
     }
     
   } catch (error) {
     console.error('❌ BATTLE EXECUTION FAILED:', error);
     throw error;
-  } finally {
-    // Store battle in demo cache
-    const demoCache = JSON.parse(localStorage.getItem('demo_battles') || '[]');
-    const battle: Battle = {
-      id: battleId,
-      userId: 'demo-user-id',
-      battleType: battleData.battle_type,
-      prompt: battleData.prompt,
-      finalPrompt: battleData.battle_type === 'prompt' ? promptEvolution[promptEvolution.length - 1]?.prompt || battleData.prompt : null,
-      promptCategory: battleData.prompt_category,
-      models: battleData.models,
-      mode: battleData.mode,
-      battleMode: battleData.battle_mode,
-      rounds: battleData.rounds,
-      maxTokens: battleData.max_tokens,
-      temperature: battleData.temperature,
-      status: 'completed',
-      winner: responses.length > 0 ? responses[0].modelId : battleData.models[0],
-      totalCost,
-      autoSelectionReason: battleData.auto_selection_reason,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      responses,
-      scores: {},
-      promptEvolution: battleData.battle_type === 'prompt' ? promptEvolution : undefined
-    };
-    
-    demoCache.unshift(battle);
-    localStorage.setItem('demo_battles', JSON.stringify(demoCache));
   }
 };
 
-// Real prompt quality scoring
-const scorePromptQuality = async (prompt: string, category: string): Promise<BattleScore> => {
-  // Analyze prompt characteristics for real scoring
-  const length = prompt.length;
-  const hasContext = prompt.includes('context') || prompt.includes('example') || prompt.includes('specifically');
-  const hasConstraints = prompt.includes('format') || prompt.includes('length') || prompt.includes('style');
-  const isSpecific = prompt.split(' ').length > 10 && !prompt.includes('general') && !prompt.includes('anything');
-  
-  let accuracy = 6 + (isSpecific ? 2 : 0) + (hasContext ? 1 : 0);
-  let reasoning = 6 + (hasConstraints ? 2 : 0) + (length > 50 ? 1 : 0);
-  let structure = 6 + (hasContext ? 1.5 : 0) + (hasConstraints ? 1.5 : 0);
-  let creativity = 6 + (category === 'creative' ? 2 : 0) + (prompt.includes('creative') ? 1 : 0);
-  
-  // Add some realistic variation
-  accuracy += (Math.random() - 0.5) * 1;
-  reasoning += (Math.random() - 0.5) * 1;
-  structure += (Math.random() - 0.5) * 1;
-  creativity += (Math.random() - 0.5) * 1;
-  
-  // Ensure bounds
-  accuracy = Math.min(10, Math.max(1, accuracy));
-  reasoning = Math.min(10, Math.max(1, reasoning));
-  structure = Math.min(10, Math.max(1, structure));
-  creativity = Math.min(10, Math.max(1, creativity));
-  
-  const overall = (accuracy + reasoning + structure + creativity) / 4;
-  
-  return {
-    accuracy: Math.round(accuracy * 10) / 10,
-    reasoning: Math.round(reasoning * 10) / 10,
-    structure: Math.round(structure * 10) / 10,
-    creativity: Math.round(creativity * 10) / 10,
-    overall: Math.round(overall * 10) / 10,
-    notes: generatePromptScoreNotes(overall, category, prompt)
-  };
+// Real AI-powered prompt quality scoring
+const scorePromptQuality = async (prompt: string, category: string, originalPrompt: string): Promise<BattleScore> => {
+  try {
+    const scoringPrompt = `You are an expert prompt evaluator. Score this prompt on a scale of 1-10 for each category:
+
+Prompt to evaluate: "${prompt}"
+Original prompt: "${originalPrompt}"
+Category: ${category}
+
+Rate the prompt on:
+1. CLARITY (1-10): How clear and unambiguous is the prompt?
+2. SPECIFICITY (1-10): How specific and detailed are the instructions?
+3. STRUCTURE (1-10): How well-structured and organized is the prompt?
+4. EFFECTIVENESS (1-10): How likely is this prompt to produce high-quality responses?
+
+Respond in this exact format:
+CLARITY: [score]
+SPECIFICITY: [score]
+STRUCTURE: [score]
+EFFECTIVENESS: [score]
+NOTES: [brief explanation of the scores]`;
+
+    const result = await callGroqAPI('llama-3.3-70b-versatile', scoringPrompt, 200, 0.1);
+    
+    // Parse the response
+    const lines = result.response.split('\n');
+    let clarity = 7, specificity = 7, structure = 7, effectiveness = 7;
+    let notes = 'AI-generated scoring';
+    
+    for (const line of lines) {
+      if (line.includes('CLARITY:')) {
+        clarity = parseFloat(line.split(':')[1].trim()) || 7;
+      } else if (line.includes('SPECIFICITY:')) {
+        specificity = parseFloat(line.split(':')[1].trim()) || 7;
+      } else if (line.includes('STRUCTURE:')) {
+        structure = parseFloat(line.split(':')[1].trim()) || 7;
+      } else if (line.includes('EFFECTIVENESS:')) {
+        effectiveness = parseFloat(line.split(':')[1].trim()) || 7;
+      } else if (line.includes('NOTES:')) {
+        notes = line.split(':')[1].trim() || notes;
+      }
+    }
+    
+    const overall = (clarity + specificity + structure + effectiveness) / 4;
+    
+    return {
+      accuracy: clarity,
+      reasoning: specificity,
+      structure: structure,
+      creativity: effectiveness,
+      overall: Math.round(overall * 10) / 10,
+      notes
+    };
+  } catch (error) {
+    console.error('Error scoring prompt quality:', error);
+    // Fallback to basic scoring if AI scoring fails
+    return {
+      accuracy: 7,
+      reasoning: 7,
+      structure: 7,
+      creativity: 7,
+      overall: 7,
+      notes: 'Fallback scoring due to API error'
+    };
+  }
 };
 
-// Generate competitive scores for response battles
+// Generate competitive scores for response battles using AI
 const generateCompetitiveScores = async (responses: BattleResponse[], prompt: string, category: string): Promise<Record<string, BattleScore>> => {
   const scores: Record<string, BattleScore> = {};
   
   for (const response of responses) {
-    const model = getModelInfo(response.modelId);
-    
-    // Real scoring based on response quality
-    let accuracy = 6 + (response.response.length > 100 ? 1 : 0) + (model.quality === 'high' ? 1 : 0);
-    let reasoning = 6 + (response.response.includes('because') || response.response.includes('therefore') ? 1.5 : 0);
-    let structure = 6 + (response.response.includes('\n') || response.response.length > 200 ? 1 : 0);
-    let creativity = 6 + (category === 'creative' ? 2 : 0) + (response.response.includes('imagine') ? 1 : 0);
-    
-    // Performance bonuses
-    if (response.latency < 1000) accuracy += 0.5;
-    if (response.tokens > 50) structure += 0.5;
-    
-    // Model-specific bonuses
-    if (model.strengths.includes(category)) {
-      accuracy += 1;
-      reasoning += 1;
+    try {
+      const model = getModelInfo(response.modelId);
+      
+      const scoringPrompt = `You are an expert AI response evaluator. Score this response on a scale of 1-10 for each category:
+
+Original prompt: "${prompt}"
+Category: ${category}
+Response to evaluate: "${response.response}"
+Model: ${model.name}
+
+Rate the response on:
+1. ACCURACY (1-10): How accurate and factually correct is the response?
+2. REASONING (1-10): How well does it demonstrate logical reasoning?
+3. STRUCTURE (1-10): How well-organized and coherent is the response?
+4. CREATIVITY (1-10): How creative and engaging is the response?
+
+Respond in this exact format:
+ACCURACY: [score]
+REASONING: [score]
+STRUCTURE: [score]
+CREATIVITY: [score]
+NOTES: [brief explanation of the scores]`;
+
+      const result = await callGroqAPI('llama-3.3-70b-versatile', scoringPrompt, 200, 0.1);
+      
+      // Parse the response
+      const lines = result.response.split('\n');
+      let accuracy = 7, reasoning = 7, structure = 7, creativity = 7;
+      let notes = 'AI-generated scoring';
+      
+      for (const line of lines) {
+        if (line.includes('ACCURACY:')) {
+          accuracy = parseFloat(line.split(':')[1].trim()) || 7;
+        } else if (line.includes('REASONING:')) {
+          reasoning = parseFloat(line.split(':')[1].trim()) || 7;
+        } else if (line.includes('STRUCTURE:')) {
+          structure = parseFloat(line.split(':')[1].trim()) || 7;
+        } else if (line.includes('CREATIVITY:')) {
+          creativity = parseFloat(line.split(':')[1].trim()) || 7;
+        } else if (line.includes('NOTES:')) {
+          notes = line.split(':')[1].trim() || notes;
+        }
+      }
+      
+      const overall = (accuracy + reasoning + structure + creativity) / 4;
+      
+      scores[response.modelId] = {
+        accuracy: Math.round(accuracy * 10) / 10,
+        reasoning: Math.round(reasoning * 10) / 10,
+        structure: Math.round(structure * 10) / 10,
+        creativity: Math.round(creativity * 10) / 10,
+        overall: Math.round(overall * 10) / 10,
+        notes
+      };
+    } catch (error) {
+      console.error(`Error scoring response for ${response.modelId}:`, error);
+      // Fallback scoring
+      scores[response.modelId] = {
+        accuracy: 7,
+        reasoning: 7,
+        structure: 7,
+        creativity: 7,
+        overall: 7,
+        notes: 'Fallback scoring due to API error'
+      };
     }
-    
-    // Add competitive variation
-    accuracy += (Math.random() - 0.5) * 2;
-    reasoning += (Math.random() - 0.5) * 2;
-    structure += (Math.random() - 0.5) * 2;
-    creativity += (Math.random() - 0.5) * 2;
-    
-    // Ensure bounds
-    accuracy = Math.min(10, Math.max(1, accuracy));
-    reasoning = Math.min(10, Math.max(1, reasoning));
-    structure = Math.min(10, Math.max(1, structure));
-    creativity = Math.min(10, Math.max(1, creativity));
-    
-    const overall = (accuracy + reasoning + structure + creativity) / 4;
-    
-    scores[response.modelId] = {
-      accuracy: Math.round(accuracy * 10) / 10,
-      reasoning: Math.round(reasoning * 10) / 10,
-      structure: Math.round(structure * 10) / 10,
-      creativity: Math.round(creativity * 10) / 10,
-      overall: Math.round(overall * 10) / 10,
-      notes: generateResponseScoreNotes(overall, model.name, response.response.length)
-    };
   }
   
   return scores;
@@ -341,7 +388,6 @@ const generatePromptScores = (promptEvolution: PromptEvolution[], models: string
       current.score > best.score ? current : best, modelEvolutions[0]);
     
     if (bestEvolution) {
-      const model = getModelInfo(modelId);
       scores[modelId] = {
         accuracy: bestEvolution.score,
         reasoning: bestEvolution.score,
@@ -369,41 +415,48 @@ const generateImprovements = (original: string, refined: string): string[] => {
   if (refined.includes('format') || refined.includes('structure')) {
     improvements.push('Better structure');
   }
-  if (refined !== original) {
+  if (refined.toLowerCase().includes('please') || refined.includes('step')) {
     improvements.push('Enhanced clarity');
+  }
+  if (refined !== original) {
+    improvements.push('General refinement');
   }
   
   return improvements.length > 0 ? improvements : ['General refinement'];
 };
 
-// Generate contextual score notes
-const generatePromptScoreNotes = (score: number, category: string, prompt: string): string => {
-  if (score >= 9) {
-    return `Excellent ${category} prompt with clear instructions and optimal structure.`;
-  } else if (score >= 7) {
-    return `Good ${category} prompt with room for minor improvements in specificity.`;
-  } else {
-    return `Decent ${category} prompt but could benefit from more context and clearer instructions.`;
-  }
-};
-
-const generateResponseScoreNotes = (score: number, modelName: string, responseLength: number): string => {
-  if (score >= 9) {
-    return `${modelName} delivered an exceptional response with excellent depth and clarity.`;
-  } else if (score >= 7) {
-    return `${modelName} provided a solid response with good reasoning and structure.`;
-  } else {
-    return `${modelName} gave a basic response that meets requirements but lacks depth.`;
+// Store battle in localStorage for demo
+const storeBattleInCache = (battle: Battle) => {
+  try {
+    const demoCache = JSON.parse(localStorage.getItem('demo_battles') || '[]');
+    demoCache.unshift(battle);
+    // Keep only last 50 battles
+    if (demoCache.length > 50) {
+      demoCache.splice(50);
+    }
+    localStorage.setItem('demo_battles', JSON.stringify(demoCache));
+  } catch (error) {
+    console.error('Error storing battle in cache:', error);
   }
 };
 
 // Demo data management
 export const getUserBattles = async (): Promise<Battle[]> => {
-  const demoCache = JSON.parse(localStorage.getItem('demo_battles') || '[]');
-  return demoCache;
+  try {
+    const demoCache = JSON.parse(localStorage.getItem('demo_battles') || '[]');
+    return demoCache;
+  } catch (error) {
+    console.error('Error loading battles from cache:', error);
+    return [];
+  }
 };
 
 export const getBattle = async (battleId: string): Promise<Battle | null> => {
-  const demoCache = JSON.parse(localStorage.getItem('demo_battles') || '[]');
-  return demoCache.find((b: Battle) => b.id === battleId) || null;
+  try {
+    const demoCache = JSON.parse(localStorage.getItem('demo_battles') || '[]');
+    return demoCache.find((b: Battle) => b.id === battleId) || null;
+  } catch (error) {
+    console.error('Error loading battle from cache:', error);
+    return null;
+  }
 };
