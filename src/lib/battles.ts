@@ -511,20 +511,8 @@ Be EXTREMELY strict. Only award 10/10 for truly perfect aspects that cannot be i
   try {
     const result = await callGroqAPI(reviewerModelId, reviewPrompt, 400, 0.1);
     
-    // Extract content between XML tags first
-    const startTag = '<REVIEW_START>';
-    const endTag = '</REVIEW_END>';
-    const startIndex = result.response.indexOf(startTag);
-    const endIndex = result.response.indexOf(endTag);
-    
-    if (startIndex === -1 || endIndex === -1) {
-      throw new Error(`Peer review format error: Missing XML tags. Response: ${result.response}`);
-    }
-    
-    const reviewContent = result.response.substring(startIndex + startTag.length, endIndex).trim();
-    
-    // Parse response with STRICT validation
-    const lines = reviewContent.split('\n');
+    // Parse response directly without XML tag requirement - be more resilient
+    const lines = result.response.split('\n');
     const scores = {
       clarity: 0,
       specificity: 0,
