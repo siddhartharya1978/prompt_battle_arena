@@ -77,6 +77,9 @@ Your task is to create a significantly improved version that:
 4. Addresses any weaknesses in the current prompt
 5. Aims for a perfect 10/10 score in clarity, specificity, structure, and effectiveness
 
+Respond with ONLY the improved prompt, no explanations or additional text.`;
+
+            const result = await callGroqAPI(modelId, refinementPrompt, battleData.max_tokens, battleData.temperature);
             totalCost += result.cost;
             
             const refinedPrompt = result.response.trim();
@@ -288,6 +291,9 @@ Rate the prompt on:
 3. STRUCTURE (1-10): How well-structured and organized is the prompt? 10/10 means perfect logical flow and organization.
 4. EFFECTIVENESS (1-10): How likely is this prompt to produce high-quality responses? 10/10 means guaranteed excellent results.
 
+Respond in this exact format:
+CLARITY: [score]
+SPECIFICITY: [score]
 STRUCTURE: [score]
 EFFECTIVENESS: [score]
 NOTES: [brief explanation of the scores and any areas for improvement]`;
