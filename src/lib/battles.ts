@@ -4,7 +4,7 @@ import { AVAILABLE_MODELS, getModelInfo, selectOptimalModels, getAutoSelectionRe
 
 // REAL 10/10 PROMPT OPTIMIZATION ENGINE - NO MOCKS, NO SHORTCUTS
 export const createBattle = async (battleData: BattleData): Promise<Battle> => {
-  console.log('🚀 STARTING REAL 10/10 OPTIMIZATION BATTLE:', battleData);
+  console.log('SUPREME BATTLE ARENA: STARTING REAL 10/10 OPTIMIZATION BATTLE:', battleData);
   
   if (!battleData.prompt?.trim()) {
     throw new Error('Prompt is required');
@@ -22,16 +22,17 @@ export const createBattle = async (battleData: BattleData): Promise<Battle> => {
   try {
     if (battleData.battle_type === 'prompt') {
       // REAL PROMPT OPTIMIZATION LOOP - CONTINUES UNTIL 10/10 ACHIEVED
-      console.log('🔄 STARTING REAL 10/10 PROMPT OPTIMIZATION ENGINE');
+      console.log('SUPREME OPTIMIZATION: STARTING REAL 10/10 PROMPT OPTIMIZATION ENGINE');
       
       let currentPrompt = battleData.prompt;
       let bestScore = 0;
       let bestPrompt = currentPrompt;
       let bestModelId = '';
       let round = 1;
-      const maxRounds = 50; // Increased safety limit - we want to reach 10/10
-      let consecutiveFailures = 0;
-      const maxConsecutiveFailures = 5; // Allow more attempts before giving up
+      const maxRounds = 100; // Supreme optimization - no shortcuts
+      let plateauRounds = 0;
+      const maxPlateauRounds = 8; // More attempts to break plateaus
+      const improvementThreshold = 0.05; // Require meaningful improvement
       
       // Add initial prompt to evolution with baseline score
       const initialScore = await scorePromptQuality(currentPrompt, battleData.prompt_category, '');
@@ -49,35 +50,39 @@ export const createBattle = async (battleData: BattleData): Promise<Battle> => {
       });
       
       bestScore = initialScore.overall;
-      console.log(`📊 INITIAL PROMPT SCORE: ${bestScore}/10`);
+      console.log('SUPREME SCORING: INITIAL PROMPT SCORE: ' + bestScore + '/10');
 
       // CORE OPTIMIZATION LOOP - CONTINUES UNTIL 10/10 OR NO FURTHER IMPROVEMENT POSSIBLE
-      while (bestScore < 9.9 && round <= maxRounds && consecutiveFailures < maxConsecutiveFailures) {
-        console.log(`🔄 OPTIMIZATION ROUND ${round} - Current Best: ${bestScore}/10`);
+      while (bestScore < 9.9 && round <= maxRounds && plateauRounds < maxPlateauRounds) {
+        console.log('SUPREME ROUND ' + round + ' - Current Best: ' + bestScore + '/10');
         
         let roundImproved = false;
+        let bestRoundScore = bestScore;
         const roundResults: Array<{modelId: string, prompt: string, score: number, improvements: string[]}> = [];
         
         // Each model attempts to improve the current best prompt
         for (const modelId of battleData.models) {
           try {
-            console.log(`🤖 ${modelId} attempting to improve prompt (current best: ${bestScore}/10)...`);
+            console.log('SUPREME COMPETITOR: ' + modelId + ' attempting to improve prompt (current best: ' + bestScore + '/10)...');
             
-            // Create competitive refinement prompt
-            const refinementPrompt = `You are an expert prompt engineer in a competitive optimization challenge. Your goal is to improve the following prompt to achieve a perfect 10/10 score.
+            // Create SUPREME competitive refinement prompt
+            const refinementPrompt = `You are an expert prompt engineer in the SUPREME PROMPT BATTLE ARENA. Your mission is to create a significantly improved version of this prompt that achieves a perfect 10/10 score.
 
 CURRENT PROMPT TO IMPROVE: "${currentPrompt}"
 CURRENT SCORE: ${bestScore}/10
 CATEGORY: ${battleData.prompt_category}
+ROUND: ${round}
 
-Your task is to create a significantly improved version that:
-1. Is more specific, clear, and actionable than the current version
-2. Includes better context, examples, or constraints where helpful
-3. Uses more effective phrasing and structure
-4. Addresses any weaknesses in the current prompt
-5. Aims for a perfect 10/10 score in clarity, specificity, structure, and effectiveness
+SUPREME OPTIMIZATION REQUIREMENTS:
+1. Create a SIGNIFICANTLY improved version (not minor tweaks)
+2. Must be more specific, clear, and actionable than current version
+3. Include better context, examples, or constraints where beneficial
+4. Use more effective phrasing and structure
+5. Address ALL weaknesses in the current prompt
+6. Target PERFECT 10/10 score in clarity, specificity, structure, and effectiveness
+7. If you cannot meaningfully improve this prompt, respond with exactly: "CANNOT_IMPROVE_FURTHER"
 
-Respond with ONLY the improved prompt, no explanations or additional text.`;
+Respond with ONLY the improved prompt, no explanations or additional text. Make it count - this is competitive optimization!`;
 
             const result = await callGroqAPI(modelId, refinementPrompt, battleData.max_tokens, battleData.temperature);
             totalCost += result.cost;
@@ -86,7 +91,7 @@ Respond with ONLY the improved prompt, no explanations or additional text.`;
             
             // Check if model claims it cannot improve
             if (refinedPrompt.startsWith('CANNOT_IMPROVE')) {
-              console.log('[ERROR] ' + modelId + ' cannot improve further: ' + refinedPrompt);
+              console.log('SUPREME PLATEAU: ' + modelId + ' cannot improve further: ' + refinedPrompt);
               continue;
             }
             
@@ -94,7 +99,7 @@ Respond with ONLY the improved prompt, no explanations or additional text.`;
             const score = await scorePromptQuality(refinedPrompt, battleData.prompt_category, currentPrompt);
             totalCost += 0.01; // Estimate for scoring call
             
-            console.log('[SCORE] ' + modelId + ' refined prompt score: ' + score.overall + '/10');
+            console.log('SUPREME SCORE: ' + modelId + ' refined prompt score: ' + score.overall + '/10');
             
             // Generate improvements list
             const improvements = await generateImprovementsList(currentPrompt, refinedPrompt);
@@ -119,38 +124,41 @@ Respond with ONLY the improved prompt, no explanations or additional text.`;
             });
             
             // Check if this is the new best
-            if (score.overall > bestScore) {
+            if (score.overall > bestScore + improvementThreshold) {
               bestScore = score.overall;
+              bestRoundScore = score.overall;
               bestPrompt = refinedPrompt;
               bestModelId = modelId;
               roundImproved = true;
-              console.log(`🏆 NEW BEST PROMPT: ${bestScore}/10 by ${modelId}`);
+              console.log('SUPREME CHAMPION: NEW BEST PROMPT: ' + bestScore + '/10 by ' + modelId);
               
               // If we achieved 10/10, we're done!
               if (score.overall >= 9.9) {
-                console.log(`🎯 PERFECT 10/10 PROMPT ACHIEVED by ${modelId}!`);
+                console.log('SUPREME VICTORY: PERFECT 10/10 PROMPT ACHIEVED by ' + modelId + '!');
                 break;
               }
+            } else if (score.overall > bestRoundScore) {
+              bestRoundScore = score.overall;
             }
             
           } catch (error) {
-            console.error(`❌ Error with model ${modelId} in round ${round}:`, error);
+            console.error('SUPREME ERROR: Error with model ' + modelId + ' in round ' + round + ':', error);
             // Continue with other models
           }
         }
         
         // Check if we achieved 10/10
         if (bestScore >= 9.9) {
-          console.log(`🎉 OPTIMIZATION COMPLETE: Perfect 10/10 prompt achieved in ${round} rounds!`);
+          console.log('SUPREME SUCCESS: Perfect 10/10 prompt achieved in ' + round + ' rounds!');
           break;
         }
         
         // Check if any model improved this round
         if (!roundImproved) {
-          consecutiveFailures++;
-          console.log(`⚠️ No improvement in round ${round}. Consecutive failures: ${consecutiveFailures}/${maxConsecutiveFailures}`);
+          plateauRounds++;
+          console.log('SUPREME PLATEAU: No meaningful improvement in round ' + round + '. Plateau rounds: ' + plateauRounds + '/' + maxPlateauRounds);
         } else {
-          consecutiveFailures = 0; // Reset failure counter
+          plateauRounds = 0; // Reset plateau counter
           currentPrompt = bestPrompt; // Use the best prompt for next round
         }
         
@@ -159,11 +167,11 @@ Respond with ONLY the improved prompt, no explanations or additional text.`;
       
       // Final status logging
       if (bestScore >= 9.9) {
-        console.log(`🎉 SUCCESS: Perfect 10/10 prompt achieved by ${bestModelId} in ${round - 1} rounds!`);
-      } else if (consecutiveFailures >= maxConsecutiveFailures) {
-        console.log(`⚠️ OPTIMIZATION PLATEAU: No model could improve further after ${consecutiveFailures} attempts. Best score: ${bestScore}/10`);
+        console.log('SUPREME VICTORY: Perfect 10/10 prompt achieved by ' + bestModelId + ' in ' + (round - 1) + ' rounds!');
+      } else if (plateauRounds >= maxPlateauRounds) {
+        console.log('SUPREME PLATEAU: No model could improve further after ' + plateauRounds + ' attempts. Best score: ' + bestScore + '/10');
       } else if (round > maxRounds) {
-        console.log(`⚠️ MAX ROUNDS REACHED: Stopped after ${maxRounds} rounds. Best score: ${bestScore}/10`);
+        console.log('SUPREME LIMIT: Stopped after ' + maxRounds + ' rounds. Best score: ' + bestScore + '/10');
       }
       
       // Create final battle object for prompt battle
@@ -198,11 +206,11 @@ Respond with ONLY the improved prompt, no explanations or additional text.`;
       
     } else {
       // RESPONSE BATTLE: Real competitive response generation
-      console.log('🔄 EXECUTING REAL RESPONSE GENERATION BATTLE');
+      console.log('SUPREME RESPONSE BATTLE: EXECUTING REAL RESPONSE GENERATION BATTLE');
       
       for (const modelId of battleData.models) {
         try {
-          console.log(`🤖 Calling model: ${modelId}`);
+          console.log('SUPREME COMPETITOR: Calling model: ' + modelId);
           const result = await callGroqAPI(modelId, battleData.prompt, battleData.max_tokens, battleData.temperature);
           
           const response: BattleResponse = {
@@ -219,10 +227,10 @@ Respond with ONLY the improved prompt, no explanations or additional text.`;
           responses.push(response);
           totalCost += result.cost;
           
-          console.log(`✅ Model ${modelId} responded (${result.tokens} tokens, $${result.cost})`);
+          console.log('SUPREME SUCCESS: Model ' + modelId + ' responded (' + result.tokens + ' tokens, $' + result.cost + ')');
           
         } catch (error) {
-          console.error(`❌ Error with model ${modelId}:`, error);
+          console.error('SUPREME ERROR: Error with model ' + modelId + ':', error);
           throw new Error(`Failed to get response from ${modelId}: ${error.message}`);
         }
       }
@@ -239,7 +247,7 @@ Respond with ONLY the improved prompt, no explanations or additional text.`;
         return !best || score.overall > scores[best].overall ? modelId : best;
       }, '');
       
-      console.log(`🏆 WINNER: ${winner} with score ${scores[winner]?.overall}/10`);
+      console.log('SUPREME CHAMPION: WINNER: ' + winner + ' with score ' + scores[winner]?.overall + '/10');
       
       const battle: Battle = {
         id: battleId,
@@ -271,7 +279,7 @@ Respond with ONLY the improved prompt, no explanations or additional text.`;
     }
     
   } catch (error) {
-    console.error('❌ BATTLE EXECUTION FAILED:', error);
+    console.error('SUPREME FAILURE: BATTLE EXECUTION FAILED:', error);
     throw error;
   }
 };
@@ -279,18 +287,19 @@ Respond with ONLY the improved prompt, no explanations or additional text.`;
 // Real AI-powered prompt quality scoring
 const scorePromptQuality = async (prompt: string, category: string, originalPrompt: string): Promise<BattleScore> => {
   try {
-    const scoringPrompt = `You are an expert prompt evaluator. Score this prompt on a scale of 1-10 for each category. Be strict - only award 10/10 for truly perfect prompts that cannot be improved.
+    const scoringPrompt = `You are an expert prompt evaluator in the SUPREME PROMPT BATTLE ARENA. Score this prompt on a scale of 1-10 for each category. Be EXTREMELY strict - only award 10/10 for truly perfect prompts that cannot be improved.
 
 Prompt to evaluate: "${prompt}"
 ${originalPrompt ? `Original prompt: "${originalPrompt}"` : ''}
 Category: ${category}
 
-Rate the prompt on:
-1. CLARITY (1-10): How clear and unambiguous is the prompt? 10/10 means crystal clear with no possible confusion.
-2. SPECIFICITY (1-10): How specific and detailed are the instructions? 10/10 means perfectly specific with all necessary details.
-3. STRUCTURE (1-10): How well-structured and organized is the prompt? 10/10 means perfect logical flow and organization.
-4. EFFECTIVENESS (1-10): How likely is this prompt to produce high-quality responses? 10/10 means guaranteed excellent results.
+SUPREME SCORING CRITERIA:
+1. CLARITY (1-10): Crystal clear with zero ambiguity? 10/10 = impossible to misunderstand
+2. SPECIFICITY (1-10): Perfectly detailed instructions? 10/10 = all necessary details included
+3. STRUCTURE (1-10): Flawless organization and flow? 10/10 = perfect logical structure
+4. EFFECTIVENESS (1-10): Guaranteed excellent results? 10/10 = cannot produce better outcomes
 
+BE EXTREMELY STRICT. 9/10 should be rare, 10/10 should be perfect.
 Respond in this exact format:
 CLARITY: [score]
 SPECIFICITY: [score]
@@ -377,19 +386,20 @@ const generateCompetitiveScores = async (responses: BattleResponse[], prompt: st
     try {
       const model = getModelInfo(response.modelId);
       
-      const scoringPrompt = `You are an expert AI response evaluator. Score this response on a scale of 1-10 for each category:
+      const scoringPrompt = `You are an expert AI response evaluator in the SUPREME PROMPT BATTLE ARENA. Score this response on a scale of 1-10 for each category:
 
 Original prompt: "${prompt}"
 Category: ${category}
 Response to evaluate: "${response.response}"
 Model: ${model.name}
 
-Rate the response on:
+SUPREME SCORING CRITERIA (BE EXTREMELY STRICT):
 1. ACCURACY (1-10): How accurate and factually correct is the response?
 2. REASONING (1-10): How well does it demonstrate logical reasoning?
 3. STRUCTURE (1-10): How well-organized and coherent is the response?
 4. CREATIVITY (1-10): How creative and engaging is the response?
 
+BE EXTREMELY STRICT. 9/10 should be rare, 10/10 should be perfect.
 Respond in this exact format:
 ACCURACY: [score]
 REASONING: [score]

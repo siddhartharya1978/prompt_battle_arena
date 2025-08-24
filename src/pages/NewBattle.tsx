@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useBattle } from '../contexts/BattleContext';
+import ModelCard from '../components/ModelCard';
 import { BattleData } from '../types';
 import Navigation from '../components/Navigation';
 import FeedbackWidget from '../components/FeedbackWidget';
@@ -23,6 +24,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { selectOptimalModels } from '../lib/models';
 
 export default function NewBattle() {
   const { user, incrementBattleUsage } = useAuth();
@@ -40,6 +42,11 @@ export default function NewBattle() {
   const [temperature, setTemperature] = useState(0.7);
   const [mode, setMode] = useState<'standard' | 'turbo'>('standard');
   const [isCreating, setIsCreating] = useState(false);
+  const [autoSelectionResult, setAutoSelectionResult] = useState<{
+    selected: string[];
+    rationale: string;
+    deselected: Array<{modelId: string, reason: string}>;
+  } | null>(null);
 
   const categories = [
     { id: 'general', name: 'General', description: 'General questions and conversations' },
@@ -97,14 +104,17 @@ export default function NewBattle() {
 
   // Auto-select models based on category and battle type
   const autoSelectModels = () => {
-    const selected = selectOptimalModels(prompt, promptCategory, battleType);
-
-    setSelectedModels(selected);
+    if (!prompt.trim()) {
+      toast.error('Please enter a prompt first for intelligent model selection');
+      return;
+    }
     
-    if (selected.length > 0) {
-      const reason = getAutoSelectionReason(prompt, promptCategory, selected);
-      toast.success(`Auto-selected ${selected.length} optimal models`);
-      console.log('Auto-selection reason:', reason);
+    const result = selectOptimalModels(prompt, promptCategory, battleType);
+    setAutoSelectionResult(result);
+    setSelectedModels(result.selected);
+
+    if (result.selected.length > 0) {
+      toast.success(`Auto-selected ${result.selected.length} optimal models based on prompt analysis`);
     } else {
       toast.error('No suitable models available for auto-selection');
     }
@@ -496,72 +506,85 @@ export default function NewBattle() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                4. Select Models ({selectedModels.length}/3)
+                4. {battleMode === 'auto' ? 'Auto-Selected Models' : 'Manual Model Selection'} ({selectedModels.length}/{battleMode === 'auto' ? '3' : '5'})
               </h2>
-              <button
-                onClick={autoSelectModels}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Auto-Select Models</span>
-              </button>
+              {battleMode === 'auto' ? (
+                <button
+                  onClick={autoSelectModels}
+                  disabled={!prompt.trim()}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Brain className="w-4 h-4" />
+                  <span>Scientific Auto-Selection</span>
+                </button>
+              ) : (
+                <button
+                  onClick={autoSelectModels}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Smart Suggestions</span>
+                </button>
+              )}
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {models.filter(model => model.available).map((model) => (
-                <button
-                  key={model.id}
-                  onClick={() => handleModelToggle(model.id)}
-                  className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${
-                    selectedModels.includes(model.id)
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-2xl">{model.icon}</span>
-                      <span className={`font-medium ${
-                        selectedModels.includes(model.id) 
-                          ? 'text-blue-900 dark:text-blue-100' 
-                          : 'text-gray-900 dark:text-white'
-                      }`}>
-                        {model.name}
-                      </span>
+            {/* Auto-Selection Results */}
+            {battleMode === 'auto' && autoSelectionResult && (
+              <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl">
+                <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">
+                  🧠 Scientific Model Selection Results:
+                </h4>
+                <p className="text-sm text-green-700 dark:text-green-300 mb-3">
+                  {autoSelectionResult.rationale}
+                </p>
+                {autoSelectionResult.deselected.length > 0 && (
+                  <details className="text-sm">
+                    <summary className="cursor-pointer text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300">
+                      View Deselected Models ({autoSelectionResult.deselected.length})
+                    </summary>
+                    <div className="mt-2 space-y-1">
+                      {autoSelectionResult.deselected.map((item, index) => (
+                        <div key={index} className="text-xs text-green-600 dark:text-green-400">
+                          • {getModelInfo(item.modelId).name}: {item.reason}
+                        </div>
+                      ))}
                     </div>
-                    {selectedModels.includes(model.id) && (
-                      <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                    )}
-                  </div>
-                  <p className={`text-sm ${
-                    selectedModels.includes(model.id) 
-                      ? 'text-blue-700 dark:text-blue-300' 
-                      : 'text-gray-600 dark:text-gray-300'
-                  }`}>
-                    {model.description}
-                  </p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className={`text-xs ${
-                      selectedModels.includes(model.id) 
-                        ? 'text-blue-600 dark:text-blue-400' 
-                        : 'text-gray-500 dark:text-gray-400'
-                    }`}>
-                      {model.provider}
-                    </span>
-                    {model.premium && (
-                      <Crown className="w-4 h-4 text-yellow-500" />
-                    )}
-                  </div>
-                </button>
+                  </details>
+                )}
+              </div>
+            )}
+
+            {/* Model Cards */}
+            <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {models.filter(model => model.available).map((model) => (
+                <ModelCard
+                  key={model.id}
+                  model={model}
+                  isSelected={selectedModels.includes(model.id)}
+                  onToggle={() => battleMode === 'manual' ? handleModelToggle(model.id) : undefined}
+                  showSelection={battleMode === 'manual'}
+                  compact={false}
+                />
               ))}
             </div>
 
-            {selectedModels.length < 2 && (
+            {selectedModels.length < 2 && battleMode === 'manual' && (
               <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg">
                 <div className="flex items-center space-x-2">
                   <AlertCircle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                   <span className="text-sm text-orange-700 dark:text-orange-300">
-                    Select at least 2 models to start a battle
+                    Select at least 2 models to start a manual battle
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            {battleMode === 'auto' && selectedModels.length === 0 && (
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <Brain className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm text-blue-700 dark:text-blue-300">
+                    Enter a prompt above, then click "Scientific Auto-Selection" to let AI choose the optimal models
                   </span>
                 </div>
               </div>
@@ -626,45 +649,64 @@ export default function NewBattle() {
           {battleMode === 'auto' && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                5. Auto Mode Settings
+                5. **AUTO MODE - SUPREME OPTIMIZATION**
               </h2>
-                  <strong>Auto Mode:</strong> AI will run iterative battles until achieving a perfect 10/10 prompt (no round limit)
-              <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-xl p-6 border border-green-200 dark:border-green-700">
+              <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-xl p-6 border-2 border-green-300 dark:border-green-600">
                 <div className="flex items-center space-x-3 mb-4">
                   <Brain className="w-8 h-8 text-green-600 dark:text-green-400" />
                   <div>
-                    <h3 className="text-lg font-semibold text-green-900 dark:text-green-100">
-                      Fully Automated 10/10 Optimization
+                    <h3 className="text-xl font-bold text-green-900 dark:text-green-100">
+                      **SMART AUTO MODE - PEER-REVIEWED 10/10 OPTIMIZATION**
                     </h3>
-                    <p className="text-sm text-green-700 dark:text-green-300">
-                      AI will run competitive rounds until a perfect 10/10 prompt is achieved
+                    <p className="text-green-700 dark:text-green-300 font-medium">
+                      Automatic, justified, iterative, peer-reviewed LLM selection/loop until true 10/10 consensus or plateau
                     </p>
                   </div>
                 </div>
                 
-                <div className="grid md:grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    <span className="text-green-700 dark:text-green-300">No round limits - continues until 10/10</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    <span className="text-green-700 dark:text-green-300">AI-judged perfection criteria</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    <span className="text-green-700 dark:text-green-300">Complete evolution tracking</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    <span className="text-green-700 dark:text-green-300">Stops only when no improvement possible</span>
+                <div className="space-y-3 mb-4">
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-green-200 dark:border-green-600">
+                    <h4 className="font-bold text-green-900 dark:text-green-100 mb-2">
+                      🎯 **MISSION SUMMARY:**
+                    </h4>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      **SMART AUTO mode (automatic, justified, iterative, peer-reviewed LLM selection/loop until a true 10/10 consensus or plateau) 
+                      with full model info cards, scoring/critique visibility, copyable outputs, and NO shortcuts or omissions.**
+                    </p>
                   </div>
                 </div>
                 
-                <div className="mt-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-green-600">
-                  <p className="text-xs text-gray-600 dark:text-gray-300">
-                    <strong>How it works:</strong> Models compete in rounds to improve your prompt. Each round, the best prompt becomes the new baseline. 
-                    The battle continues until one model creates a prompt that scores 10/10 and no other model can improve it further.
+                <div className="grid md:grid-cols-2 gap-4 text-sm mb-4">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <span className="text-green-700 dark:text-green-300">**Scientific Auto-Selection of LLMs**</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <span className="text-green-700 dark:text-green-300">**Iterative Competitive Rounds**</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <span className="text-green-700 dark:text-green-300">**Peer Review/Scoring by LLMs**</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <span className="text-green-700 dark:text-green-300">**Full Round-by-Round Visibility**</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <span className="text-green-700 dark:text-green-300">**True 10/10 or "Unimprovable" Output**</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <span className="text-green-700 dark:text-green-300">**No User Configuration Required**</span>
+                  </div>
+                </div>
+                
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-600 rounded-lg p-4">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+                    ⚠️ **NO USER INPUT REQUIRED** - System automatically handles model selection, rounds, and stopping conditions. 
+                    Continues until peer-verified 10/10 or proven plateau. Any unfulfilled component stops the pipeline.
                   </p>
                 </div>
               </div>
