@@ -475,7 +475,7 @@ const generatePeerReview = async (
   category: string,
   battleType: 'prompt' | 'response'
 ): Promise<PeerReview> => {
-  const reviewPrompt = `CRITICAL: You MUST respond ONLY with the structured format below. NO conversational text, NO thinking aloud, NO explanations before the format. Start your response immediately with "CLARITY:" and follow the exact format.
+  const reviewPrompt = `CRITICAL: You MUST respond ONLY with the structured format below. NO conversational text, NO thinking aloud, NO explanations before or after the format.
 
 You are a peer reviewer in the SUPREME PROMPT BATTLE ARENA. Evaluate this ${battleType} using the STRICT 8-CRITERIA RUBRIC.
 
@@ -489,29 +489,44 @@ SUPREME 8-CRITERIA SCORING RUBRIC (1-10 scale, be EXTREMELY strict):
 3. COMPLETENESS: Nothing important missing (10 = comprehensive coverage)
 4. ACTIONABILITY: Clear steps/requirements (10 = perfectly actionable)
 5. CONCISENESS: No unnecessary words (10 = perfectly concise)
-6. CONTEXT_COVERAGE: Addresses all relevant aspects (10 = complete context coverage)
+6. CONTEXT COVERAGE: Addresses all relevant aspects (10 = complete context coverage)
 7. NO_REDUNDANCY: No repetitive elements (10 = zero redundancy)
-8. TAILORED_TO_INTENT: Perfect fit for intended purpose (10 = perfectly tailored)
+8. TAILORED TO INTENT: Perfect fit for intended purpose (10 = perfectly tailored)
 
 CRITICAL: Be EXTREMELY strict. Only award 10/10 for truly perfect aspects that cannot be improved.
 
-RESPOND IN EXACT FORMAT (no deviation allowed, start immediately with CLARITY):
+You MUST wrap your response in XML tags and output ONLY the content between these tags:
+
+<REVIEW_START>
 CLARITY: [score]
 SPECIFICITY: [score]
 COMPLETENESS: [score]
 ACTIONABILITY: [score]
 CONCISENESS: [score]
-CONTEXT_COVERAGE: [score]
+CONTEXT COVERAGE: [score]
 NO_REDUNDANCY: [score]
-TAILORED_TO_INTENT: [score]
+TAILORED TO INTENT: [score]
 CRITIQUE: [detailed explanation of scores and specific areas for improvement]
-IMPROVEMENTS: [comma-separated list of specific improvements needed]`;
+IMPROVEMENTS: [comma-separated list of specific improvements needed]
+</REVIEW_END>`;
 
   try {
     const result = await callGroqAPI(reviewerModelId, reviewPrompt, 400, 0.1);
     
+    // Extract content between XML tags first
+    const startTag = '<REVIEW_START>';
+    const endTag = '</REVIEW_END>';
+    const startIndex = result.response.indexOf(startTag);
+    const endIndex = result.response.indexOf(endTag);
+    
+    if (startIndex === -1 || endIndex === -1) {
+      throw new Error(`Peer review format error: Missing XML tags. Response: ${result.response}`);
+    }
+    
+    const reviewContent = result.response.substring(startIndex + startTag.length, endIndex).trim();
+    
     // Parse response with STRICT validation
-    const lines = result.response.split('\n');
+    const lines = reviewContent.split('\n');
     const scores = {
       clarity: 0,
       specificity: 0,
@@ -544,13 +559,13 @@ IMPROVEMENTS: [comma-separated list of specific improvements needed]`;
       } else if (trimmedLine.startsWith('CONCISENESS:')) {
         scores.conciseness = parseFloat(trimmedLine.split(':')[1].trim()) || 0;
         foundScores++;
-      } else if (trimmedLine.startsWith('CONTEXT_COVERAGE:')) {
+      } else if (trimmedLine.startsWith('CONTEXT COVERAGE:')) {
         scores.contextCoverage = parseFloat(trimmedLine.split(':')[1].trim()) || 0;
         foundScores++;
       } else if (trimmedLine.startsWith('NO_REDUNDANCY:')) {
         scores.noRedundancy = parseFloat(trimmedLine.split(':')[1].trim()) || 0;
         foundScores++;
-      } else if (trimmedLine.startsWith('TAILORED_TO_INTENT:')) {
+      } else if (trimmedLine.startsWith('TAILORED TO INTENT:')) {
         scores.tailoredToIntent = parseFloat(trimmedLine.split(':')[1].trim()) || 0;
         foundScores++;
       } else if (trimmedLine.startsWith('CRITIQUE:')) {
@@ -563,7 +578,7 @@ IMPROVEMENTS: [comma-separated list of specific improvements needed]`;
     
     // STRICT VALIDATION: Must have all 8 scores
     if (foundScores < 8) {
-      throw new Error(`Peer review format error: Only found ${foundScores}/8 required scores. Response: ${result.response}`);
+      throw new Error(`Peer review format error: Only found ${foundScores}/8 required scores. Response: ${reviewContent}`);
     }
     
     // Validate score ranges
