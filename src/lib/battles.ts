@@ -475,31 +475,7 @@ const generatePeerReview = async (
   category: string,
   battleType: 'prompt' | 'response'
 ): Promise<PeerReview> => {
-  const reviewPrompt = `STOP! READ THIS FIRST: You must respond with ONLY the XML structure below. Do NOT include any text before <REVIEW_START> or after </REVIEW_END>. Do NOT use <think> tags or any conversational text. Start your response immediately with <REVIEW_START>.
-
-CRITICAL: You MUST respond ONLY with the structured format below. NO conversational text, NO thinking aloud, NO explanations before or after the format.
-
-You are a peer reviewer in the SUPREME PROMPT BATTLE ARENA. Evaluate this ${battleType} using the STRICT 8-CRITERIA RUBRIC.
-
-${battleType.toUpperCase()} TO REVIEW: "${targetOutput}"
-CATEGORY: ${category}
-CREATED BY: ${targetModelId}
-
-SUPREME 8-CRITERIA SCORING RUBRIC (1-10 scale, be EXTREMELY strict):
-1. CLARITY: Crystal clear, zero ambiguity (10 = impossible to misunderstand)
-2. SPECIFICITY: Precise, detailed instructions (10 = all necessary details included)
-3. COMPLETENESS: Nothing important missing (10 = comprehensive coverage)
-4. ACTIONABILITY: Clear steps/requirements (10 = perfectly actionable)
-5. CONCISENESS: No unnecessary words (10 = perfectly concise)
-6. CONTEXT COVERAGE: Addresses all relevant aspects (10 = complete context coverage)
-7. NO_REDUNDANCY: No repetitive elements (10 = zero redundancy)
-8. TAILORED TO INTENT: Perfect fit for intended purpose (10 = perfectly tailored)
-
-CRITICAL: Be EXTREMELY strict. Only award 10/10 for truly perfect aspects that cannot be improved.
-
-MANDATORY FORMAT - Your response must be EXACTLY this structure with NO additional text:
-
-<REVIEW_START>
+  const reviewPrompt = `<REVIEW_START>
 CLARITY: [score]
 SPECIFICITY: [score]
 COMPLETENESS: [score]
@@ -510,7 +486,27 @@ NO_REDUNDANCY: [score]
 TAILORED TO INTENT: [score]
 CRITIQUE: [detailed explanation of scores and specific areas for improvement]
 IMPROVEMENTS: [comma-separated list of specific improvements needed]
-</REVIEW_END>`;
+</REVIEW_END>
+
+CRITICAL INSTRUCTION: Your response must be EXACTLY the XML structure above with actual scores and content. Do NOT include any text before <REVIEW_START> or after </REVIEW_END>. Do NOT use <think> tags or any conversational text.
+
+You are evaluating this ${battleType} using the STRICT 8-CRITERIA RUBRIC:
+
+${battleType.toUpperCase()} TO EVALUATE: "${targetOutput}"
+CATEGORY: ${category}
+CREATED BY: ${targetModelId}
+
+8-CRITERIA SCORING RUBRIC (1-10 scale, be EXTREMELY strict):
+1. CLARITY: Crystal clear, zero ambiguity (10 = impossible to misunderstand)
+2. SPECIFICITY: Precise, detailed instructions (10 = all necessary details included)
+3. COMPLETENESS: Nothing important missing (10 = comprehensive coverage)
+4. ACTIONABILITY: Clear steps/requirements (10 = perfectly actionable)
+5. CONCISENESS: No unnecessary words (10 = perfectly concise)
+6. CONTEXT COVERAGE: Addresses all relevant aspects (10 = complete context coverage)
+7. NO_REDUNDANCY: No repetitive elements (10 = zero redundancy)
+8. TAILORED TO INTENT: Perfect fit for intended purpose (10 = perfectly tailored)
+
+Be EXTREMELY strict. Only award 10/10 for truly perfect aspects that cannot be improved.`;
 
   try {
     const result = await callGroqAPI(reviewerModelId, reviewPrompt, 400, 0.1);
