@@ -475,7 +475,9 @@ const generatePeerReview = async (
   category: string,
   battleType: 'prompt' | 'response'
 ): Promise<PeerReview> => {
-  const reviewPrompt = `You are a peer reviewer in the SUPREME PROMPT BATTLE ARENA. Evaluate this ${battleType} using the STRICT 8-CRITERIA RUBRIC.
+  const reviewPrompt = `CRITICAL: You MUST respond ONLY with the structured format below. NO conversational text, NO thinking aloud, NO explanations before the format. Start your response immediately with "CLARITY:" and follow the exact format.
+
+You are a peer reviewer in the SUPREME PROMPT BATTLE ARENA. Evaluate this ${battleType} using the STRICT 8-CRITERIA RUBRIC.
 
 ${battleType.toUpperCase()} TO REVIEW: "${targetOutput}"
 CATEGORY: ${category}
@@ -493,7 +495,7 @@ SUPREME 8-CRITERIA SCORING RUBRIC (1-10 scale, be EXTREMELY strict):
 
 CRITICAL: Be EXTREMELY strict. Only award 10/10 for truly perfect aspects that cannot be improved.
 
-RESPOND IN EXACT FORMAT (no deviation allowed):
+RESPOND IN EXACT FORMAT (no deviation allowed, start immediately with CLARITY):
 CLARITY: [score]
 SPECIFICITY: [score]
 COMPLETENESS: [score]
