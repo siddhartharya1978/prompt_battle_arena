@@ -42,7 +42,9 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    console.log('Dashboard: Component mounted, user:', user?.id);
     if (refreshBattles) {
+      console.log('Dashboard: Calling refreshBattles');
       refreshBattles().catch(error => {
         console.error('Error refreshing battles:', error);
       });
@@ -50,6 +52,7 @@ export default function Dashboard() {
   }, [refreshBattles]);
 
   useEffect(() => {
+    console.log('Dashboard: Battles updated, count:', battles.length);
     if (battles.length > 0) {
       const completedBattles = battles.filter(b => b.status === 'completed');
       const totalScore = completedBattles.reduce((sum, battle) => {
@@ -72,6 +75,12 @@ export default function Dashboard() {
         totalBattles: battles.length,
         winRate: completedBattles.length > 0 ? Math.round((completedBattles.length / battles.length) * 100) : 0,
         avgScore: completedBattles.length > 0 ? Number((totalScore / completedBattles.length).toFixed(1)) : 0,
+        favoriteModel
+      });
+      
+      console.log('Dashboard: Stats updated:', {
+        totalBattles: battles.length,
+        completedBattles: completedBattles.length,
         favoriteModel
       });
     }

@@ -39,8 +39,21 @@ export default function BattleResults() {
   const [activeTab, setActiveTab] = useState<'results' | 'evolution'>('results');
   
   console.log('BattleResults: Looking for battle with ID:', id);
+  console.log('BattleResults: Available battles in context:', battles?.length || 0);
+  
   const battle = id ? getBattle(id) : null;
   console.log('BattleResults: Found battle:', battle ? 'Yes' : 'No');
+  
+  if (battle) {
+    console.log('BattleResults: Battle details:', {
+      id: battle.id,
+      type: battle.battleType,
+      status: battle.status,
+      winner: battle.winner,
+      responsesCount: battle.responses?.length || 0,
+      scoresCount: Object.keys(battle.scores || {}).length
+    });
+  }
 
   useEffect(() => {
     if (battle?.status === 'completed' && battle.winner) {
@@ -63,17 +76,31 @@ export default function BattleResults() {
               <Target className="w-8 h-8 text-gray-400" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-              {id ? 'Battle Not Found' : 'Loading Battle...'}
+              {id ? `Battle "${id}" Not Found` : 'Loading Battle...'}
             </h1>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              {id ? `Battle with ID "${id}" could not be found.` : 'Please wait while we load your battle results.'}
+              {id ? `Battle with ID "${id}" could not be found. It may not exist or you may not have permission to view it.` : 'Please wait while we load your battle results.'}
             </p>
-            <Link
-              to="/dashboard"
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors"
-            >
-              Return to Dashboard
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors"
+              >
+                Return to Dashboard
+              </Link>
+              <Link
+                to="/battle/new"
+                className="inline-flex items-center px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Create New Battle
+              </Link>
+              <Link
+                to="/battle/battle_1/results"
+                className="inline-flex items-center px-6 py-3 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 font-medium rounded-xl hover:bg-green-200 dark:hover:bg-green-900/30 transition-colors"
+              >
+                View Demo Battle
+              </Link>
+            </div>
           </div>
         </div>
       </div>

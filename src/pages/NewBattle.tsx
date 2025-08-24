@@ -187,6 +187,7 @@ export default function NewBattle() {
     }
 
     setIsCreating(true);
+    console.log('NewBattle: Starting battle creation process');
 
     try {
       const battleData: BattleData = {
@@ -201,10 +202,13 @@ export default function NewBattle() {
         temperature
       };
 
+      console.log('NewBattle: Battle data prepared:', battleData);
       const battle = await createBattle(battleData);
+      console.log('NewBattle: Battle created with ID:', battle?.id);
       
       // Increment usage for real users
       await incrementBattleUsage();
+      console.log('NewBattle: Usage incremented');
       
       toast.success(`${battleType === 'prompt' ? 'Prompt' : 'Response'} battle created successfully!`);
       
@@ -213,6 +217,7 @@ export default function NewBattle() {
         console.log('Navigating to battle results:', battle.id);
         navigate(`/battle/${battle.id}/results`);
       } else {
+        console.error('NewBattle: Battle created but no ID returned:', battle);
         throw new Error('Battle created but no ID returned');
       }
     } catch (error) {
@@ -220,6 +225,7 @@ export default function NewBattle() {
       toast.error(error instanceof Error ? error.message : 'Failed to create battle');
     } finally {
       // Always reset creating state
+      console.log('NewBattle: Resetting isCreating state');
       setIsCreating(false);
     }
   };

@@ -74,32 +74,55 @@ export default function Settings() {
         // Upload avatar if a new file was selected
         if (avatarFile) {
           try {
-            const { uploadAvatar } = await import('../lib/storage');
-            avatarUrl = await uploadAvatar(avatarFile, user.id);
+            // For demo users, just use a placeholder URL
+            const demoSession = localStorage.getItem('demo_session');
+            if (demoSession) {
+              avatarUrl = URL.createObjectURL(avatarFile);
+              toast.success('Avatar updated (demo mode)');
+            } else {
+              const { uploadAvatar } = await import('../lib/storage');
+              avatarUrl = await uploadAvatar(avatarFile, user.id);
+            }
           } catch (error) {
             console.error('Avatar upload failed:', error);
             toast.error('Avatar upload failed, but profile will still be updated');
           }
         }
         
-        // Update profile in database
-        const { data, error } = await supabase
-          .from('profiles')
-          .update({
+        // Check if demo user
+        const demoSession = localStorage.getItem('demo_session');
+        if (demoSession) {
+          // Update demo session
+          const updatedUser = {
+            ...user,
             name: profileData.name.trim(),
-            avatar_url: avatarUrl
-          })
-          .eq('id', user.id)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        
-        // Update the auth context with new profile data
-        await updateUserProfile({
-          name: profileData.name.trim(),
-          avatar_url: avatarUrl
-        });
+            avatarUrl: avatarUrl
+          };
+          localStorage.setItem('demo_session', JSON.stringify(updatedUser));
+          await updateUserProfile({
+            name: profileData.name.trim(),
+            avatarUrl: avatarUrl
+          });
+        } else {
+          // Update profile in database
+          const { data, error } = await supabase
+            .from('profiles')
+            .update({
+              name: profileData.name.trim(),
+              avatar_url: avatarUrl
+            })
+            .eq('id', user.id)
+            .select()
+            .single();
+          
+          if (error) throw error;
+          
+          // Update the auth context with new profile data
+          await updateUserProfile({
+            name: profileData.name.trim(),
+            avatarUrl: avatarUrl
+          });
+        }
         
         toast.success('Profile updated successfully!');
         setAvatarFile(null);

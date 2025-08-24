@@ -116,18 +116,22 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   const refreshBattles = async () => {
     // Only proceed if auth is not loading and user is authenticated
     if (authLoading) {
+      console.log('BattleContext: Auth still loading, skipping battle refresh');
       return;
     }
     
     if (!user) {
+      console.log('BattleContext: No user found, clearing battles');
       setBattles([]);
       setLoading(false);
       return;
     }
 
     try {
+      console.log('BattleContext: Refreshing battles for user:', user.id);
       setLoading(true);
       const userBattles = await getUserBattles();
+      console.log('BattleContext: Retrieved battles:', userBattles?.length || 0);
       setBattles(userBattles || []);
     } catch (error) {
       console.error('Error refreshing battles:', error);
@@ -157,15 +161,20 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   const getBattle = (battleId: string): Battle | null => {
     if (!battleId) return null;
     
+    console.log('BattleContext: Looking for battle:', battleId);
+    console.log('BattleContext: Available battles:', battles.map(b => b.id));
+    
     // First check in current battles array
     const existingBattle = battles.find(b => b.id === battleId);
     if (existingBattle) {
+      console.log('BattleContext: Found battle in cache:', existingBattle.id);
       return existingBattle;
     }
 
     // Check if this is a demo user
     const demoSession = localStorage.getItem('demo_session');
     if (demoSession) {
+      console.log('BattleContext: Demo user detected, returning mock battle');
       // Return comprehensive mock battle for demo users
       if (battleId === 'battle_1') {
         return {
@@ -231,10 +240,12 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    console.log('BattleContext: Battle not found:', battleId);
     return null;
   };
 
   useEffect(() => {
+    console.log('BattleContext: useEffect triggered, user:', user?.id, 'authLoading:', authLoading);
     refreshBattles();
   }, [user, authLoading]);
 

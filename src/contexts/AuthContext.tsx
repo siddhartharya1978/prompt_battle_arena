@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 interface AuthContextType {
   user: Profile | null;
   loading: boolean;
+  authLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -20,10 +21,12 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     // Check for existing session
     const checkSession = async () => {
+      setAuthLoading(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
         
@@ -41,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Session check error:', error);
       } finally {
         setLoading(false);
+        setAuthLoading(false);
       }
     };
 
@@ -48,12 +52,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setAuthLoading(true);
       if (event === 'SIGNED_IN' && session?.user) {
         await loadUserProfile(session.user);
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         localStorage.removeItem('demo_session');
       }
+      setAuthLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -73,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
-    setLoading(true);
+    setAuthLoading(true);
     try {
       // Check for demo credentials
       if (email === 'demo@example.com' && password === 'demo123') {
@@ -128,30 +134,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(`Authentication failed: ${supabaseError.message}. Please check if Supabase is properly connected or use the demo accounts.`);
       }
     } finally {
-      setLoading(false);
+      setAuthLoading(false);
     }
   };
 
   const register = async (email: string, password: string, name: string) => {
-    setLoading(true);
+    setAuthLoading(true);
     try {
       const { user: authUser } = await signUp(email, password, name);
       if (authUser) {
         await loadUserProfile(authUser);
       }
     } finally {
-      setLoading(false);
+      setAuthLoading(false);
     }
   };
 
   const logout = async () => {
-    setLoading(true);
+    setAuthLoading(true);
     try {
       await signOut();
       setUser(null);
       localStorage.removeItem('demo_session');
     } finally {
-      setLoading(false);
+      setAuthLoading(false);
     }
   };
 
@@ -224,6 +230,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = {
     user,
     loading,
+    authLoading,
     login,
     register,
     logout,
