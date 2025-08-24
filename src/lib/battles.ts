@@ -475,7 +475,9 @@ const generatePeerReview = async (
   category: string,
   battleType: 'prompt' | 'response'
 ): Promise<PeerReview> => {
-  const reviewPrompt = `CRITICAL: You MUST respond ONLY with the structured format below. NO conversational text, NO thinking aloud, NO explanations before or after the format.
+  const reviewPrompt = `STOP! READ THIS FIRST: You must respond with ONLY the XML structure below. Do NOT include any text before <REVIEW_START> or after </REVIEW_END>. Do NOT use <think> tags or any conversational text. Start your response immediately with <REVIEW_START>.
+
+CRITICAL: You MUST respond ONLY with the structured format below. NO conversational text, NO thinking aloud, NO explanations before or after the format.
 
 You are a peer reviewer in the SUPREME PROMPT BATTLE ARENA. Evaluate this ${battleType} using the STRICT 8-CRITERIA RUBRIC.
 
@@ -495,7 +497,7 @@ SUPREME 8-CRITERIA SCORING RUBRIC (1-10 scale, be EXTREMELY strict):
 
 CRITICAL: Be EXTREMELY strict. Only award 10/10 for truly perfect aspects that cannot be improved.
 
-You MUST wrap your response in XML tags and output ONLY the content between these tags:
+MANDATORY FORMAT - Your response must be EXACTLY this structure with NO additional text:
 
 <REVIEW_START>
 CLARITY: [score]
