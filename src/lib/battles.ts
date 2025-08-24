@@ -83,7 +83,7 @@ Your task is to create a significantly improved version that:
             
             // Check if model claims it cannot improve
             if (refinedPrompt.startsWith('CANNOT_IMPROVE')) {
-              console.log(`❌ ${modelId} cannot improve further: ${refinedPrompt}`);
+              console.log(`[ERROR] ${modelId} cannot improve further: ${refinedPrompt}`);
               continue;
             }
             
