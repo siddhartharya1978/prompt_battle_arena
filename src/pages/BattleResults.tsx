@@ -115,16 +115,23 @@ export default function BattleResults() {
   const winnerResponse = battle.responses.find(r => r.modelId === battle.winner);
   const winnerScore = battle.winner ? battle.scores[battle.winner] : null;
 
-  const handleShare = () => {
+  const handleShare = async () => {
     const shareText = battle.battleType === 'prompt' 
       ? `Check out this AI prompt refinement battle! ${winnerModel?.name} created the perfect prompt with a score of ${winnerScore?.overall}/10`
       : `Check out this AI response battle result! ${winnerModel?.name} won with a score of ${winnerScore?.overall}/10`;
+    
     if (navigator.share) {
-      navigator.share({
-        title: `AI ${battle.battleType === 'prompt' ? 'Prompt' : 'Response'} Battle Results`,
-        text: shareText,
-        url: window.location.href
-      });
+      try {
+        await navigator.share({
+          title: `AI ${battle.battleType === 'prompt' ? 'Prompt' : 'Response'} Battle Results`,
+          text: shareText,
+          url: window.location.href
+        });
+      } catch (error) {
+        // Fall back to clipboard if share fails
+        navigator.clipboard.writeText(`${shareText} - ${window.location.href}`);
+        toast.success('Link copied to clipboard!');
+      }
     } else {
       navigator.clipboard.writeText(`${shareText} - ${window.location.href}`);
       toast.success('Link copied to clipboard!');
