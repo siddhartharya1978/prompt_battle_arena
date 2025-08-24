@@ -79,6 +79,8 @@ export interface Battle {
   scores: Record<string, BattleScore>;
   promptEvolution?: PromptEvolution[];
   roundResults?: any[]; // Store peer review round data
+  globalConsensus?: boolean; // True if 10/10 consensus achieved
+  plateauReason?: string; // Reason why battle stopped if not consensus
 }
 
 export interface BattleData {
