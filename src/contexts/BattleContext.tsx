@@ -130,9 +130,19 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('BattleContext: Refreshing battles for user:', user.id);
       setLoading(true);
-      const userBattles = await getUserBattles();
-      console.log('BattleContext: Retrieved battles:', userBattles?.length || 0);
-      setBattles(userBattles || []);
+      
+      // Check if demo user
+      const demoSession = localStorage.getItem('demo_session');
+      if (demoSession) {
+        console.log('BattleContext: Loading demo battles from cache');
+        const demoCache = JSON.parse(localStorage.getItem('demo_battles') || '[]');
+        setBattles(demoCache);
+        console.log('BattleContext: Loaded demo battles:', demoCache.length);
+      } else {
+        const userBattles = await getUserBattles();
+        console.log('BattleContext: Retrieved battles:', userBattles?.length || 0);
+        setBattles(userBattles || []);
+      }
     } catch (error) {
       console.error('Error refreshing battles:', error);
       setBattles([]);
@@ -175,8 +185,18 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
     const demoSession = localStorage.getItem('demo_session');
     if (demoSession) {
       console.log('BattleContext: Demo user detected, returning mock battle');
-      // Return comprehensive mock battle for demo users
+      
+      // Check demo battle cache
+      const demoCache = JSON.parse(localStorage.getItem('demo_battles') || '[]');
+      const demoBattle = demoCache.find((b: Battle) => b.id === battleId);
+      if (demoBattle) {
+        console.log('BattleContext: Found battle in demo cache:', demoBattle.id);
+        return demoBattle;
+      }
+      
+      // Return default demo battle for battle_1
       if (battleId === 'battle_1') {
+        console.log('BattleContext: Returning default demo battle');
         return {
           id: 'battle_1',
           userId: 'demo-user-id',
@@ -201,7 +221,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
               id: 'response_1',
               battleId: 'battle_1',
               modelId: 'llama-3.1-8b-instant',
-              response: 'Artificial Intelligence (AI) is like giving computers the ability to think and learn like humans. Instead of just following pre-programmed instructions, AI systems can analyze information, recognize patterns, and make decisions on their own. Think of it as teaching a computer to be smart - like how your phone can recognize your voice, or how Netflix knows what movies you might like. AI helps computers understand and respond to the world around them, making them more helpful and capable of solving complex problems.',
+              response: 'Artificial Intelligence (AI) is like giving computers the ability to think and learn like humans. Instead of just following pre-programmed instructions, AI systems can analyze information, recognize patterns, and make decisions on their own. Think of it as teaching a computer to be smart - like how your phone can recognize your voice, or how streaming services recommend movies you might like. AI helps computers understand and respond to the world around them, making them more helpful and capable of solving complex problems.',
               latency: 1200,
               tokens: 85,
               cost: 0.62,
