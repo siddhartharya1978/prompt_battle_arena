@@ -60,10 +60,29 @@ Deno.serve(async (req: Request) => {
       throw new Error('Model and prompt are required');
     }
 
-    // Get Groq API key from environment
-    const groqApiKey = Deno.env.get('GROQ_API_KEY');
+    // Get Groq API key from environment - try multiple possible names
+    const groqApiKey = Deno.env.get('GROQ_API_KEY') || 
+                      Deno.env.get('GROQ_API_TOKEN') || 
+                      Deno.env.get('VITE_GROQ_API_KEY');
+    
     if (!groqApiKey) {
-      throw new Error('GROQ_API_KEY environment variable is not set. Please configure it in your Supabase Edge Function settings.');
+      console.error('❌ GROQ API KEY NOT FOUND');
+      console.error('Available env vars:', Object.keys(Deno.env.toObject()));
+      
+      return new Response(
+        JSON.stringify({
+          error: 'GROQ_API_KEY not configured in Supabase Edge Function. Please add it in your Supabase project settings under Edge Functions environment variables.',
+          available_env_vars: Object.keys(Deno.env.toObject()),
+          instructions: 'Go to Supabase Dashboard → Edge Functions → groq-api → Environment Variables → Add GROQ_API_KEY'
+        }),
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders,
+          },
+        }
+      );
     }
 
     console.log(`🤖 Calling Groq API with model: ${model}`);

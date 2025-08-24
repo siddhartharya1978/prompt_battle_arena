@@ -80,6 +80,11 @@ export const callGroqAPI = async (
         throw new Error('Authentication failed. Please check your Supabase configuration and ensure GROQ_API_KEY is set in your edge function environment.');
       }
       
+      // Show detailed error information for configuration issues
+      if (errorData.error && errorData.error.includes('GROQ_API_KEY')) {
+        throw new Error(`Configuration Error: ${errorData.error}\n\nTo fix this:\n1. Go to your Supabase Dashboard\n2. Navigate to Edge Functions → groq-api\n3. Add GROQ_API_KEY as an environment variable\n4. Use the same key from your .env file: ${import.meta.env.GROQ_API_KEY ? 'GROQ_API_KEY is set locally' : 'GROQ_API_KEY not found in .env'}`);
+      }
+      
       throw new Error(`Groq API error (${response.status}): ${errorData.error || 'Unknown error'}. Please check your API configuration.`);
     }
 
