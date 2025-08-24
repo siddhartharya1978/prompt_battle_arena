@@ -340,7 +340,6 @@ Total Cost: ₹${battle.totalCost}
                   <pre className="text-xs text-green-700 dark:text-green-300 whitespace-pre-wrap font-mono bg-white dark:bg-green-800/20 p-3 rounded border overflow-x-auto">
                     {battle.autoSelectionReason}
                   </pre>
-                  </p>
                 </div>
               </div>
             </div>
