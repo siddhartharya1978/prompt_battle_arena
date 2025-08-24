@@ -564,7 +564,7 @@ Be EXTREMELY strict. Only award 10/10 for truly perfect aspects that cannot be i
     
     // STRICT VALIDATION: Must have all 8 scores
     if (foundScores < 8) {
-      throw new Error(`Peer review format error: Only found ${foundScores}/8 required scores. Response: ${reviewContent}`);
+      throw new Error(`Peer review format error: Only found ${foundScores}/8 required scores. Response: ${result.response}`);
     }
     
     // Validate score ranges
