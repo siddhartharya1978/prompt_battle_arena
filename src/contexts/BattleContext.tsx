@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { createBattle as createBattleAPI, getUserBattles, getBattle as getBattleAPI, runBattle } from '../lib/battles';
 import { Battle, BattleData, Model } from '../types';
+import { useAuth } from './AuthContext';
 
 interface BattleContextType {
   battles: Battle[];
@@ -110,8 +111,20 @@ const AVAILABLE_MODELS: Model[] = [
 export function BattleProvider({ children }: { children: React.ReactNode }) {
   const [battles, setBattles] = useState<Battle[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user, authLoading } = useAuth();
 
   const refreshBattles = async () => {
+    // Only proceed if auth is not loading and user is authenticated
+    if (authLoading) {
+      return;
+    }
+    
+    if (!user) {
+      setBattles([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const userBattles = await getUserBattles();
@@ -223,7 +236,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     refreshBattles();
-  }, []);
+  }, [user, authLoading]);
 
   const value = {
     battles,
