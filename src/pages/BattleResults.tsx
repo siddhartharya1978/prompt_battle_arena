@@ -347,11 +347,28 @@ export default function BattleResults() {
 
         {/* Winner Announcement */}
         {battle.status === 'completed' && winner && winnerScore && (
-          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-2xl p-8 mb-8 border border-yellow-200 dark:border-yellow-700">
+          <div className={`rounded-2xl p-8 mb-8 border ${
+            battle.globalConsensus 
+              ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-700'
+              : 'bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-yellow-200 dark:border-yellow-700'
+          }`}>
             <div className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
+                battle.globalConsensus
+                  ? 'bg-gradient-to-br from-green-400 to-emerald-500'
+                  : 'bg-gradient-to-br from-yellow-400 to-orange-500'
+              }`}>
                 <Trophy className="w-8 h-8 text-white" />
               </div>
+              
+              {battle.globalConsensus && (
+                <div className="inline-flex items-center space-x-2 px-4 py-2 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-sm font-bold mb-4">
+                  <Star className="w-4 h-4 fill-current" />
+                  <span>10/10 UN-IMPROVABLE CONSENSUS ACHIEVED</span>
+                  <Star className="w-4 h-4 fill-current" />
+                </div>
+              )}
+              
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 🏆 {battle.battleType === 'prompt' ? 'Best Refinement' : 'Winner'}: {winner.name}
               </h2>
@@ -374,6 +391,22 @@ export default function BattleResults() {
               <p className="text-gray-700 dark:text-gray-300 max-w-2xl mx-auto">
                 {winnerScore.notes}
               </p>
+              
+              {battle.globalConsensus && (
+                <div className="mt-4 p-4 bg-green-100 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-700">
+                  <p className="text-sm text-green-700 dark:text-green-300 font-medium">
+                    🎯 <strong>Perfect Consensus:</strong> All peer models unanimously agreed this {battle.battleType} cannot be meaningfully improved further.
+                  </p>
+                </div>
+              )}
+              
+              {!battle.globalConsensus && battle.plateauReason && (
+                <div className="mt-4 p-4 bg-orange-100 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-700">
+                  <p className="text-sm text-orange-700 dark:text-orange-300 font-medium">
+                    📊 <strong>Battle Stopped:</strong> {battle.plateauReason}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -414,12 +447,14 @@ export default function BattleResults() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Final Optimized Prompt
+                  🎯 Shareable Prompt Refinement Recap
                 </h3>
-                <div className="flex items-center space-x-1 px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">
-                  <CheckCircle className="w-3 h-3" />
-                  <span>Optimized</span>
-                </div>
+                {battle.globalConsensus && (
+                  <div className="flex items-center space-x-1 px-3 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-sm font-bold">
+                    <Star className="w-4 h-4 fill-current" />
+                    <span>10/10 PERFECT</span>
+                  </div>
+                )}
               </div>
               <button
                 onClick={() => handleCopy(battle.finalPrompt!, 'Final Prompt')}
@@ -429,7 +464,7 @@ export default function BattleResults() {
                 <span className="text-sm">{copiedText === 'Final Prompt' ? 'Copied!' : 'Copy'}</span>
               </button>
             </div>
-            <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-xl p-4 border border-green-200 dark:border-green-700">
+            <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-xl p-6 border border-green-200 dark:border-green-700">
               <p className="text-gray-900 dark:text-white leading-relaxed">
                 "{battle.finalPrompt}"
               </p>
@@ -592,7 +627,7 @@ export default function BattleResults() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Prompt Evolution ({battle.promptEvolution.length} rounds)
+                📈 Round-by-Round Prompt Evolution ({battle.promptEvolution.length} rounds)
               </h3>
               <button
                 onClick={() => setShowAllRounds(!showAllRounds)}
@@ -604,36 +639,56 @@ export default function BattleResults() {
             </div>
 
             <div className="space-y-4">
-              {(showAllRounds ? battle.promptEvolution : battle.promptEvolution.slice(-3)).map((evolution, index) => {
+              {(showAllRounds ? battle.promptEvolution : battle.promptEvolution.slice(-5)).map((evolution, index) => {
                 const model = getModelInfo(evolution.modelId);
                 const isLatest = index === battle.promptEvolution!.length - 1;
+                const isInitial = evolution.round === 0;
 
                 return (
                   <div
                     key={evolution.id}
-                    className={`border-l-4 pl-6 pb-6 ${
-                      isLatest
-                        ? 'border-green-500'
+                    className={`border-l-4 pl-6 pb-6 relative ${
+                      isLatest && battle.globalConsensus
+                        ? 'border-green-500 bg-green-50/50 dark:bg-green-900/10'
+                      : isLatest
+                        ? 'border-blue-500'
+                        : isInitial
+                        ? 'border-gray-400'
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
+                      {isLatest && battle.globalConsensus && (
+                        <div className="absolute -left-2 top-2 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                          <Star className="w-2 h-2 text-white fill-current" />
+                        </div>
+                      )}
+                      
                       <div className="flex items-center space-x-2">
                         <span className="text-sm font-medium text-gray-900 dark:text-white">
-                          Round {evolution.round}
+                          {isInitial ? 'Original Prompt' : `Round ${evolution.round} Champion`}
                         </span>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          by {model.name}
-                        </span>
-                        <div className="flex items-center space-x-1">
-                          <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">
-                            {evolution.score}/10
+                        {!isInitial && (
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            by {model.name}
                           </span>
-                        </div>
-                        {isLatest && (
-                          <span className="px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">
-                            Final
+                        )}
+                        {!isInitial && evolution.round > 1 && (
+                          <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/20 px-2 py-1 rounded-full">
+                            ← Used as input for Round {evolution.round + 1}
+                          </span>
+                        )}
+                        {evolution.score > 0 && (
+                          <div className="flex items-center space-x-1">
+                            <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">
+                              {evolution.score}/10
+                            </span>
+                          </div>
+                        )}
+                        {isLatest && battle.globalConsensus && (
+                          <span className="px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-xs font-bold">
+                            🎯 PERFECT 10/10
                           </span>
                         )}
                       </div>
@@ -646,8 +701,13 @@ export default function BattleResults() {
                       </button>
                     </div>
 
-                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-3">
-                      <p className="text-sm text-gray-900 dark:text-white">
+                    {!isInitial && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 italic">
+                        This prompt was the champion of Round {evolution.round} and became the input for the next round's improvements.
+                      </p>
+                    )}
+                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-3">
+                      <p className="text-sm text-gray-900 dark:text-white leading-relaxed">
                         "{evolution.prompt}"
                       </p>
                     </div>
@@ -668,6 +728,124 @@ export default function BattleResults() {
                 );
               })}
             </div>
+          </div>
+        )}
+        
+        {/* Peer Review Details */}
+        {battle.roundResults && battle.roundResults.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                🔍 Detailed Peer Reviews & Critiques
+              </h3>
+              <button
+                onClick={() => setShowPeerReviews(!showPeerReviews)}
+                className="flex items-center space-x-2 px-3 py-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+              >
+                <span className="text-sm">{showPeerReviews ? 'Hide' : 'Show'} All Reviews</span>
+                {showPeerReviews ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+            </div>
+
+            {showPeerReviews && (
+              <div className="space-y-6">
+                {battle.roundResults.map((roundResult: any, roundIndex: number) => (
+                  <div key={roundIndex} className="border border-gray-200 dark:border-gray-600 rounded-xl p-4">
+                    <h4 className="font-semibold text-gray-900 dark:text-white mb-4">
+                      Round {roundResult.round} - Peer Reviews
+                    </h4>
+                    
+                    {roundResult.contestants.map((contestant: any) => (
+                      <div key={contestant.modelId} className="mb-6 last:mb-0">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {getModelInfo(contestant.modelId).name}
+                          </span>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            (Average: {contestant.averageScore}/10)
+                          </span>
+                          {contestant.modelId === roundResult.champion && (
+                            <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 rounded-full text-xs font-medium">
+                              Round Champion
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="grid md:grid-cols-2 gap-4">
+                          {contestant.peerReviews.map((review: any) => (
+                            <div key={review.reviewerId} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                  Review by {getModelInfo(review.reviewerId).name}
+                                </span>
+                                <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                  {review.overallScore}/10
+                                </span>
+                              </div>
+                              
+                              <div className="grid grid-cols-4 gap-2 mb-2 text-xs">
+                                <div className="text-center">
+                                  <div className="font-medium">{review.scores.clarity}</div>
+                                  <div className="text-gray-500 dark:text-gray-400">Clarity</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="font-medium">{review.scores.specificity}</div>
+                                  <div className="text-gray-500 dark:text-gray-400">Specific</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="font-medium">{review.scores.completeness}</div>
+                                  <div className="text-gray-500 dark:text-gray-400">Complete</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="font-medium">{review.scores.actionability}</div>
+                                  <div className="text-gray-500 dark:text-gray-400">Action</div>
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-4 gap-2 mb-3 text-xs">
+                                <div className="text-center">
+                                  <div className="font-medium">{review.scores.conciseness}</div>
+                                  <div className="text-gray-500 dark:text-gray-400">Concise</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="font-medium">{review.scores.contextCoverage}</div>
+                                  <div className="text-gray-500 dark:text-gray-400">Context</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="font-medium">{review.scores.noRedundancy}</div>
+                                  <div className="text-gray-500 dark:text-gray-400">No Redund</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="font-medium">{review.scores.tailoredToIntent}</div>
+                                  <div className="text-gray-500 dark:text-gray-400">Tailored</div>
+                                </div>
+                              </div>
+                              
+                              <p className="text-xs text-gray-600 dark:text-gray-300">
+                                <strong>Critique:</strong> {review.critique}
+                              </p>
+                              
+                              {review.improvements.length > 0 && (
+                                <div className="mt-2">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Suggested improvements:</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {review.improvements.map((improvement, idx) => (
+                                      <span key={idx} className="px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded text-xs">
+                                        {improvement}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
