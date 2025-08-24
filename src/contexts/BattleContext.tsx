@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { createBattle as createBattleAPI, getUserBattles, getBattle as getBattleAPI } from '../lib/battles';
+import { AVAILABLE_MODELS, selectOptimalModels, getAutoSelectionReason } from '../lib/models';
 import { Battle, BattleData, Model } from '../types';
 import { useAuth } from './AuthContext';
 
@@ -10,30 +11,11 @@ interface BattleContextType {
   createBattle: (battleData: BattleData) => Promise<Battle>;
   getBattle: (battleId: string) => Battle | null;
   refreshBattles: () => Promise<void>;
+  selectOptimalModels: (prompt: string, category: string, battleType: 'prompt' | 'response') => string[];
+  getAutoSelectionReason: (prompt: string, category: string, selectedModels: string[]) => string;
 }
 
 const BattleContext = createContext<BattleContextType | null>(null);
-
-const AVAILABLE_MODELS: Model[] = [
-  {
-    id: 'llama-3.1-8b-instant',
-    name: 'Llama 3.1 8B',
-    provider: 'Meta',
-    description: 'Fast and efficient model',
-    icon: '🦙',
-    available: true,
-    premium: false
-  },
-  {
-    id: 'llama-3.3-70b-versatile',
-    name: 'Llama 3.3 70B',
-    provider: 'Meta',
-    description: 'Large model with excellent reasoning',
-    icon: '🦙',
-    available: true,
-    premium: false
-  }
-];
 
 export function BattleProvider({ children }: { children: React.ReactNode }) {
   const [battles, setBattles] = useState<Battle[]>([]);
@@ -76,7 +58,9 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
     loading,
     createBattle,
     getBattle,
-    refreshBattles
+    refreshBattles,
+    selectOptimalModels,
+    getAutoSelectionReason
   };
 
   return (

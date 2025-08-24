@@ -26,7 +26,7 @@ import toast from 'react-hot-toast';
 
 export default function NewBattle() {
   const { user, incrementBattleUsage } = useAuth();
-  const { models, createBattle } = useBattle();
+  const { models, createBattle, selectOptimalModels, getAutoSelectionReason } = useBattle();
   const navigate = useNavigate();
 
   // Battle configuration state
@@ -97,50 +97,17 @@ export default function NewBattle() {
 
   // Auto-select models based on category and battle type
   const autoSelectModels = () => {
-    const availableModels = models.filter(m => m.available);
-    
-    if (availableModels.length === 0) {
-      toast.error('No models available for selection');
-      return;
-    }
-
-    let selectedCount = battleMode === 'auto' ? 3 : 2;
-    let selected: string[] = [];
-
-    // Smart selection based on category and battle type
-    if (battleType === 'prompt') {
-      // For prompt battles, prefer models good at refinement
-      const preferredModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'deepseek-r1-distill-llama-70b'];
-      selected = preferredModels.filter(id => availableModels.find(m => m.id === id)).slice(0, selectedCount);
-    } else {
-      // For response battles, select based on category
-      switch (promptCategory) {
-        case 'creative':
-          selected = ['llama-3.3-70b-versatile', 'meta-llama/llama-4-maverick-17b-128e-instruct'].filter(id => availableModels.find(m => m.id === id));
-          break;
-        case 'technical':
-          selected = ['deepseek-r1-distill-llama-70b', 'llama-3.3-70b-versatile'].filter(id => availableModels.find(m => m.id === id));
-          break;
-        case 'math':
-          selected = ['deepseek-r1-distill-llama-70b', 'qwen/qwen3-32b'].filter(id => availableModels.find(m => m.id === id));
-          break;
-        default:
-          selected = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'].filter(id => availableModels.find(m => m.id === id));
-      }
-    }
-
-    // Fill remaining slots if needed
-    while (selected.length < selectedCount && selected.length < availableModels.length) {
-      const remaining = availableModels.filter(m => !selected.includes(m.id));
-      if (remaining.length > 0) {
-        selected.push(remaining[0].id);
-      } else {
-        break;
-      }
-    }
+    const selected = selectOptimalModels(prompt, promptCategory, battleType);
 
     setSelectedModels(selected);
-    toast.success(`Auto-selected ${selected.length} models for ${promptCategory} ${battleType} battle`);
+    
+    if (selected.length > 0) {
+      const reason = getAutoSelectionReason(prompt, promptCategory, selected);
+      toast.success(`Auto-selected ${selected.length} optimal models`);
+      console.log('Auto-selection reason:', reason);
+    } else {
+      toast.error('No suitable models available for auto-selection');
+    }
   };
 
   const handleModelToggle = (modelId: string) => {
@@ -207,7 +174,8 @@ export default function NewBattle() {
         battle_mode: battleMode,
         rounds: battleMode === 'auto' ? Math.max(rounds, 1) : 1,
         max_tokens: maxTokens,
-        temperature
+        temperature,
+        auto_selection_reason: battleMode === 'auto' ? getAutoSelectionReason(prompt, promptCategory, selectedModels) : undefined
       };
 
       console.log('🎯 EXECUTING BATTLE WITH DATA:', battleData);
