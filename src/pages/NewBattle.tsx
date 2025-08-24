@@ -196,7 +196,7 @@ export default function NewBattle() {
         models: availableModels,
         mode,
         battle_mode: battleMode,
-        rounds: battleMode === 'auto' ? 20 : 1, // Auto mode runs until 10/10 (safety limit)
+        rounds: battleMode === 'auto' ? 5 : 1, // Auto mode runs until 10/10 (reduced safety limit)
         max_tokens: maxTokens,
         temperature,
         auto_selection_reason: battleMode === 'auto' ? getAutoSelectionReason(prompt, promptCategory, selectedModels) : undefined

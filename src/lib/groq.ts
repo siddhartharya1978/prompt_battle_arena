@@ -32,6 +32,44 @@ export const callGroqAPI = async (
   cost: number;
   latency: number;
 }> => {
+  const maxRetries = 3;
+  const baseDelay = 1000; // 1 second
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await attemptGroqAPICall(model, prompt, maxTokens, temperature);
+    } catch (error) {
+      const isLastAttempt = attempt === maxRetries;
+      const isRateLimitError = error instanceof Error && 
+        (error.message.includes('rate limit') || error.message.includes('429'));
+      const isTimeoutError = error instanceof Error && 
+        (error.message.includes('timeout') || error.message.includes('aborted'));
+      
+      if ((isRateLimitError || isTimeoutError) && !isLastAttempt) {
+        const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+        console.log(`Groq API attempt ${attempt} failed, retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      throw error;
+    }
+  }
+  
+  throw new Error('All retry attempts failed');
+};
+
+const attemptGroqAPICall = async (
+  model: string,
+  prompt: string,
+  maxTokens: number = 500,
+  temperature: number = 0.7
+): Promise<{
+  response: string;
+  tokens: number;
+  cost: number;
+  latency: number;
+}> => {
   // Validate inputs
   if (!model?.trim()) {
     throw new Error('Model is required');
@@ -57,7 +95,7 @@ export const callGroqAPI = async (
   try {
     // Add timeout to prevent hanging requests
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
     
     const response = await fetch(apiUrl, {
       method: 'POST',
