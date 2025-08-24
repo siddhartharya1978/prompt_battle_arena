@@ -2,6 +2,38 @@ import { callGroqAPI } from './groq';
 import { Battle, BattleData, BattleResponse, BattleScore, PromptEvolution } from '../types';
 import { AVAILABLE_MODELS, getModelInfo, selectOptimalModels, getAutoSelectionReason } from './models';
 
+// SUPREME PEER REVIEW RUBRIC - 7 Criteria Scoring System
+interface PeerReview {
+  reviewerId: string;
+  targetId: string;
+  scores: {
+    clarity: number;
+    specificity: number;
+    actionability: number;
+    contextAlignment: number;
+    completeness: number;
+    uniqueCoverage: number;
+    noFurtherImprovement: number;
+  };
+  overallScore: number;
+  critique: string;
+  improvements: string[];
+}
+
+interface RoundResult {
+  round: number;
+  contestants: Array<{
+    modelId: string;
+    output: string;
+    peerReviews: PeerReview[];
+    averageScore: number;
+  }>;
+  champion: string;
+  championScore: number;
+  consensus: boolean;
+  plateauDetected: boolean;
+}
+
 // REAL 10/10 PROMPT OPTIMIZATION ENGINE - NO MOCKS, NO SHORTCUTS
 export const createBattle = async (battleData: BattleData): Promise<Battle> => {
   console.log('SUPREME BATTLE ARENA: STARTING REAL 10/10 OPTIMIZATION BATTLE:', battleData);
@@ -18,25 +50,31 @@ export const createBattle = async (battleData: BattleData): Promise<Battle> => {
   let totalCost = 0;
   const responses: BattleResponse[] = [];
   const promptEvolution: PromptEvolution[] = [];
+  const roundResults: RoundResult[] = [];
   
   try {
     if (battleData.battle_type === 'prompt') {
-      // REAL PROMPT OPTIMIZATION LOOP - CONTINUES UNTIL 10/10 ACHIEVED
+      // SUPREME PEER ADVERSARIAL PROMPT OPTIMIZATION
       console.log('SUPREME OPTIMIZATION: STARTING REAL 10/10 PROMPT OPTIMIZATION ENGINE');
       
       let currentPrompt = battleData.prompt;
-      let bestScore = 0;
-      let bestPrompt = currentPrompt;
-      let bestModelId = '';
       let round = 1;
-      const maxRounds = 100; // Supreme optimization - no shortcuts
-      let plateauRounds = 0;
-      const maxPlateauRounds = 8; // More attempts to break plateaus
-      const improvementThreshold = 0.05; // Require meaningful improvement
+      const maxRounds = 100;
+      let consecutivePlateauRounds = 0;
+      const maxPlateauRounds = 5;
+      let globalConsensus = false;
       
-      // Add initial prompt to evolution with baseline score
-      const initialScore = await scorePromptQuality(currentPrompt, battleData.prompt_category, '');
-      totalCost += 0.01; // Estimate for scoring call
+      // ROUND 1: Initial baseline with peer review
+      console.log('SUPREME ROUND 1: ESTABLISHING BASELINE WITH PEER REVIEW');
+      const initialRoundResult = await conductPeerReviewRound(
+        [{ modelId: 'baseline', output: currentPrompt }],
+        battleData.models,
+        battleData.prompt_category,
+        'prompt',
+        1
+      );
+      totalCost += initialRoundResult.cost;
+      roundResults.push(initialRoundResult.roundResult);
       
       promptEvolution.push({
         id: `evolution_${Date.now()}_0`,
@@ -45,133 +83,129 @@ export const createBattle = async (battleData: BattleData): Promise<Battle> => {
         prompt: currentPrompt,
         modelId: 'initial',
         improvements: ['Original prompt'],
-        score: initialScore.overall,
+        score: initialRoundResult.roundResult.championScore,
         createdAt: new Date().toISOString()
       });
       
-      bestScore = initialScore.overall;
-      console.log('SUPREME SCORING: INITIAL PROMPT SCORE: ' + bestScore + '/10');
+      let currentBestScore = initialRoundResult.roundResult.championScore;
+      console.log('SUPREME BASELINE: INITIAL PROMPT SCORE: ' + currentBestScore + '/10');
 
-      // CORE OPTIMIZATION LOOP - CONTINUES UNTIL 10/10 OR NO FURTHER IMPROVEMENT POSSIBLE
-      while (bestScore < 9.9 && round <= maxRounds && plateauRounds < maxPlateauRounds) {
-        console.log('SUPREME ROUND ' + round + ' - Current Best: ' + bestScore + '/10');
+      // SUPREME PEER ADVERSARIAL LOOP
+      while (!globalConsensus && currentBestScore < 9.9 && round <= maxRounds && consecutivePlateauRounds < maxPlateauRounds) {
+        round++;
+        console.log(`SUPREME ROUND ${round} - Current Champion Score: ${currentBestScore}/10`);
         
-        let roundImproved = false;
-        let bestRoundScore = bestScore;
-        const roundResults: Array<{modelId: string, prompt: string, score: number, improvements: string[]}> = [];
+        // Each model attempts to improve the current champion
+        const contestants: Array<{modelId: string, output: string}> = [];
         
-        // Each model attempts to improve the current best prompt
         for (const modelId of battleData.models) {
           try {
-            console.log('SUPREME COMPETITOR: ' + modelId + ' attempting to improve prompt (current best: ' + bestScore + '/10)...');
+            console.log(`SUPREME COMPETITOR: ${modelId} attempting to improve prompt...`);
             
-            // Create SUPREME competitive refinement prompt
-            const refinementPrompt = `You are an expert prompt engineer in the SUPREME PROMPT BATTLE ARENA. Your mission is to create a significantly improved version of this prompt that achieves a perfect 10/10 score.
+            const competitivePrompt = `You are competing in the SUPREME PROMPT BATTLE ARENA. Your mission: create a significantly improved version of this prompt that will be peer-reviewed by other AI models.
 
-CURRENT PROMPT TO IMPROVE: "${currentPrompt}"
-CURRENT SCORE: ${bestScore}/10
+CURRENT CHAMPION PROMPT: "${currentPrompt}"
+CURRENT CHAMPION SCORE: ${currentBestScore}/10
 CATEGORY: ${battleData.prompt_category}
 ROUND: ${round}
 
-SUPREME OPTIMIZATION REQUIREMENTS:
-1. Create a SIGNIFICANTLY improved version (not minor tweaks)
-2. Must be more specific, clear, and actionable than current version
-3. Include better context, examples, or constraints where beneficial
-4. Use more effective phrasing and structure
-5. Address ALL weaknesses in the current prompt
-6. Target PERFECT 10/10 score in clarity, specificity, structure, and effectiveness
-7. If you cannot meaningfully improve this prompt, respond with exactly: "CANNOT_IMPROVE_FURTHER"
+PEER REVIEW CRITERIA (your output will be scored on):
+1. CLARITY (1-10): Crystal clear, zero ambiguity
+2. SPECIFICITY (1-10): Precise, detailed instructions
+3. ACTIONABILITY (1-10): Clear steps/requirements
+4. CONTEXT ALIGNMENT (1-10): Perfect fit for intended use
+5. COMPLETENESS (1-10): Nothing important missing
+6. UNIQUE COVERAGE (1-10): Addresses aspects others miss
+7. NO FURTHER IMPROVEMENT (1-10): Approaching perfection
 
-Respond with ONLY the improved prompt, no explanations or additional text. Make it count - this is competitive optimization!`;
+COMPETITIVE REQUIREMENTS:
+- Create a MEANINGFULLY improved version (not minor tweaks)
+- Target 10/10 across ALL criteria
+- If you cannot improve meaningfully, respond: "CANNOT_IMPROVE_FURTHER"
+- Otherwise, respond with ONLY the improved prompt
 
-            const result = await callGroqAPI(modelId, refinementPrompt, battleData.max_tokens, battleData.temperature);
+This is competitive - other models will critique your work!`;
+
+            const result = await callGroqAPI(modelId, competitivePrompt, battleData.max_tokens, 0.3);
             totalCost += result.cost;
             
             const refinedPrompt = result.response.trim();
             
-            // Check if model claims it cannot improve
-            if (refinedPrompt.startsWith('CANNOT_IMPROVE')) {
-              console.log('SUPREME PLATEAU: ' + modelId + ' cannot improve further: ' + refinedPrompt);
+            if (refinedPrompt.includes('CANNOT_IMPROVE_FURTHER')) {
+              console.log(`SUPREME PLATEAU: ${modelId} cannot improve further`);
               continue;
             }
             
-            // Score the refined prompt
-            const score = await scorePromptQuality(refinedPrompt, battleData.prompt_category, currentPrompt);
-            totalCost += 0.01; // Estimate for scoring call
-            
-            console.log('SUPREME SCORE: ' + modelId + ' refined prompt score: ' + score.overall + '/10');
-            
-            // Generate improvements list
-            const improvements = await generateImprovementsList(currentPrompt, refinedPrompt);
-            
-            roundResults.push({
-              modelId,
-              prompt: refinedPrompt,
-              score: score.overall,
-              improvements
-            });
-            
-            // Add to evolution
-            promptEvolution.push({
-              id: `evolution_${Date.now()}_${round}_${modelId}`,
-              battleId,
-              round: round + 1,
-              prompt: refinedPrompt,
-              modelId,
-              improvements,
-              score: score.overall,
-              createdAt: new Date().toISOString()
-            });
-            
-            // Check if this is the new best
-            if (score.overall > bestScore + improvementThreshold) {
-              bestScore = score.overall;
-              bestRoundScore = score.overall;
-              bestPrompt = refinedPrompt;
-              bestModelId = modelId;
-              roundImproved = true;
-              console.log('SUPREME CHAMPION: NEW BEST PROMPT: ' + bestScore + '/10 by ' + modelId);
-              
-              // If we achieved 10/10, we're done!
-              if (score.overall >= 9.9) {
-                console.log('SUPREME VICTORY: PERFECT 10/10 PROMPT ACHIEVED by ' + modelId + '!');
-                break;
-              }
-            } else if (score.overall > bestRoundScore) {
-              bestRoundScore = score.overall;
-            }
+            contestants.push({ modelId, output: refinedPrompt });
             
           } catch (error) {
-            console.error('SUPREME ERROR: Error with model ' + modelId + ' in round ' + round + ':', error);
-            // Continue with other models
+            console.error(`SUPREME ERROR: ${modelId} failed in round ${round}:`, error);
           }
         }
         
-        // Check if we achieved 10/10
-        if (bestScore >= 9.9) {
-          console.log('SUPREME SUCCESS: Perfect 10/10 prompt achieved in ' + round + ' rounds!');
+        if (contestants.length === 0) {
+          console.log('SUPREME PLATEAU: No contestants in round ' + round);
+          consecutivePlateauRounds++;
+          continue;
+        }
+        
+        // CONDUCT PEER REVIEW FOR THIS ROUND
+        console.log(`SUPREME PEER REVIEW: ${contestants.length} contestants, ${battleData.models.length} reviewers`);
+        const roundReviewResult = await conductPeerReviewRound(
+          contestants,
+          battleData.models,
+          battleData.prompt_category,
+          'prompt',
+          round
+        );
+        totalCost += roundReviewResult.cost;
+        roundResults.push(roundReviewResult.roundResult);
+        
+        // Check for consensus (all reviewers agree on 10/10)
+        if (roundReviewResult.roundResult.consensus && roundReviewResult.roundResult.championScore >= 9.9) {
+          console.log(`SUPREME CONSENSUS: All models agree - 10/10 achieved by ${roundReviewResult.roundResult.champion}!`);
+          globalConsensus = true;
+          currentPrompt = roundReviewResult.roundResult.contestants.find(c => c.modelId === roundReviewResult.roundResult.champion)?.output || currentPrompt;
           break;
         }
         
-        // Check if any model improved this round
-        if (!roundImproved) {
-          plateauRounds++;
-          console.log('SUPREME PLATEAU: No meaningful improvement in round ' + round + '. Plateau rounds: ' + plateauRounds + '/' + maxPlateauRounds);
+        // Check for improvement
+        if (roundReviewResult.roundResult.championScore > currentBestScore + 0.1) {
+          console.log(`SUPREME IMPROVEMENT: New champion score ${roundReviewResult.roundResult.championScore}/10 by ${roundReviewResult.roundResult.champion}`);
+          currentBestScore = roundReviewResult.roundResult.championScore;
+          currentPrompt = roundReviewResult.roundResult.contestants.find(c => c.modelId === roundReviewResult.roundResult.champion)?.output || currentPrompt;
+          consecutivePlateauRounds = 0;
+          
+          // Add to evolution
+          const improvements = await generateImprovementsList(
+            promptEvolution[promptEvolution.length - 1]?.prompt || battleData.prompt,
+            currentPrompt
+          );
+          
+          promptEvolution.push({
+            id: `evolution_${Date.now()}_${round}`,
+            battleId,
+            round: round,
+            prompt: currentPrompt,
+            modelId: roundReviewResult.roundResult.champion,
+            improvements,
+            score: currentBestScore,
+            createdAt: new Date().toISOString()
+          });
         } else {
-          plateauRounds = 0; // Reset plateau counter
-          currentPrompt = bestPrompt; // Use the best prompt for next round
+          console.log(`SUPREME PLATEAU: No significant improvement in round ${round}`);
+          consecutivePlateauRounds++;
         }
-        
-        round++;
       }
       
       // Final status logging
-      if (bestScore >= 9.9) {
-        console.log('SUPREME VICTORY: Perfect 10/10 prompt achieved by ' + bestModelId + ' in ' + (round - 1) + ' rounds!');
-      } else if (plateauRounds >= maxPlateauRounds) {
-        console.log('SUPREME PLATEAU: No model could improve further after ' + plateauRounds + ' attempts. Best score: ' + bestScore + '/10');
+      const finalChampion = roundResults[roundResults.length - 1]?.champion || 'initial';
+      if (globalConsensus) {
+        console.log(`SUPREME VICTORY: Perfect consensus 10/10 achieved by ${finalChampion}!`);
+      } else if (consecutivePlateauRounds >= maxPlateauRounds) {
+        console.log(`SUPREME PLATEAU: No further improvement possible. Best score: ${currentBestScore}/10`);
       } else if (round > maxRounds) {
-        console.log('SUPREME LIMIT: Stopped after ' + maxRounds + ' rounds. Best score: ' + bestScore + '/10');
+        console.log(`SUPREME LIMIT: Stopped after ${maxRounds} rounds. Best score: ${currentBestScore}/10`);
       }
       
       // Create final battle object for prompt battle
@@ -180,23 +214,24 @@ Respond with ONLY the improved prompt, no explanations or additional text. Make 
         userId: 'current-user-id',
         battleType: 'prompt',
         prompt: battleData.prompt,
-        finalPrompt: bestPrompt,
+        finalPrompt: currentPrompt,
         promptCategory: battleData.prompt_category,
         models: battleData.models,
         mode: battleData.mode,
         battleMode: battleData.battle_mode,
-        rounds: round - 1,
+        rounds: round,
         maxTokens: battleData.max_tokens,
         temperature: battleData.temperature,
         status: 'completed',
-        winner: bestModelId,
+        winner: finalChampion,
         totalCost,
         autoSelectionReason: battleData.auto_selection_reason,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         responses: [], // Prompt battles don't have responses
-        scores: generatePromptScores(promptEvolution, battleData.models),
-        promptEvolution
+        scores: generatePromptScores(roundResults, battleData.models),
+        promptEvolution,
+        roundResults // Store peer review data
       };
       
       // Store battle in localStorage for demo
@@ -205,15 +240,21 @@ Respond with ONLY the improved prompt, no explanations or additional text. Make 
       return battle;
       
     } else {
-      // RESPONSE BATTLE: Real competitive response generation
-      console.log('SUPREME RESPONSE BATTLE: EXECUTING REAL RESPONSE GENERATION BATTLE');
+      // SUPREME RESPONSE BATTLE WITH PEER REVIEW
+      console.log('SUPREME RESPONSE BATTLE: PEER ADVERSARIAL RESPONSE GENERATION');
+      
+      const contestants: Array<{modelId: string, output: string}> = [];
       
       for (const modelId of battleData.models) {
         try {
-          console.log('SUPREME COMPETITOR: Calling model: ' + modelId);
+          console.log(`SUPREME COMPETITOR: ${modelId} generating response`);
           const result = await callGroqAPI(modelId, battleData.prompt, battleData.max_tokens, battleData.temperature);
           
-          const response: BattleResponse = {
+          contestants.push({ modelId, output: result.response });
+          totalCost += result.cost;
+          
+          // Store response data
+          responses.push({
             id: `response_${Date.now()}_${modelId}`,
             battleId,
             modelId,
@@ -222,32 +263,33 @@ Respond with ONLY the improved prompt, no explanations or additional text. Make 
             tokens: result.tokens,
             cost: result.cost,
             createdAt: new Date().toISOString()
-          };
-          
-          responses.push(response);
-          totalCost += result.cost;
-          
-          console.log('SUPREME SUCCESS: Model ' + modelId + ' responded (' + result.tokens + ' tokens, $' + result.cost + ')');
+          });
           
         } catch (error) {
-          console.error('SUPREME ERROR: Error with model ' + modelId + ':', error);
-          throw new Error(`Failed to get response from ${modelId}: ${error.message}`);
+          console.error(`SUPREME ERROR: ${modelId} failed:`, error);
         }
       }
       
-      if (responses.length === 0) {
-        throw new Error('No models were able to generate responses. Please check your API configuration.');
+      if (contestants.length === 0) {
+        throw new Error('No models generated responses. Check API configuration.');
       }
       
-      // Generate competitive scores using AI
-      const scores = await generateCompetitiveScores(responses, battleData.prompt, battleData.prompt_category);
+      // CONDUCT PEER REVIEW FOR RESPONSES
+      console.log(`SUPREME PEER REVIEW: ${contestants.length} responses, ${battleData.models.length} reviewers`);
+      const reviewResult = await conductPeerReviewRound(
+        contestants,
+        battleData.models,
+        battleData.prompt_category,
+        'response',
+        1
+      );
+      totalCost += reviewResult.cost;
+      roundResults.push(reviewResult.roundResult);
       
-      // Determine winner based on overall scores
-      const winner = Object.entries(scores).reduce((best, [modelId, score]) => {
-        return !best || score.overall > scores[best].overall ? modelId : best;
-      }, '');
+      const winner = reviewResult.roundResult.champion;
+      const scores = generateResponseScores(reviewResult.roundResult);
       
-      console.log('SUPREME CHAMPION: WINNER: ' + winner + ' with score ' + scores[winner]?.overall + '/10');
+      console.log(`SUPREME CHAMPION: ${winner} with score ${reviewResult.roundResult.championScore}/10`);
       
       const battle: Battle = {
         id: battleId,
@@ -269,7 +311,8 @@ Respond with ONLY the improved prompt, no explanations or additional text. Make 
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         responses,
-        scores
+        scores,
+        roundResults
       };
       
       // Store battle in localStorage for demo
@@ -281,6 +324,180 @@ Respond with ONLY the improved prompt, no explanations or additional text. Make 
   } catch (error) {
     console.error('SUPREME FAILURE: BATTLE EXECUTION FAILED:', error);
     throw error;
+  }
+};
+
+// SUPREME PEER REVIEW SYSTEM - Conduct full peer review round
+const conductPeerReviewRound = async (
+  contestants: Array<{modelId: string, output: string}>,
+  allModels: string[],
+  category: string,
+  battleType: 'prompt' | 'response',
+  round: number
+): Promise<{roundResult: RoundResult, cost: number}> => {
+  let cost = 0;
+  const allReviews: PeerReview[] = [];
+  
+  // Each model reviews each contestant (except themselves)
+  for (const reviewerModelId of allModels) {
+    for (const contestant of contestants) {
+      if (contestant.modelId === reviewerModelId) continue; // No self-review
+      
+      try {
+        const review = await generatePeerReview(
+          reviewerModelId,
+          contestant.output,
+          contestant.modelId,
+          category,
+          battleType
+        );
+        allReviews.push(review);
+        cost += 0.02; // Estimate for review call
+      } catch (error) {
+        console.error(`Peer review failed: ${reviewerModelId} reviewing ${contestant.modelId}:`, error);
+      }
+    }
+  }
+  
+  // Calculate average scores for each contestant
+  const contestantResults = contestants.map(contestant => {
+    const reviews = allReviews.filter(r => r.targetId === contestant.modelId);
+    const avgScore = reviews.length > 0 
+      ? reviews.reduce((sum, r) => sum + r.overallScore, 0) / reviews.length
+      : 0;
+    
+    return {
+      modelId: contestant.modelId,
+      output: contestant.output,
+      peerReviews: reviews,
+      averageScore: Math.round(avgScore * 10) / 10
+    };
+  });
+  
+  // Find champion
+  const champion = contestantResults.reduce((best, current) => 
+    current.averageScore > best.averageScore ? current : best
+  );
+  
+  // Check for consensus (all reviews within 0.5 points and all >= 9.5)
+  const championReviews = champion.peerReviews;
+  const consensus = championReviews.length > 0 && 
+    championReviews.every(r => r.overallScore >= 9.5) &&
+    Math.max(...championReviews.map(r => r.overallScore)) - Math.min(...championReviews.map(r => r.overallScore)) <= 0.5;
+  
+  // Check for plateau (all scores very close)
+  const scores = contestantResults.map(c => c.averageScore);
+  const plateauDetected = scores.length > 1 && 
+    Math.max(...scores) - Math.min(...scores) <= 0.2;
+  
+  const roundResult: RoundResult = {
+    round,
+    contestants: contestantResults,
+    champion: champion.modelId,
+    championScore: champion.averageScore,
+    consensus,
+    plateauDetected
+  };
+  
+  return { roundResult, cost };
+};
+
+// Generate detailed peer review using AI
+const generatePeerReview = async (
+  reviewerModelId: string,
+  targetOutput: string,
+  targetModelId: string,
+  category: string,
+  battleType: 'prompt' | 'response'
+): Promise<PeerReview> => {
+  const reviewPrompt = `You are a peer reviewer in the SUPREME PROMPT BATTLE ARENA. Evaluate this ${battleType} using the 7-criteria rubric.
+
+${battleType.toUpperCase()} TO REVIEW: "${targetOutput}"
+CATEGORY: ${category}
+CREATED BY: ${targetModelId}
+
+SUPREME SCORING RUBRIC (1-10 scale, be EXTREMELY strict):
+1. CLARITY: Crystal clear, zero ambiguity (10 = impossible to misunderstand)
+2. SPECIFICITY: Precise, detailed instructions (10 = all necessary details included)
+3. ACTIONABILITY: Clear steps/requirements (10 = perfectly actionable)
+4. CONTEXT ALIGNMENT: Perfect fit for intended use (10 = ideal for category)
+5. COMPLETENESS: Nothing important missing (10 = comprehensive coverage)
+6. UNIQUE COVERAGE: Addresses aspects others miss (10 = unique valuable insights)
+7. NO FURTHER IMPROVEMENT: Approaching perfection (10 = cannot be meaningfully improved)
+
+RESPOND IN EXACT FORMAT:
+CLARITY: [score]
+SPECIFICITY: [score]
+ACTIONABILITY: [score]
+CONTEXT_ALIGNMENT: [score]
+COMPLETENESS: [score]
+UNIQUE_COVERAGE: [score]
+NO_FURTHER_IMPROVEMENT: [score]
+CRITIQUE: [detailed explanation of scores and specific areas for improvement]
+IMPROVEMENTS: [comma-separated list of specific improvements needed]`;
+
+  try {
+    const result = await callGroqAPI(reviewerModelId, reviewPrompt, 300, 0.1);
+    
+    // Parse response
+    const lines = result.response.split('\n');
+    const scores = {
+      clarity: 5,
+      specificity: 5,
+      actionability: 5,
+      contextAlignment: 5,
+      completeness: 5,
+      uniqueCoverage: 5,
+      noFurtherImprovement: 5
+    };
+    let critique = 'AI-generated review';
+    let improvements: string[] = [];
+    
+    for (const line of lines) {
+      if (line.includes('CLARITY:')) scores.clarity = parseFloat(line.split(':')[1].trim()) || 5;
+      else if (line.includes('SPECIFICITY:')) scores.specificity = parseFloat(line.split(':')[1].trim()) || 5;
+      else if (line.includes('ACTIONABILITY:')) scores.actionability = parseFloat(line.split(':')[1].trim()) || 5;
+      else if (line.includes('CONTEXT_ALIGNMENT:')) scores.contextAlignment = parseFloat(line.split(':')[1].trim()) || 5;
+      else if (line.includes('COMPLETENESS:')) scores.completeness = parseFloat(line.split(':')[1].trim()) || 5;
+      else if (line.includes('UNIQUE_COVERAGE:')) scores.uniqueCoverage = parseFloat(line.split(':')[1].trim()) || 5;
+      else if (line.includes('NO_FURTHER_IMPROVEMENT:')) scores.noFurtherImprovement = parseFloat(line.split(':')[1].trim()) || 5;
+      else if (line.includes('CRITIQUE:')) critique = line.split(':')[1].trim() || critique;
+      else if (line.includes('IMPROVEMENTS:')) {
+        improvements = line.split(':')[1].trim().split(',').map(s => s.trim()).filter(s => s.length > 0);
+      }
+    }
+    
+    const overallScore = (scores.clarity + scores.specificity + scores.actionability + 
+                         scores.contextAlignment + scores.completeness + scores.uniqueCoverage + 
+                         scores.noFurtherImprovement) / 7;
+    
+    return {
+      reviewerId: reviewerModelId,
+      targetId: targetModelId,
+      scores,
+      overallScore: Math.round(overallScore * 10) / 10,
+      critique,
+      improvements
+    };
+  } catch (error) {
+    console.error(`Peer review generation failed for ${reviewerModelId}:`, error);
+    // Fallback review
+    return {
+      reviewerId: reviewerModelId,
+      targetId: targetModelId,
+      scores: {
+        clarity: 5,
+        specificity: 5,
+        actionability: 5,
+        contextAlignment: 5,
+        completeness: 5,
+        uniqueCoverage: 5,
+        noFurtherImprovement: 5
+      },
+      overallScore: 5,
+      critique: 'Review generation failed - fallback scoring',
+      improvements: ['Unable to generate specific improvements']
+    };
   }
 };
 
@@ -455,23 +672,88 @@ NOTES: [brief explanation of the scores]`;
   return scores;
 };
 
-// Generate scores for prompt battles
-const generatePromptScores = (promptEvolution: PromptEvolution[], models: string[]): Record<string, BattleScore> => {
+// Generate scores for prompt battles from round results
+const generatePromptScores = (roundResults: RoundResult[], models: string[]): Record<string, BattleScore> => {
   const scores: Record<string, BattleScore> = {};
   
   for (const modelId of models) {
-    const modelEvolutions = promptEvolution.filter(e => e.modelId === modelId);
-    const bestEvolution = modelEvolutions.reduce((best, current) => 
-      current.score > best.score ? current : best, modelEvolutions[0]);
+    // Find best performance across all rounds
+    let bestScore = 0;
+    let bestReviews: PeerReview[] = [];
     
-    if (bestEvolution) {
+    for (const round of roundResults) {
+      const contestant = round.contestants.find(c => c.modelId === modelId);
+      if (contestant && contestant.averageScore > bestScore) {
+        bestScore = contestant.averageScore;
+        bestReviews = contestant.peerReviews;
+      }
+    }
+    
+    if (bestReviews.length > 0) {
+      const avgScores = bestReviews.reduce((acc, review) => ({
+        clarity: acc.clarity + review.scores.clarity,
+        specificity: acc.specificity + review.scores.specificity,
+        actionability: acc.actionability + review.scores.actionability,
+        contextAlignment: acc.contextAlignment + review.scores.contextAlignment,
+        completeness: acc.completeness + review.scores.completeness,
+        uniqueCoverage: acc.uniqueCoverage + review.scores.uniqueCoverage,
+        noFurtherImprovement: acc.noFurtherImprovement + review.scores.noFurtherImprovement
+      }), {
+        clarity: 0, specificity: 0, actionability: 0, contextAlignment: 0,
+        completeness: 0, uniqueCoverage: 0, noFurtherImprovement: 0
+      });
+      
+      const reviewCount = bestReviews.length;
       scores[modelId] = {
-        accuracy: bestEvolution.score,
-        reasoning: bestEvolution.score,
-        structure: bestEvolution.score,
-        creativity: bestEvolution.score,
-        overall: bestEvolution.score,
-        notes: `Best refinement achieved: ${bestEvolution.improvements.join(', ')}`
+        accuracy: Math.round((avgScores.clarity / reviewCount) * 10) / 10,
+        reasoning: Math.round((avgScores.specificity / reviewCount) * 10) / 10,
+        structure: Math.round((avgScores.actionability / reviewCount) * 10) / 10,
+        creativity: Math.round((avgScores.uniqueCoverage / reviewCount) * 10) / 10,
+        overall: bestScore,
+        notes: `Peer-reviewed by ${reviewCount} models. Best critiques: ${bestReviews.map(r => r.critique.substring(0, 50)).join('; ')}`
+      };
+    } else {
+      scores[modelId] = {
+        accuracy: 5,
+        reasoning: 5,
+        structure: 5,
+        creativity: 5,
+        overall: 5,
+        notes: 'No peer reviews available'
+      };
+    }
+  }
+  
+  return scores;
+};
+
+// Generate scores for response battles from round results
+const generateResponseScores = (roundResult: RoundResult): Record<string, BattleScore> => {
+  const scores: Record<string, BattleScore> = {};
+  
+  for (const contestant of roundResult.contestants) {
+    if (contestant.peerReviews.length > 0) {
+      const avgScores = contestant.peerReviews.reduce((acc, review) => ({
+        clarity: acc.clarity + review.scores.clarity,
+        specificity: acc.specificity + review.scores.specificity,
+        actionability: acc.actionability + review.scores.actionability,
+        contextAlignment: acc.contextAlignment + review.scores.contextAlignment,
+        completeness: acc.completeness + review.scores.completeness,
+        uniqueCoverage: acc.uniqueCoverage + review.scores.uniqueCoverage,
+        noFurtherImprovement: acc.noFurtherImprovement + review.scores.noFurtherImprovement
+      }), {
+        clarity: 0, specificity: 0, actionability: 0, contextAlignment: 0,
+        completeness: 0, uniqueCoverage: 0, noFurtherImprovement: 0
+      });
+      
+      const reviewCount = contestant.peerReviews.length;
+      scores[contestant.modelId] = {
+        accuracy: Math.round((avgScores.clarity / reviewCount) * 10) / 10,
+        reasoning: Math.round((avgScores.specificity / reviewCount) * 10) / 10,
+        structure: Math.round((avgScores.actionability / reviewCount) * 10) / 10,
+        creativity: Math.round((avgScores.uniqueCoverage / reviewCount) * 10) / 10,
+        overall: contestant.averageScore,
+        notes: `Peer-reviewed by ${reviewCount} models. ${contestant.peerReviews.map(r => r.critique.substring(0, 30)).join('; ')}`
       };
     }
   }

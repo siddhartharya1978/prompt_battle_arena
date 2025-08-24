@@ -78,6 +78,7 @@ export interface Battle {
   responses: BattleResponse[];
   scores: Record<string, BattleScore>;
   promptEvolution?: PromptEvolution[];
+  roundResults?: any[]; // Store peer review round data
 }
 
 export interface BattleData {

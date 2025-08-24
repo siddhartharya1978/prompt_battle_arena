@@ -335,10 +335,28 @@ Total Cost: ₹${battle.totalCost}
                 <Brain className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5" />
                 <div>
                   <h3 className="font-medium text-green-900 dark:text-green-100 mb-1">
-                    AI Model Selection Logic
+                    INTELLIGENT MODEL SELECTION ANALYSIS
                   </h3>
-                  <p className="text-sm text-green-700 dark:text-green-300">
-                    {winnerScore?.overall || 0}/10
+                  <pre className="text-xs text-green-700 dark:text-green-300 whitespace-pre-wrap font-mono bg-white dark:bg-green-800/20 p-3 rounded border overflow-x-auto">
+                    {battle.autoSelectionReason}
+                  </pre>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Peer Review Consensus (if achieved) */}
+          {battle.roundResults && battle.roundResults.some((r: any) => r.consensus) && (
+            <div className="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-4">
+              <div className="flex items-start space-x-3">
+                <CheckCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-yellow-900 dark:text-yellow-100 mb-1">
+                    🏆 PEER CONSENSUS ACHIEVED
+                  </h3>
+                  <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                    All peer reviewers agree this output cannot be meaningfully improved further.
                   </p>
                 </div>
               </div>

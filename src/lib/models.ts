@@ -280,9 +280,10 @@ export const selectOptimalModels = (prompt: string, category: string, battleType
     throw new Error('No models available. Please check your API configuration.');
   }
 
-  // Analyze prompt characteristics
+  // SUPREME INTELLIGENT ANALYSIS - Analyze prompt characteristics with explicit logic
   const promptLower = prompt.toLowerCase();
   const promptLength = prompt.length;
+  const wordCount = prompt.split(' ').length;
   
   const isCreative = promptLower.includes('creative') || promptLower.includes('story') || 
                     promptLower.includes('poem') || category === 'creative';
@@ -296,81 +297,153 @@ export const selectOptimalModels = (prompt: string, category: string, battleType
                     promptLower.includes('comprehensive');
   const isSafety = promptLower.includes('safety') || promptLower.includes('harmful') || 
                   promptLower.includes('appropriate');
+  const isScientific = promptLower.includes('scientific') || promptLower.includes('research') ||
+                      promptLower.includes('academic') || promptLower.includes('study');
+  const isCompliance = promptLower.includes('legal') || promptLower.includes('policy') ||
+                      promptLower.includes('regulation') || promptLower.includes('compliance');
 
-  // Score models based on prompt characteristics
+  // SUPREME SCORING - Explicit, justifiable model scoring
   const modelScores = availableModels.map(model => {
     let score = 5; // Base score
     let reasons: string[] = [];
+    let exclusionReasons: string[] = [];
     
-    // Add points for relevant strengths
+    // TECHNICAL/SCIENTIFIC PROMPTS - Prefer larger reasoning models
+    if (isTechnical || isScientific || isMath) {
+      if (model.id.includes('70b') || model.id.includes('120b')) {
+        score += 5;
+        reasons.push('Large parameter count for complex reasoning');
+      }
+      if (model.knownFor.includes('technical') || model.knownFor.includes('reasoning')) {
+        score += 4;
+        reasons.push('Specialized in technical/reasoning tasks');
+      }
+      if (model.id.includes('deepseek')) {
+        score += 3;
+        reasons.push('DeepSeek models excel at mathematical reasoning');
+      }
+    }
+    
+    // CREATIVE PROMPTS - Mix of creative and diverse models
     if (isCreative && model.knownFor.includes('creative')) {
-      score += 4;
-      reasons.push('Creative task match');
-    }
-    if (isTechnical && (model.knownFor.includes('technical') || model.knownFor.includes('coding'))) {
-      score += 4;
-      reasons.push('Technical expertise');
-    }
-    if (isMath && model.knownFor.includes('math')) {
       score += 5;
-      reasons.push('Mathematical reasoning');
-    }
-    if (isAnalysis && (model.knownFor.includes('analysis') || model.knownFor.includes('reasoning'))) {
-      score += 3;
-      reasons.push('Analysis capabilities');
-    }
-    if (isLongForm && model.knownFor.includes('long-context')) {
-      score += 3;
-      reasons.push('Long-context handling');
-    }
-    if (isSafety && model.knownFor.includes('safety')) {
-      score += 4;
-      reasons.push('Safety specialization');
+      reasons.push('Specialized creative capabilities');
+      if (model.id.includes('8b') || model.id.includes('7b')) {
+        score += 2;
+        reasons.push('Smaller models often more creative/diverse');
+      }
     }
     
-    // General capabilities bonus
-    if (model.knownFor.includes('reasoning')) score += 2;
-    if (model.knownFor.includes('general')) score += 1;
+    // SAFETY/COMPLIANCE - Prefer guard models and stable models
+    if (isSafety || isCompliance) {
+      if (model.id.includes('guard') || model.id.includes('llama-2')) {
+        score += 6;
+        reasons.push('Specialized safety/compliance model');
+      }
+      if (model.reliability === 'high' && model.status === 'production') {
+        score += 3;
+        reasons.push('High reliability for safety-critical tasks');
+      }
+    }
     
-    // Quality and reliability bonus
-    if (model.quality === 'high') score += 2;
-    if (model.reliability === 'high') score += 1;
+    // LONG-FORM CONTENT - Prefer high context window models
+    if (isLongForm || wordCount > 100) {
+      if (model.contextWindow > 100000) {
+        score += 4;
+        reasons.push('Large context window for long-form content');
+      }
+      if (model.knownFor.includes('long-context')) {
+        score += 3;
+        reasons.push('Optimized for long-context understanding');
+      }
+    }
     
-    // Speed consideration for prompt battles
-    if (battleType === 'prompt' && model.speed === 'fast') score += 1;
+    // DIVERSITY BONUS - Prefer different architectures/providers
+    const providerBonus = {
+      'Meta': 1,
+      'OpenAI': 2, // Slightly prefer for diversity
+      'DeepSeek/Meta': 2,
+      'Moonshot AI': 3, // High diversity bonus
+      'Alibaba Cloud': 3 // High diversity bonus
+    };
+    score += providerBonus[model.provider] || 0;
+    if (providerBonus[model.provider] > 1) {
+      reasons.push(`Provider diversity bonus (${model.provider})`);
+    }
     
-    // Penalize experimental models slightly for reliability
-    if (model.reliability === 'experimental') score -= 1;
+    // RELIABILITY AND STATUS ADJUSTMENTS
+    if (model.reliability === 'high' && model.status === 'production') {
+      score += 2;
+      reasons.push('High reliability production model');
+    } else if (model.reliability === 'experimental') {
+      score -= 2;
+      exclusionReasons.push('Experimental reliability may affect consistency');
+    }
+    
+    // SPEED CONSIDERATIONS
+    if (battleType === 'prompt' && model.speed === 'fast') {
+      score += 1;
+      reasons.push('Fast response time for iterative refinement');
+    }
+    
+    // EXCLUDE SPECIALIZED MODELS FOR GENERAL TASKS
+    if (!isSafety && !isCompliance && model.id.includes('guard')) {
+      score -= 5;
+      exclusionReasons.push('Guard model not suitable for general tasks');
+    }
+    
+    // EXCLUDE VERY SMALL MODELS FOR COMPLEX TASKS
+    if ((isTechnical || isScientific || isMath) && model.id.includes('22m')) {
+      score -= 4;
+      exclusionReasons.push('Too small for complex reasoning tasks');
+    }
     
     return { 
       model, 
       score, 
-      reasons: reasons.length > 0 ? reasons : ['General capabilities']
+      reasons: reasons.length > 0 ? reasons : ['General capabilities'],
+      exclusionReasons
     };
   });
-
-  // Sort by score and select top 3 diverse models
+    
+  // SUPREME SELECTION - Sort by score and ensure diversity
   const sortedModels = modelScores.sort((a, b) => b.score - a.score);
-  const selected: Array<{modelId: string, reasons: string[]}> = [];
+  const selected: Array<{modelId: string, reasons: string[], score: number}> = [];
   const deselected: Array<{modelId: string, reason: string}> = [];
-
-  // Select top 3 models ensuring diversity
-  for (const { model, score, reasons } of sortedModels) {
+  
+  // INTELLIGENT SELECTION WITH DIVERSITY CONSTRAINTS
+  for (const { model, score, reasons, exclusionReasons } of sortedModels) {
     if (selected.length >= 3) {
       deselected.push({
         modelId: model.id,
-        reason: `Score: ${score}/10 - Not in top 3 selections`
+        reason: `Score: ${score.toFixed(1)}/10 - Not in top 3 selections`
       });
       continue;
     }
     
-    // Ensure diversity - don't select multiple models from same provider if possible
+    // Check exclusion reasons
+    if (exclusionReasons.length > 0) {
+      deselected.push({
+        modelId: model.id,
+        reason: exclusionReasons[0]
+      });
+      continue;
+    }
+
+    // DIVERSITY CHECK - Ensure architectural diversity
     const sameProviderCount = selected.filter(s => {
       const selectedModel = AVAILABLE_MODELS.find(m => m.id === s.modelId);
       return selectedModel?.provider === model.provider;
     }).length;
     
-    if (sameProviderCount >= 2 && selected.length < 3 && sortedModels.length > selected.length + 1) {
+    const sameArchitectureCount = selected.filter(s => {
+      const selectedModel = AVAILABLE_MODELS.find(m => m.id === s.modelId);
+      const selectedSize = selectedModel?.id.match(/(\d+)b/)?.[1];
+      const currentSize = model.id.match(/(\d+)b/)?.[1];
+      return selectedSize === currentSize;
+    }).length;
+
+    if (sameProviderCount >= 2 && selected.length < 3) {
       deselected.push({
         modelId: model.id,
         reason: `Provider diversity - already have ${sameProviderCount} ${model.provider} models`
@@ -378,31 +451,61 @@ export const selectOptimalModels = (prompt: string, category: string, battleType
       continue;
     }
     
-    selected.push({ modelId: model.id, reasons });
+    if (sameArchitectureCount >= 2 && selected.length < 3) {
+      deselected.push({
+        modelId: model.id,
+        reason: `Architecture diversity - need different model sizes`
+      });
+      continue;
+    }
+    
+    selected.push({ modelId: model.id, reasons, score });
   }
 
-  // Build rationale
+  // BUILD DETAILED RATIONALE WITH FULL JUSTIFICATION
   const selectedModelNames = selected.map(s => {
     const model = AVAILABLE_MODELS.find(m => m.id === s.modelId);
     return model?.name || s.modelId;
   });
 
-  let rationale = `Selected ${selected.length} optimal models for ${category} ${battleType} battle: ${selectedModelNames.join(', ')}. `;
+  let rationale = `INTELLIGENT MODEL SELECTION ANALYSIS:\n\n`;
+  rationale += `PROMPT ANALYSIS: "${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}"\n`;
+  rationale += `- Category: ${category}\n`;
+  rationale += `- Type: ${battleType} battle\n`;
+  rationale += `- Length: ${wordCount} words, ${promptLength} characters\n`;
+  rationale += `- Characteristics: `;
   
-  const selectionReasons: string[] = [];
+  const characteristics: string[] = [];
+  if (isCreative) characteristics.push('Creative');
+  if (isTechnical) characteristics.push('Technical');
+  if (isMath) characteristics.push('Mathematical');
+  if (isAnalysis) characteristics.push('Analytical');
+  if (isLongForm) characteristics.push('Long-form');
+  if (isSafety) characteristics.push('Safety-sensitive');
+  if (isScientific) characteristics.push('Scientific');
+  if (isCompliance) characteristics.push('Compliance-related');
   
-  if (isCreative) selectionReasons.push('Creative specialists for imaginative responses');
-  if (isTechnical) selectionReasons.push('Technical experts for accurate solutions');
-  if (isMath) selectionReasons.push('Math-focused models for precise calculations');
-  if (isAnalysis) selectionReasons.push('Analysis experts for deep insights');
-  if (isLongForm) selectionReasons.push('Long-context models for comprehensive responses');
-  if (isSafety) selectionReasons.push('Safety-focused models for appropriate content');
+  rationale += characteristics.length > 0 ? characteristics.join(', ') : 'General purpose';
+  rationale += `\n\nSELECTED MODELS (${selected.length}/3):\n`;
   
-  if (selectionReasons.length === 0) {
-    selectionReasons.push('Balanced mix of reasoning, creativity, and reliability');
+  selected.forEach((s, index) => {
+    const model = AVAILABLE_MODELS.find(m => m.id === s.modelId);
+    rationale += `${index + 1}. ${model?.name} (Score: ${s.score.toFixed(1)}/10)\n`;
+    rationale += `   Reasons: ${s.reasons.join(', ')}\n`;
+  });
+  
+  if (deselected.length > 0) {
+    rationale += `\nDESELECTED MODELS (${deselected.length}):\n`;
+    deselected.slice(0, 5).forEach((d, index) => {
+      const model = AVAILABLE_MODELS.find(m => m.id === d.modelId);
+      rationale += `${index + 1}. ${model?.name}: ${d.reason}\n`;
+    });
+    if (deselected.length > 5) {
+      rationale += `... and ${deselected.length - 5} others\n`;
+    }
   }
   
-  rationale += `Selection criteria: ${selectionReasons.join(', ')}.`;
+  rationale += `\nSELECTION STRATEGY: Maximize architectural diversity, task-specific expertise, and reliability while ensuring competitive peer review dynamics.`;
 
   return {
     selected: selected.map(s => s.modelId),
