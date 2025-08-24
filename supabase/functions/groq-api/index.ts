@@ -52,6 +52,13 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // Debug logging for environment variables
+  console.log('🔍 DEBUG: Checking environment variables...');
+  const allEnvVars = Deno.env.toObject();
+  console.log('Available env vars:', Object.keys(allEnvVars));
+  console.log('GROQ_API_KEY exists:', !!Deno.env.get('GROQ_API_KEY'));
+  console.log('GROQ_API_KEY length:', Deno.env.get('GROQ_API_KEY')?.length || 0);
+
   try {
     const { model, prompt, max_tokens, temperature }: GroqRequest = await req.json();
 
@@ -66,14 +73,19 @@ Deno.serve(async (req: Request) => {
                       Deno.env.get('VITE_GROQ_API_KEY');
     
     if (!groqApiKey) {
-      console.error('❌ GROQ API KEY NOT FOUND');
-      console.error('Available env vars:', Object.keys(Deno.env.toObject()));
+      console.error('❌ GROQ API KEY NOT FOUND AFTER CHECKING ALL VARIANTS');
+      console.error('Checked: GROQ_API_KEY, GROQ_API_TOKEN, VITE_GROQ_API_KEY');
+      console.error('Available env vars:', Object.keys(allEnvVars));
       
       return new Response(
         JSON.stringify({
-          error: 'GROQ_API_KEY not configured in Supabase Edge Function. Please add it in your Supabase project settings under Edge Functions environment variables.',
-          available_env_vars: Object.keys(Deno.env.toObject()),
-          instructions: 'Go to Supabase Dashboard → Edge Functions → groq-api → Environment Variables → Add GROQ_API_KEY'
+          error: 'GROQ_API_KEY not found in Edge Function environment. This usually means the function needs to be redeployed after adding the environment variable.',
+          available_env_vars: Object.keys(allEnvVars),
+          instructions: 'After adding GROQ_API_KEY in Supabase Dashboard, you may need to redeploy the Edge Function or wait a few minutes for it to take effect.',
+          debug_info: {
+            checked_vars: ['GROQ_API_KEY', 'GROQ_API_TOKEN', 'VITE_GROQ_API_KEY'],
+            total_env_vars: Object.keys(allEnvVars).length
+          }
         }),
         {
           status: 500,
@@ -85,6 +97,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    console.log(`✅ GROQ API KEY FOUND (length: ${groqApiKey.length})`);
     console.log(`🤖 Calling Groq API with model: ${model}`);
     const startTime = Date.now();
 
