@@ -29,8 +29,7 @@ export const createBattle = async (battleData: BattleData): Promise<Battle> => {
   return await executeFullBattle(battleData, user.id, false);
 };
 
-// NEW: Complete battle execution pipeline
-const executeFullBattle = async (battleData: BattleData, userId: string, isDemoMode: boolean): Promise<Battle> => {
+const executeFullBattle = async (battleData: BattleData, userId: string, isDemoMode: boolean = false): Promise<Battle> => {
   console.log('🚀 Starting FULL battle execution pipeline...');
   console.log('Battle data:', { type: battleData.battle_type, models: battleData.models.length, prompt: battleData.prompt.substring(0, 50) + '...' });
   
@@ -283,7 +282,7 @@ const generateAIScore = async (battle: Battle, response: BattleResponse): Promis
   // Adjust based on prompt category
   if (battle.promptCategory === 'creative') creativity += 1;
   if (battle.promptCategory === 'technical') reasoning += 1;
-  if (battle.promptCategory === 'explanation') accuracy += 1;
+  let creativity = Math.min(10, Math.max(1, 6 + Math.random() * 3 + (battle.temperature > 0.7 ? 1 : 0)));
   
   // Ensure scores are within bounds
   accuracy = Math.min(10, Math.max(1, accuracy));
@@ -781,10 +780,10 @@ export const getBattle = async (battleId: string): Promise<Battle | null> => {
 };
 
 // Helper function to generate AI-powered battle scores
-const generateBattleScore = async (battle: any, response: string, modelId: string): Promise<BattleScore> => {
+const generateAIScore = async (battle: Battle, response: BattleResponse): Promise<BattleScore> => {
   // For demo purposes, generate realistic scores based on response characteristics
-  const responseLength = response.length;
-  const wordCount = response.split(' ').length;
+  const responseLength = response.response.length;
+  const wordCount = response.response.split(' ').length;
   
   // Base scores with some randomization
   const accuracy = Math.min(10, Math.max(1, 7 + Math.random() * 2 + (responseLength > 100 ? 1 : 0)));
@@ -794,7 +793,7 @@ const generateBattleScore = async (battle: any, response: string, modelId: strin
   
   const overall = Number(((accuracy + reasoning + structure + creativity) / 4).toFixed(1));
   
-  const notes = generateScoreNotes(accuracy, reasoning, structure, creativity, battle.battle_type);
+  const notes = generateScoreNotes(accuracy, reasoning, structure, creativity, battle.battleType, response.modelId);
   
   return {
     accuracy: Number(accuracy.toFixed(1)),
@@ -806,8 +805,13 @@ const generateBattleScore = async (battle: any, response: string, modelId: strin
   };
 };
 
+// Create battle API function that was missing
+export const createBattleAPI = async (battleData: BattleData): Promise<Battle> => {
+  return await createBattle(battleData);
+};
+
 // Helper function to generate score notes
-const generateScoreNotes = (accuracy: number, reasoning: number, structure: number, creativity: number, battleType: 'prompt' | 'response'): string => {
+const generateScoreNotes = (accuracy: number, reasoning: number, structure: number, creativity: number, battleType: 'prompt' | 'response', modelId?: string): string => {
   const notes = [];
   
   if (accuracy >= 8) notes.push('Highly accurate response');

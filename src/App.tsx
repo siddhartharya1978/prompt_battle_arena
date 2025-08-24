@@ -33,39 +33,39 @@ function App() {
   };
 
   return (
-    <ThemeProvider>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-        <AuthProvider>
-          <Router>
-            <BattleProvider>
-              <ErrorBoundary>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+          <AuthProvider>
+            <Router>
+              <BattleProvider>
                 <Routes>
-                  <Route path="/" element={<ErrorBoundary><LandingPage /></ErrorBoundary>} />
-                  <Route path="/login" element={<ErrorBoundary><Login /></ErrorBoundary>} />
-                  <Route path="/dashboard" element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
-                  <Route path="/battle/new" element={<ErrorBoundary><NewBattle /></ErrorBoundary>} />
-                  <Route path="/battle/:id/results" element={<ErrorBoundary><BattleResults /></ErrorBoundary>} />
-                  <Route path="/history" element={<ErrorBoundary><History /></ErrorBoundary>} />
-                  <Route path="/pricing" element={<ErrorBoundary><Pricing /></ErrorBoundary>} />
-                  <Route path="/settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
-                  <Route path="/admin" element={<ErrorBoundary><AdminPanel /></ErrorBoundary>} />
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/battle/new" element={<NewBattle />} />
+                  <Route path="/battle/:id/results" element={<BattleResults />} />
+                  <Route path="/history" element={<History />} />
+                  <Route path="/pricing" element={<Pricing />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/admin" element={<AdminPanel />} />
                 </Routes>
-              </ErrorBoundary>
-              <Toaster 
-                position="top-right"
-                toastOptions={{
-                  className: 'dark:bg-gray-800 dark:text-white',
-                }}
-              />
-              <OnboardingModal 
-                isOpen={showOnboarding} 
-                onClose={handleCloseOnboarding} 
-              />
-            </BattleProvider>
-          </Router>
-        </AuthProvider>
-      </div>
-    </ThemeProvider>
+                <Toaster 
+                  position="top-right"
+                  toastOptions={{
+                    className: 'dark:bg-gray-800 dark:text-white',
+                  }}
+                />
+                <OnboardingModal 
+                  isOpen={showOnboarding} 
+                  onClose={handleCloseOnboarding} 
+                />
+              </BattleProvider>
+            </Router>
+          </AuthProvider>
+        </div>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

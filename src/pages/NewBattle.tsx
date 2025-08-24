@@ -160,6 +160,11 @@ export default function NewBattle() {
 
   const useSamplePrompt = (samplePrompt: string) => {
     setPrompt(samplePrompt);
+    toast.success('Sample prompt loaded!');
+  };
+
+  const getModelInfo = (modelId: string) => {
+    return models.find(m => m.id === modelId) || { name: modelId, icon: '🤖' };
   };
 
   const canCreateBattle = () => {
