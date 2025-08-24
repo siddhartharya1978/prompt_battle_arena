@@ -55,12 +55,17 @@ export const callGroqAPI = async (
   const startTime = Date.now();
 
   try {
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         'Content-Type': 'application/json',
       },
+      signal: controller.signal,
       body: JSON.stringify({
         model,
         prompt,
@@ -68,6 +73,8 @@ export const callGroqAPI = async (
         temperature
       })
     });
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -103,6 +110,10 @@ export const callGroqAPI = async (
     };
   } catch (error) {
     console.error('Groq API call failed:', error);
+    
+    if (error.name === 'AbortError') {
+      throw new Error('Request timeout: Groq API took too long to respond. Please try again.');
+    }
     
     if (error instanceof TypeError && error.message.includes('fetch')) {
       throw new Error('Network error: Unable to connect to Groq API. Please check your internet connection and Supabase configuration.');

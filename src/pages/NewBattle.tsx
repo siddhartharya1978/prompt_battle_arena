@@ -179,11 +179,21 @@ export default function NewBattle() {
     );
 
     try {
+      // Validate models are available
+      const availableModels = selectedModels.filter(modelId => {
+        const model = models.find(m => m.id === modelId);
+        return model && model.available;
+      });
+      
+      if (availableModels.length < 2) {
+        throw new Error('At least 2 available models are required. Some selected models may be unavailable.');
+      }
+      
       const battleData: BattleData = {
         battle_type: battleType,
         prompt: prompt.trim(),
         prompt_category: promptCategory,
-        models: selectedModels,
+        models: availableModels,
         mode,
         battle_mode: battleMode,
         rounds: battleMode === 'auto' ? 20 : 1, // Auto mode runs until 10/10 (safety limit)
