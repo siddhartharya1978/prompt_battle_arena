@@ -102,7 +102,7 @@ const attemptGroqAPICall = async (
   try {
     // Add timeout to prevent hanging requests (reduced from 90s to 30s)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
     
     const response = await fetch(apiUrl, {
       method: 'POST',
