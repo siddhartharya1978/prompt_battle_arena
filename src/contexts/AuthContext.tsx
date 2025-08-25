@@ -232,22 +232,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     loading,
     authLoading,
-      // Optimistic update first
-      const optimisticUser = {
-        ...user,
-        ...updates,
-        updatedAt: new Date().toISOString()
-      };
-      setUser(optimisticUser);
-
-      // Use resilient data persistence manager
-      const result = await dataPersistenceManager.updateProfile(user.id, updates);
-      
-      if (result.success && result.profile) {
-        // Update with actual result from database
-        setUser(result.profile);
-      } else if (!result.success) {
-        // Revert optimistic update on failure
-        setUser(user);
-        throw new Error('Profile update failed');
-      }
+    login,
+    register,
+    logout,
+    updateUserProfile,
+    incrementBattleUsage,
+  };
