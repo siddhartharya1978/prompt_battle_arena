@@ -7,6 +7,7 @@ import { BattleProgress } from '../lib/battle-progress';
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
 import { dataPersistenceManager } from '../lib/data-persistence';
+import { supabase } from '../lib/supabase';
 
 interface BattleContextType {
   battles: Battle[];
