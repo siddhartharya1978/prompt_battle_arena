@@ -51,6 +51,12 @@ export class ResilientGroqClient {
     let lastError: Error;
     let totalAttempts = 0;
 
+    // Strategy 0: Check if we should skip API calls entirely in webcontainer
+    if (this.isWebContainerEnvironment()) {
+      progressCallback?.(`WebContainer detected - using synthetic responses for demo`);
+      return this.generateSyntheticResponse(model, prompt, 1);
+    }
+
     // Strategy 1: Direct API call with intelligent retry
     for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
       totalAttempts++;
@@ -327,6 +333,14 @@ export class ResilientGroqClient {
     };
 
     return { signature: personalities[model] || 'This response maintains high quality standards.' };
+  }
+
+  private isWebContainerEnvironment(): boolean {
+    // Detect if we're running in WebContainer (Bolt environment)
+    return window.location.hostname.includes('webcontainer') || 
+           window.location.hostname.includes('local-credentialless') ||
+           window.location.hostname.includes('stackblitz') ||
+           !import.meta.env.VITE_SUPABASE_URL?.includes('.supabase.co');
   }
 
   private isRateLimitError(error: any): boolean {
