@@ -90,6 +90,13 @@ const attemptGroqAPICall = async (
     throw new Error('Supabase Anon Key not configured. Please set VITE_SUPABASE_ANON_KEY in your environment variables.');
   }
   
+  // Validate Supabase URL format
+  try {
+    new URL(apiUrl);
+  } catch (error) {
+    throw new Error(`Invalid Supabase URL format: ${import.meta.env.VITE_SUPABASE_URL}. Please check your VITE_SUPABASE_URL environment variable.`);
+  }
+  
   const startTime = Date.now();
 
   try {
@@ -118,7 +125,7 @@ const attemptGroqAPICall = async (
       const errorData = await response.json().catch(() => ({}));
       
       if (response.status === 404) {
-        throw new Error('Groq API endpoint not found. Please ensure the groq-api edge function is deployed to Supabase.');
+        throw new Error(`Groq API endpoint not found at ${apiUrl}. Please ensure the groq-api edge function is deployed to your Supabase project. Check your Supabase Dashboard under Edge Functions.`);
       }
       
       if (response.status === 401) {
@@ -153,8 +160,8 @@ const attemptGroqAPICall = async (
       throw new Error('Request timeout: Groq API took too long to respond. Please try again.');
     }
     
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('Network error: Unable to connect to Groq API. Please check your internet connection and Supabase configuration.');
+    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      throw new Error(`Network error: Unable to connect to Supabase Edge Function at ${apiUrl}. This usually means:\n\n1. The groq-api Edge Function is not deployed to your Supabase project\n2. Your VITE_SUPABASE_URL is incorrect (currently: ${import.meta.env.VITE_SUPABASE_URL})\n3. Your Supabase project is paused or inactive\n4. Network connectivity issues\n\nPlease check your Supabase Dashboard and ensure the Edge Function is deployed.`);
     }
     
     throw error;
