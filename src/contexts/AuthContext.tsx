@@ -17,6 +17,8 @@ interface AuthContextType {
   incrementBattleUsage: () => Promise<void>;
 }
 
+const AuthContext = createContext<AuthContextType | null>(null);
+
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
@@ -24,7 +26,6 @@ export function useAuth() {
   }
   return context;
 }
-const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
@@ -245,4 +246,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     updateUserProfile,
     incrementBattleUsage,
   };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
