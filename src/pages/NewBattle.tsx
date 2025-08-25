@@ -25,7 +25,9 @@ import {
   ArrowRight,
   Activity,
   Info,
-  Shuffle
+  Shuffle,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
