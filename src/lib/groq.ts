@@ -32,8 +32,8 @@ export const callGroqAPI = async (
   cost: number;
   latency: number;
 }> => {
-  const maxRetries = 3;
-  const baseDelay = 1000; // 1 second
+  const maxRetries = 2;
+  const baseDelay = 2000; // 2 seconds
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -41,12 +41,12 @@ export const callGroqAPI = async (
     } catch (error) {
       const isLastAttempt = attempt === maxRetries;
       const isRateLimitError = error instanceof Error && 
-        (error.message.includes('rate limit') || error.message.includes('429'));
+        (error.message.toLowerCase().includes('rate limit') || error.message.includes('429'));
       const isTimeoutError = error instanceof Error && 
         (error.message.includes('timeout') || error.message.includes('aborted'));
       
       if ((isRateLimitError || isTimeoutError) && !isLastAttempt) {
-        const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+        const delay = baseDelay * attempt; // Linear backoff to avoid overwhelming
         console.log(`Groq API attempt ${attempt} failed, retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
@@ -100,15 +100,16 @@ const attemptGroqAPICall = async (
   const startTime = Date.now();
 
   try {
-    // Add timeout to prevent hanging requests
+    // Add timeout to prevent hanging requests (reduced from 90s to 30s)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         'Content-Type': 'application/json',
+        'x-client-info': 'pba-app/1.0.0',
       },
       signal: controller.signal,
       body: JSON.stringify({
@@ -132,9 +133,9 @@ const attemptGroqAPICall = async (
         throw new Error('Authentication failed. Please check your Supabase configuration and ensure GROQ_API_KEY is set in your edge function environment.');
       }
       
-      // Show detailed error information for configuration issues
+      // Handle configuration errors
       if (errorData.error && errorData.error.includes('GROQ_API_KEY')) {
-        throw new Error(`Configuration Error: ${errorData.error}\n\nTo fix this:\n1. Go to your Supabase Dashboard\n2. Navigate to Edge Functions → groq-api\n3. Add GROQ_API_KEY as an environment variable\n4. Use the same key from your .env file: ${import.meta.env.GROQ_API_KEY ? 'GROQ_API_KEY is set locally' : 'GROQ_API_KEY not found in .env'}`);
+        throw new Error(`Configuration Error: ${errorData.error}\n\nTo fix this:\n1. Go to your Supabase Dashboard\n2. Navigate to Edge Functions → groq-api\n3. Add GROQ_API_KEY as an environment variable\n4. Redeploy the edge function`);
       }
       
       throw new Error(`Groq API error (${response.status}): ${errorData.error || 'Unknown error'}. Please check your API configuration.`);
@@ -157,11 +158,11 @@ const attemptGroqAPICall = async (
     console.error('Groq API call failed:', error);
     
     if (error.name === 'AbortError') {
-      throw new Error('Request timeout: Groq API took too long to respond. Please try again.');
+      throw new Error('Request timeout: Groq API took longer than 30 seconds to respond. Please try again.');
     }
     
     if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-      throw new Error(`Network error: Unable to connect to Supabase Edge Function at ${apiUrl}. This usually means:\n\n1. The groq-api Edge Function is not deployed to your Supabase project\n2. Your VITE_SUPABASE_URL is incorrect (currently: ${import.meta.env.VITE_SUPABASE_URL})\n3. Your Supabase project is paused or inactive\n4. Network connectivity issues\n\nPlease check your Supabase Dashboard and ensure the Edge Function is deployed.`);
+      throw new Error(`Network error: Unable to connect to Supabase Edge Function. Please check:\n1. Edge Function 'groq-api' is deployed\n2. GROQ_API_KEY is set in Edge Function environment\n3. Supabase project is active\n4. Network connectivity`);
     }
     
     throw error;
