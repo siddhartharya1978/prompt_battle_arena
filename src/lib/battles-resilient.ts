@@ -456,16 +456,10 @@ Respond with just a number 1-10:`;
         'llama-3.1-8b-instant',
         scorePrompt,
         50,
-          if (evolutionError) {
-            console.error('❌ Prompt evolution insert failed:', evolutionError);
-            throw evolutionError;
-          } else {
-            console.log('✅ Prompt evolution saved to database');
-          }
+        0.1
       );
 
       const scoreMatch = result.response.match(/(\d+(?:\.\d+)?)/);
-      console.log('🎉 COMPLETE DATABASE SAVE SUCCESS for battle:', battle.id);
       return scoreMatch ? Math.max(1, Math.min(10, parseFloat(scoreMatch[1]))) : 7.0;
 
     } catch (error) {
