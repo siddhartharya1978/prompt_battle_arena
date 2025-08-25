@@ -294,8 +294,8 @@ Remember: You're competing against another AI model, so make this improvement co
     let improvedPrompt = '';
     
     // Strategy 1: Look for exact delimiters with better regex
-    const thinkingMatch = result.match(/THINKING:\s*([\s\S]*?)(?=\n\s*IMPROVED_PROMPT:|$)/i);
-    const promptMatch = result.match(/IMPROVED_PROMPT:\s*([\s\S]*?)$/i);
+    const thinkingMatch = result.response.match(/THINKING:\s*([\s\S]*?)(?=\n\s*IMPROVED_PROMPT:|$)/i);
+    const promptMatch = result.response.match(/IMPROVED_PROMPT:\s*([\s\S]*?)$/i);
     
     if (thinkingMatch && promptMatch) {
       thinking = thinkingMatch[1].trim();
@@ -305,7 +305,7 @@ Remember: You're competing against another AI model, so make this improvement co
       console.log(`⚠️ Strategy 1 failed for ${modelId}, trying Strategy 2`);
       
       // Strategy 2: Line-by-line parsing with state machine
-      const lines = result.split('\n');
+      const lines = result.response.split('\n');
       let inThinking = false;
       let inPrompt = false;
       let thinkingLines: string[] = [];
@@ -345,7 +345,7 @@ Remember: You're competing against another AI model, so make this improvement co
         console.log(`⚠️ Strategy 2 failed for ${modelId}, trying Strategy 3`);
         
         // Strategy 3: Find the longest coherent text blocks
-        const paragraphs = result.split('\n\n').filter(p => p.trim().length > 50);
+        const paragraphs = result.response.split('\n\n').filter(p => p.trim().length > 50);
         
         if (paragraphs.length >= 2) {
           thinking = paragraphs[0].trim();
@@ -376,7 +376,7 @@ Remember: You're competing against another AI model, so make this improvement co
       console.log(`⚠️ Improved prompt too short for ${modelId}, using emergency extraction`);
       
       // Emergency extraction: find the longest meaningful text block
-      const textBlocks = result.split(/\n\s*\n/).filter(block => {
+      const textBlocks = result.response.split(/\n\s*\n/).filter(block => {
         const cleaned = block.trim();
         return cleaned.length > 50 && 
                !cleaned.toLowerCase().includes('thinking') &&
@@ -456,9 +456,9 @@ Be honest and critical in your evaluation.`;
     let feedback = '';
     
     // Strategy 1: Look for exact delimiters with improved regex
-    const thinkingMatch = response.match(/THINKING:\s*([\s\S]*?)(?=\n\s*SCORE:|$)/i);
-    const scoreMatch = response.match(/SCORE:\s*(\d+(?:\.\d+)?)/i);
-    const feedbackMatch = response.match(/FEEDBACK:\s*([\s\S]*?)$/i);
+    const thinkingMatch = response.response.match(/THINKING:\s*([\s\S]*?)(?=\n\s*SCORE:|$)/i);
+    const scoreMatch = response.response.match(/SCORE:\s*(\d+(?:\.\d+)?)/i);
+    const feedbackMatch = response.response.match(/FEEDBACK:\s*([\s\S]*?)$/i);
     
     if (thinkingMatch) thinking = thinkingMatch[1].trim();
     if (scoreMatch) score = Math.max(1, Math.min(10, parseFloat(scoreMatch[1])));
@@ -466,7 +466,7 @@ Be honest and critical in your evaluation.`;
     
     // Strategy 2: Line-by-line parsing if structured format not found
     if (!thinking || !feedback) {
-      const lines = response.split('\n');
+      const lines = response.response.split('\n');
       let inThinking = false;
       let inFeedback = false;
       let thinkingLines: string[] = [];
@@ -510,7 +510,7 @@ Be honest and critical in your evaluation.`;
       
       // Extract score from anywhere in response if not found
       if (!scoreMatch) {
-        const anyScoreMatch = response.match(/(\d+(?:\.\d+)?)\/10|(\d+(?:\.\d+)?)\s*out\s*of\s*10|(?:score|rating)[:\s]*(\d+(?:\.\d+)?)/i);
+        const anyScoreMatch = response.response.match(/(\d+(?:\.\d+)?)\/10|(\d+(?:\.\d+)?)\s*out\s*of\s*10|(?:score|rating)[:\s]*(\d+(?:\.\d+)?)/i);
         if (anyScoreMatch) {
           const foundScore = parseFloat(anyScoreMatch[1] || anyScoreMatch[2] || anyScoreMatch[3]);
           if (foundScore >= 1 && foundScore <= 10) {
@@ -522,7 +522,7 @@ Be honest and critical in your evaluation.`;
     
     // Strategy 3: Emergency fallback if still no content
     if (!thinking || thinking.length < 20) {
-      const meaningfulSentences = response.split(/[.!?]+/).filter(s => 
+      const meaningfulSentences = response.response.split(/[.!?]+/).filter(s => 
         s.trim().length > 30 && 
         !s.toLowerCase().includes('score') &&
         !s.toLowerCase().includes('feedback')
@@ -534,7 +534,7 @@ Be honest and critical in your evaluation.`;
     }
     
     if (!feedback || feedback.length < 10) {
-      const meaningfulSentences = response.split(/[.!?]+/).filter(s => 
+      const meaningfulSentences = response.response.split(/[.!?]+/).filter(s => 
         s.trim().length > 20 && 
         !s.toLowerCase().includes('thinking')
       );
