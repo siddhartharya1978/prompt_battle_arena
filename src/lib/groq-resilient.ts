@@ -336,11 +336,10 @@ export class ResilientGroqClient {
   }
 
   private isWebContainerEnvironment(): boolean {
-    // Detect if we're running in WebContainer (Bolt environment)
-    return window.location.hostname.includes('webcontainer') || 
-           window.location.hostname.includes('local-credentialless') ||
-           window.location.hostname.includes('stackblitz') ||
-           !import.meta.env.VITE_SUPABASE_URL?.includes('.supabase.co');
+    // Only use synthetic responses if explicitly no Supabase URL configured
+    return !import.meta.env.VITE_SUPABASE_URL || 
+           import.meta.env.VITE_SUPABASE_URL.trim() === '' ||
+           import.meta.env.VITE_SUPABASE_URL === 'your_supabase_project_url';
   }
 
   private isRateLimitError(error: any): boolean {
