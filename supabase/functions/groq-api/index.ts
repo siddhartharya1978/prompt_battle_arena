@@ -64,9 +64,10 @@ Deno.serve(async (req: Request) => {
     const groqApiKey = Deno.env.get('GROQ_API_KEY');
     
     if (!groqApiKey) {
+      console.error('❌ GROQ_API_KEY not found in environment variables');
       return new Response(
         JSON.stringify({
-          error: 'Groq API not configured'
+          error: 'Groq API not configured - GROQ_API_KEY environment variable missing'
         }),
         {
           status: 500,
@@ -78,6 +79,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    console.log('✅ GROQ_API_KEY found, making API call...');
     console.log(`🤖 Simple API call: ${model}`);
 
     // Simple, direct API call with short timeout
@@ -101,12 +103,18 @@ Deno.serve(async (req: Request) => {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       
+      console.error('❌ Groq API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData
+      });
+      
       if (response.status === 429) {
         throw new Error('Rate limit - please wait a moment');
       } else if (response.status === 401) {
-        throw new Error('Invalid API key');
+        throw new Error('Invalid GROQ_API_KEY - check your API key configuration');
       } else {
-        throw new Error(`API error: ${response.status}`);
+        throw new Error(`Groq API error: ${response.status} - ${errorData.error?.message || response.statusText}`);
       }
     }
 
