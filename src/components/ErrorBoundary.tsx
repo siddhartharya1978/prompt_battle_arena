@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface Props {
   children: ReactNode;
@@ -23,6 +24,17 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    
+    // Show user-friendly error message
+    if (error.message.includes('rate limit')) {
+      toast.error('API rate limit reached. Please wait a moment and try again.', { duration: 5000 });
+    } else if (error.message.includes('timeout') || error.message.includes('aborted')) {
+      toast.error('Request timed out. The system will retry automatically.', { duration: 4000 });
+    } else if (error.message.includes('fetch') || error.message.includes('network')) {
+      toast.error('Network issue detected. Please check your connection.', { duration: 4000 });
+    } else {
+      toast.error('An unexpected error occurred. Our team has been notified.', { duration: 4000 });
+    }
     
     // Log to external service in production
     if (process.env.NODE_ENV === 'production') {

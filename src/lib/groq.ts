@@ -1,4 +1,6 @@
 // Real Groq API integration - Production ready
+import { groqRateLimiter } from './groq-rate-limiter';
+
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 export interface GroqResponse {
@@ -32,31 +34,11 @@ export const callGroqAPI = async (
   cost: number;
   latency: number;
 }> => {
-  const maxRetries = 2;
-  const baseDelay = 2000; // 2 seconds
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await attemptGroqAPICall(model, prompt, maxTokens, temperature);
-    } catch (error) {
-      const isLastAttempt = attempt === maxRetries;
-      const isRateLimitError = error instanceof Error && 
-        (error.message.toLowerCase().includes('rate limit') || error.message.includes('429'));
-      const isTimeoutError = error instanceof Error && 
-        (error.message.includes('timeout') || error.message.includes('aborted'));
-      
-      if ((isRateLimitError || isTimeoutError) && !isLastAttempt) {
-        const delay = baseDelay * attempt; // Linear backoff to avoid overwhelming
-        console.log(`Groq API attempt ${attempt} failed, retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        continue;
-      }
-      
-      throw error;
-    }
-  }
-  
-  throw new Error('All retry attempts failed');
+  // Use rate limiter for all API calls
+  return await groqRateLimiter.enqueue(
+    () => attemptGroqAPICall(model, prompt, maxTokens, temperature),
+    1 // Normal priority
+  );
 };
 
 const attemptGroqAPICall = async (
