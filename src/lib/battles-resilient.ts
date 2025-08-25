@@ -24,7 +24,7 @@ export class ResilientBattleEngine {
         'Initialization', 
         'Validating Configuration', 
         5, 
-        'Validating prompt and model selection...',
+        'Validating prompt and selecting optimal 2-model battle configuration...',
         'Configuration Check'
       );
 
@@ -37,8 +37,12 @@ export class ResilientBattleEngine {
         throw new Error('At least 2 models are required');
       }
 
+      // Ensure max 2 models for optimal UX
+      const limitedModels = battleData.models.slice(0, 2);
+      battleData.models = limitedModels;
+
       // Initialize model status
-      battleData.models.forEach(modelId => {
+      limitedModels.forEach(modelId => {
         this.progressTracker.updateModelStatus(modelId, 'pending', 0);
       });
 
@@ -46,7 +50,7 @@ export class ResilientBattleEngine {
         'Model Selection', 
         'Preparing AI Models', 
         10, 
-        `Initializing ${battleData.models.length} AI models for competitive battle...`,
+        `Initializing 2 champion AI models for head-to-head battle...`,
         'Model Initialization'
       );
 

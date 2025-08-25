@@ -269,7 +269,7 @@ export const AVAILABLE_MODELS: Model[] = [
 ];
 
 // Intelligent model selection for Auto Mode
-export const selectOptimalModels = (prompt: string, category: string, battleType: 'prompt' | 'response'): {
+export const selectOptimalModels = (prompt: string, category: string, battleType: 'prompt' | 'response', maxModels: number = 2): {
   selected: string[];
   rationale: string;
   deselected: Array<{modelId: string, reason: string}>;
@@ -462,18 +462,24 @@ export const selectOptimalModels = (prompt: string, category: string, battleType
     selected.push({ modelId: model.id, reasons, score });
   }
 
-  // BUILD DETAILED RATIONALE WITH FULL JUSTIFICATION
-  const selectedModelNames = selected.map(s => {
+  // Limit to maximum 2 models for optimal UX
+  const finalSelected = selected.slice(0, maxModels);
+  const additionalDeselected = selected.slice(maxModels).map(s => ({
+    modelId: s.modelId,
+    reason: `Limited to top ${maxModels} models for optimal battle experience`
+  }));
+  
+  const allDeselected = [...deselected, ...additionalDeselected];
+  
+  // BUILD CONCISE RATIONALE
+  const selectedModelNames = finalSelected.map(s => {
     const model = AVAILABLE_MODELS.find(m => m.id === s.modelId);
     return model?.name || s.modelId;
   });
 
-  let rationale = `INTELLIGENT MODEL SELECTION ANALYSIS:\n\n`;
-  rationale += `PROMPT ANALYSIS: "${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}"\n`;
-  rationale += `- Category: ${category}\n`;
-  rationale += `- Type: ${battleType} battle\n`;
-  rationale += `- Length: ${wordCount} words, ${promptLength} characters\n`;
-  rationale += `- Characteristics: `;
+  let rationale = `🎯 **OPTIMAL 2-MODEL SELECTION**\n\n`;
+  rationale += `**Prompt:** "${prompt.substring(0, 80)}${prompt.length > 80 ? '...' : ''}"\n`;
+  rationale += `**Category:** ${category} | **Type:** ${battleType}\n\n`;
   
   const characteristics: string[] = [];
   if (isCreative) characteristics.push('Creative');
@@ -485,32 +491,24 @@ export const selectOptimalModels = (prompt: string, category: string, battleType
   if (isScientific) characteristics.push('Scientific');
   if (isCompliance) characteristics.push('Compliance-related');
   
-  rationale += characteristics.length > 0 ? characteristics.join(', ') : 'General purpose';
-  rationale += `\n\nSELECTED MODELS (${selected.length}/3):\n`;
-  
-  selected.forEach((s, index) => {
-    const model = AVAILABLE_MODELS.find(m => m.id === s.modelId);
-    rationale += `${index + 1}. ${model?.name} (Score: ${s.score.toFixed(1)}/10)\n`;
-    rationale += `   Reasons: ${s.reasons.join(', ')}\n`;
-  });
-  
-  if (deselected.length > 0) {
-    rationale += `\nDESELECTED MODELS (${deselected.length}):\n`;
-    deselected.slice(0, 5).forEach((d, index) => {
-      const model = AVAILABLE_MODELS.find(m => m.id === d.modelId);
-      rationale += `${index + 1}. ${model?.name}: ${d.reason}\n`;
-    });
-    if (deselected.length > 5) {
-      rationale += `... and ${deselected.length - 5} others\n`;
-    }
+  if (characteristics.length > 0) {
+    rationale += `**Detected:** ${characteristics.join(', ')}\n\n`;
   }
   
-  rationale += `\nSELECTION STRATEGY: Maximize architectural diversity, task-specific expertise, and reliability while ensuring competitive peer review dynamics.`;
+  rationale += `**SELECTED CHAMPIONS (${finalSelected.length}/${maxModels}):**\n`;
+  
+  finalSelected.forEach((s, index) => {
+    const model = AVAILABLE_MODELS.find(m => m.id === s.modelId);
+    rationale += `${index + 1}. **${model?.name}** (${s.score.toFixed(1)}/10)\n`;
+    rationale += `   ${s.reasons.slice(0, 2).join(', ')}\n\n`;
+  });
+  
+  rationale += `**STRATEGY:** Top 2 models selected for optimal competitive dynamics and faster battles.`;
 
   return {
-    selected: selected.map(s => s.modelId),
+    selected: finalSelected.map(s => s.modelId),
     rationale,
-    deselected
+    deselected: allDeselected
   };
 };
 

@@ -43,51 +43,9 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   };
 
   const createBattle = async (battleData: BattleData): Promise<Battle> => {
-    let progressToastId: string | null = null;
-    
     const progressCallback = (progress: BattleProgress) => {
       setBattleProgress(progress);
-      
-      // Create dynamic progress message
-      let message = `${progress.phase}`;
-      if (progress.subPhase) {
-        message += ` → ${progress.subPhase}`;
-      }
-      message += ` (${progress.progress}%)`;
-      
-      if (progress.estimatedTimeRemaining && progress.estimatedTimeRemaining > 0) {
-        message += ` • ~${progress.estimatedTimeRemaining}s remaining`;
-      }
-      
-      if (progressToastId) {
-        toast.loading(message, { id: progressToastId });
-      } else {
-        progressToastId = toast.loading(message);
-      }
-      
-      // Show latest success messages
-      if (progress.successMessages.length > 0) {
-        const latestSuccess = progress.successMessages[progress.successMessages.length - 1];
-        if (!latestSuccess.includes('completed response generation')) { // Avoid spam
-          toast.success(latestSuccess, { duration: 2000 });
-        }
-      }
-      
-      // Show latest warnings (but not too many)
-      if (progress.warnings.length > 0) {
-        const latestWarning = progress.warnings[progress.warnings.length - 1];
-        if (!latestWarning.includes('fallback strategy')) { // Avoid spam for common fallbacks
-          toast(`⚠️ ${latestWarning}`, { duration: 3000 });
-        }
-      }
-      
-      // Show critical errors only
-      if (progress.errors.length > 0) {
-        const latestError = progress.errors[progress.errors.length - 1];
-        if (!latestError.includes('encountered issues')) { // Only show critical errors
-          toast.error(`🚨 ${latestError}`, { duration: 4000 });
-        }
-      }
+      // No more toast spam - all progress shown in thinking interface
     };
     
     try {
@@ -100,35 +58,19 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
         console.warn('Battle save failed, but battle completed successfully');
       }
       
-      // Dismiss progress toast and show success
-      if (progressToastId) {
-        toast.dismiss(progressToastId);
-      }
-      
       setBattleProgress(null);
       
       // Show final success message
       const winnerModel = AVAILABLE_MODELS.find(m => m.id === battle.winner);
       const winnerScore = battle.scores[battle.winner]?.overall || 0;
       
-      if (battle.battleType === 'prompt') {
-        toast.success(
-          winnerScore >= 10 
-            ? `🎯 Perfect 10/10 prompt achieved by ${winnerModel?.name}!`
-            : `🔄 Best refinement: ${winnerScore}/10 by ${winnerModel?.name}`,
-          { duration: 5000 }
-        );
-      } else {
-        toast.success(`🏆 Winner: ${winnerModel?.name} with ${winnerScore}/10!`, { duration: 5000 });
-      }
+      // Single success toast
+      toast.success(`🏆 Battle Complete! Winner: ${winnerModel?.name} (${winnerScore}/10)`, { duration: 3000 });
       
       await refreshBattles();
       return battle;
       
     } catch (error) {
-      if (progressToastId) {
-        toast.dismiss(progressToastId);
-      }
       setBattleProgress(null);
       toast.error(`Battle failed: ${error.message}`, { duration: 6000 });
       throw error;

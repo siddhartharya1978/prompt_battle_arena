@@ -27,6 +27,7 @@ import {
 import toast from 'react-hot-toast';
 import { selectOptimalModels } from '../lib/models';
 import { modelHealthMonitor, HealthCheckResult, getHealthStatusColor, getHealthStatusIcon, getHealthStatusBadge } from '../lib/model-health';
+import BattleThinking from '../components/BattleThinking';
 
 export default function NewBattle() {
   const { user, incrementBattleUsage } = useAuth();
@@ -52,6 +53,7 @@ export default function NewBattle() {
   } | null>(null);
   const [modelHealthStatus, setModelHealthStatus] = useState<HealthCheckResult | null>(null);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+  const [showThinking, setShowThinking] = useState(true);
 
   // Pre-populate from navigation state (smart recommendations)
   useEffect(() => {
@@ -128,63 +130,11 @@ export default function NewBattle() {
       return;
     }
     
-    setIsCheckingHealth(true);
-    toast.loading('Analyzing prompt and checking model health...');
-    
-    const result = selectOptimalModels(prompt, promptCategory, battleType);
+    const result = selectOptimalModels(prompt, promptCategory, battleType, 2); // Max 2 models
     setAutoSelectionResult(result);
     setSelectedModels(result.selected);
 
-    // Check health of selected models
-    checkSelectedModelsHealth(result.selected);
-  };
-
-  const checkSelectedModelsHealth = async (modelIds: string[]) => {
-    try {
-      // Add timeout to prevent hanging
-      const healthPromise = modelHealthMonitor.checkAllModelsHealth(modelIds);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Health check timeout')), 20000)
-      );
-      
-      const healthResult = await Promise.race([healthPromise, timeoutPromise]) as any;
-      setModelHealthStatus(healthResult);
-      
-      toast.dismiss();
-      
-      if (healthResult.overallHealth === 'excellent') {
-        toast.success(`✅ Auto-selected ${modelIds.length} optimal models - all systems healthy!`);
-      } else if (healthResult.overallHealth === 'good') {
-        toast.success(`✅ Auto-selected ${modelIds.length} models - minor issues detected but battles will work perfectly`);
-      } else if (healthResult.overallHealth === 'degraded') {
-        toast(`⚠️ Auto-selected ${modelIds.length} models - some issues detected but enhanced fallbacks are active`, {
-          duration: 4000,
-          icon: '⚠️'
-        });
-      } else {
-        toast(`🛡️ Auto-selected ${modelIds.length} models - significant issues detected but ultra-resilient system will ensure battle success`, {
-          duration: 5000,
-          icon: '🛡️'
-        });
-      }
-    } catch (error) {
-      console.error('Health check failed:', error);
-      toast.dismiss();
-      
-      // Create optimistic health status
-      const optimisticHealth = {
-        overallHealth: 'good' as const,
-        healthyModels: modelIds,
-        degradedModels: [],
-        unavailableModels: [],
-        recommendations: ['Health check skipped - proceeding with full resilience system active']
-      };
-      setModelHealthStatus(optimisticHealth);
-      
-      toast.success(`✅ Auto-selected ${modelIds.length} models - ultra-resilient mode active, battles guaranteed to succeed!`);
-    } finally {
-      setIsCheckingHealth(false);
-    }
+    toast.success(`🎯 Selected optimal 2-model battle: ${result.selected.map(id => getModelInfo(id).name).join(' vs ')}`);
   };
 
   const handleModelToggle = (modelId: string) => {
@@ -192,7 +142,7 @@ export default function NewBattle() {
       if (prev.includes(modelId)) {
         return prev.filter(id => id !== modelId);
       } else {
-        const maxModels = battleMode === 'auto' ? 3 : 3; // Allow up to 3 models
+        const maxModels = 2; // Always limit to 2 models
         if (prev.length >= maxModels) {
           toast.error(`Maximum ${maxModels} models allowed for ${battleMode} mode`);
           return prev;
@@ -262,10 +212,10 @@ export default function NewBattle() {
         battle_type: battleType,
         prompt: prompt.trim(),
         prompt_category: promptCategory,
-        models: availableModels,
+        models: availableModels.slice(0, 2), // Ensure max 2 models
         mode,
         battle_mode: battleMode,
-        rounds: battleMode === 'auto' ? 5 : 1, // Auto mode runs until 10/10 (reduced safety limit)
+        rounds: battleMode === 'auto' ? 3 : 1, // Reduced rounds for faster battles
         max_tokens: maxTokens,
         temperature,
         auto_selection_reason: battleMode === 'auto' ? getAutoSelectionReason(prompt, promptCategory, selectedModels) : undefined
@@ -569,25 +519,16 @@ export default function NewBattle() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                4. {battleMode === 'auto' ? 'Auto-Selected Models' : 'Manual Model Selection'} ({selectedModels.length}/{battleMode === 'auto' ? '3' : '5'})
+                4. {battleMode === 'auto' ? 'Auto-Selected Models' : 'Manual Model Selection'} ({selectedModels.length}/2)
               </h2>
               {battleMode === 'auto' ? (
                 <button
                   onClick={autoSelectModels}
-                  disabled={!prompt.trim() || isCheckingHealth}
+                  disabled={!prompt.trim()}
                   className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isCheckingHealth ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Checking Health...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Brain className="w-4 h-4" />
-                      <span>Scientific Auto-Selection</span>
-                    </>
-                  )}
+                  <Brain className="w-4 h-4" />
+                  <span>Select Best 2 Models</span>
                 </button>
               ) : (
                 <button
@@ -604,73 +545,30 @@ export default function NewBattle() {
             {battleMode === 'auto' && autoSelectionResult && (
               <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl">
                 <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">
-                  🧠 Scientific Model Selection Results:
+                  🎯 Optimal 2-Model Selection:
                 </h4>
-                <p className="text-sm text-green-700 dark:text-green-300 mb-3">
-                  {autoSelectionResult.rationale}
-                </p>
-                
-                {/* Model Health Status */}
-                {modelHealthStatus && (
-                  <div className="mt-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-green-300 dark:border-green-600">
-                    <div className="flex items-center justify-between mb-2">
-                      <h5 className="font-medium text-gray-900 dark:text-white">Model Health Status</h5>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        modelHealthStatus.overallHealth === 'excellent' ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400' :
-                        modelHealthStatus.overallHealth === 'good' ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' :
-                        modelHealthStatus.overallHealth === 'degraded' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400' :
-                        'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-                      }`}>
-                        {modelHealthStatus.overallHealth}
-                      </span>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                      {modelHealthStatus.healthyModels.length > 0 && (
-                        <div className="flex items-center space-x-1">
-                          <span className="text-green-600 dark:text-green-400">✅ Healthy:</span>
-                          <span className="text-gray-700 dark:text-gray-300">{modelHealthStatus.healthyModels.length}</span>
-                        </div>
-                      )}
-                      {modelHealthStatus.degradedModels.length > 0 && (
-                        <div className="flex items-center space-x-1">
-                          <span className="text-yellow-600 dark:text-yellow-400">⚠️ Degraded:</span>
-                          <span className="text-gray-700 dark:text-gray-300">{modelHealthStatus.degradedModels.length}</span>
-                        </div>
-                      )}
-                      {modelHealthStatus.unavailableModels.length > 0 && (
-                        <div className="flex items-center space-x-1">
-                          <span className="text-red-600 dark:text-red-400">❌ Unavailable:</span>
-                          <span className="text-gray-700 dark:text-gray-300">{modelHealthStatus.unavailableModels.length}</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {modelHealthStatus.recommendations.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">System Status:</p>
-                        {modelHealthStatus.recommendations.map((rec, idx) => (
-                          <p key={idx} className="text-xs text-blue-700 dark:text-blue-300">• {rec}</p>
-                        ))}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  {autoSelectionResult.selected.map((modelId, index) => {
+                    const model = getModelInfo(modelId);
+                    return (
+                      <div key={modelId} className="flex items-center space-x-2 p-2 bg-white dark:bg-gray-800 rounded-lg">
+                        <span className="text-lg">{model.icon}</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{model.name}</span>
                       </div>
-                    )}
-                  </div>
-                )}
+                    );
+                  })}
+                </div>
                 
-                {autoSelectionResult.deselected.length > 0 && (
-                  <details className="text-sm">
-                    <summary className="cursor-pointer text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300">
-                      View Deselected Models ({autoSelectionResult.deselected.length})
-                    </summary>
-                    <div className="mt-2 space-y-1">
-                      {autoSelectionResult.deselected.map((item, index) => (
-                        <div key={index} className="text-xs text-green-600 dark:text-green-400">
-                          • {getModelInfo(item.modelId).name}: {item.reason}
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                )}
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300">
+                    View Selection Details
+                  </summary>
+                  <div className="mt-2 p-3 bg-white dark:bg-gray-800 rounded-lg">
+                    <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                      {autoSelectionResult.rationale}
+                    </pre>
+                  </div>
+                </details>
               </div>
             )}
 
@@ -737,7 +635,7 @@ export default function NewBattle() {
                 <div className="flex items-center space-x-2">
                   <Brain className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   <span className="text-sm text-blue-700 dark:text-blue-300">
-                    Enter a prompt above, then click "Scientific Auto-Selection" to let AI choose the optimal models
+                    Enter a prompt above, then click "Select Best 2 Models" to let AI choose the optimal pair
                   </span>
                 </div>
               </div>
@@ -820,11 +718,10 @@ export default function NewBattle() {
                 <div className="space-y-3 mb-4">
                   <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-green-200 dark:border-green-600">
                     <h4 className="font-bold text-green-900 dark:text-green-100 mb-2">
-                      🎯 **MISSION SUMMARY:**
+                      🎯 **OPTIMIZED AUTO MODE:**
                     </h4>
                     <p className="text-sm text-gray-700 dark:text-gray-300">
-                      **SMART AUTO mode (automatic, justified, iterative, peer-reviewed LLM selection/loop until a true 10/10 consensus or plateau) 
-                      with full model info cards, scoring/critique visibility, copyable outputs, and NO shortcuts or omissions.**
+                      **Streamlined 2-model battles with intelligent selection, real-time thinking visualization, and faster completion times for optimal user experience.**
                     </p>
                   </div>
                 </div>
@@ -832,34 +729,26 @@ export default function NewBattle() {
                 <div className="grid md:grid-cols-2 gap-4 text-sm mb-4">
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    <span className="text-green-700 dark:text-green-300">**Scientific Auto-Selection of LLMs**</span>
+                    <span className="text-green-700 dark:text-green-300">**Optimal 2-Model Selection**</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    <span className="text-green-700 dark:text-green-300">**Iterative Competitive Rounds**</span>
+                    <span className="text-green-700 dark:text-green-300">**Real-time Thinking Process**</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    <span className="text-green-700 dark:text-green-300">**Peer Review/Scoring by LLMs**</span>
+                    <span className="text-green-700 dark:text-green-300">**Faster Battle Completion**</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    <span className="text-green-700 dark:text-green-300">**Full Round-by-Round Visibility**</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    <span className="text-green-700 dark:text-green-300">**True 10/10 or "Unimprovable" Output**</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    <span className="text-green-700 dark:text-green-300">**No User Configuration Required**</span>
+                    <span className="text-green-700 dark:text-green-300">**Enhanced User Experience**</span>
                   </div>
                 </div>
                 
                 <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-600 rounded-lg p-4">
                   <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
-                    ⚠️ **NO USER INPUT REQUIRED** - System automatically handles model selection, rounds, and stopping conditions. 
-                    Continues until peer-verified 10/10 or proven plateau. Any unfulfilled component stops the pipeline.
+                    ⚡ **OPTIMIZED FOR SPEED** - Maximum 2 models, reduced rounds, real-time thinking visualization. 
+                    Perfect balance of quality and user experience.
                   </p>
                 </div>
               </div>
@@ -870,71 +759,19 @@ export default function NewBattle() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
             {/* Real-time Progress Display */}
             {battleProgress && (
-              <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-2">
-                    <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400 animate-pulse" />
-                    <span className="font-medium text-blue-900 dark:text-blue-100">
-                      {battleProgress.phase}
-                    </span>
-                  </div>
-                  <span className="text-sm text-blue-700 dark:text-blue-300">
-                    {battleProgress.progress}%
-                  </span>
-                </div>
-                
-                <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2 mb-3">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${battleProgress.progress}%` }}
-                  />
-                </div>
-                
-                <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
-                  {battleProgress.details}
-                </p>
-                
-                {battleProgress.currentRound && battleProgress.totalRounds && (
-                  <p className="text-xs text-blue-600 dark:text-blue-400">
-                    Round {battleProgress.currentRound} of {battleProgress.totalRounds}
-                  </p>
-                )}
-                
-                {/* Model Status */}
-                {Object.keys(battleProgress.modelStatus).length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {Object.entries(battleProgress.modelStatus).map(([modelId, status]) => {
-                      const model = models.find(m => m.id === modelId);
-                      return (
-                        <div
-                          key={modelId}
-                          className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs ${
-                            status === 'completed' 
-                              ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
-                              : status === 'running'
-                              ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400'
-                              : status === 'failed'
-                              ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-                              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                          }`}
-                        >
-                          <span>{model?.icon || '🤖'}</span>
-                          <span>{model?.name || modelId}</span>
-                          {status === 'running' && <div className="w-2 h-2 bg-current rounded-full animate-pulse" />}
-                          {status === 'completed' && <CheckCircle className="w-3 h-3" />}
-                          {status === 'failed' && <AlertCircle className="w-3 h-3" />}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+              <div className="mb-6">
+                <BattleThinking 
+                  progress={battleProgress}
+                  isVisible={showThinking}
+                  onToggleVisibility={() => setShowThinking(!showThinking)}
+                />
               </div>
             )}
             
             <div className="text-center">
               <button
                 onClick={handleCreateBattle}
-                disabled={!canCreateBattle() || isCreating || isCheckingHealth || (
+                disabled={!canCreateBattle() || isCreating || (
                   user?.plan === 'free' && 
                   typeof user?.battlesUsed === 'number' && 
                   typeof user?.battlesLimit === 'number' && 
@@ -943,17 +780,17 @@ export default function NewBattle() {
                 title={getDisabledButtonTooltip()} // Tooltip for disabled button
                 className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg hover:shadow-xl"
               >
-                {isCreating || isCheckingHealth ? (
+                {isCreating ? (
                   <>
                     <Activity className="w-5 h-5 animate-pulse" />
                     <span>
-                      {isCheckingHealth ? 'Checking Model Health...' : (battleProgress?.phase || 'Starting')} {isCheckingHealth ? '' : 'Battle...'}
+                      {battleProgress?.phase || 'Starting Battle...'}
                     </span>
                   </>
                 ) : (
                   <>
                     <Play className="w-5 h-5" />
-                    <span>Start {battleMode === 'auto' ? 'Auto' : 'Manual'} {battleType === 'prompt' ? 'Prompt' : 'Response'} Battle</span>
+                    <span>Start 2-Model {battleType === 'prompt' ? 'Prompt' : 'Response'} Battle</span>
                     <ArrowRight className="w-5 h-5" />
                   </>
                 )}
