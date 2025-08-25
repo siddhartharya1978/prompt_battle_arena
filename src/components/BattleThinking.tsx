@@ -295,6 +295,33 @@ export default function BattleThinking({ progress, isVisible, onToggleVisibility
               <div className="text-xs text-gray-500 dark:text-gray-400">Remaining</div>
             </div>
           </div>
+
+          {/* Battle Participants */}
+          {Object.keys(progress.modelStatus).length > 0 && (
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <h4 className="font-medium text-gray-900 dark:text-white mb-3">
+                Battle Participants:
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                {Object.entries(progress.modelStatus).map(([modelId, status]) => {
+                  const modelProgress = progress.modelProgress[modelId] || 0;
+                  return (
+                    <div key={modelId} className="flex items-center space-x-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <div className={`w-2 h-2 rounded-full ${
+                        status === 'completed' ? 'bg-green-500' :
+                        status === 'running' ? 'bg-blue-500 animate-pulse' :
+                        status === 'failed' ? 'bg-red-500' :
+                        'bg-gray-400'
+                      }`} />
+                      <span className="text-sm text-gray-900 dark:text-white">
+                        {modelId.split('/').pop()?.replace('-', ' ') || modelId}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

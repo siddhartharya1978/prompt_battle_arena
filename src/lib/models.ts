@@ -280,6 +280,9 @@ export const selectOptimalModels = (prompt: string, category: string, battleType
     throw new Error('No models available. Please check your API configuration.');
   }
 
+  // FORCE EXACTLY 2 MODELS - Never more, never less
+  const targetModels = 2;
+
   // SUPREME INTELLIGENT ANALYSIS - Analyze prompt characteristics with explicit logic
   const promptLower = prompt.toLowerCase();
   const promptLength = prompt.length;
@@ -463,10 +466,10 @@ export const selectOptimalModels = (prompt: string, category: string, battleType
   }
 
   // Limit to maximum 2 models for optimal UX
-  const finalSelected = selected.slice(0, maxModels);
-  const additionalDeselected = selected.slice(maxModels).map(s => ({
+  const finalSelected = selected.slice(0, targetModels);
+  const additionalDeselected = selected.slice(targetModels).map(s => ({
     modelId: s.modelId,
-    reason: `Limited to top ${maxModels} models for optimal battle experience`
+    reason: `Limited to top ${targetModels} models for optimal battle experience`
   }));
   
   const allDeselected = [...deselected, ...additionalDeselected];
@@ -477,7 +480,7 @@ export const selectOptimalModels = (prompt: string, category: string, battleType
     return model?.name || s.modelId;
   });
 
-  let rationale = `🎯 **OPTIMAL 2-MODEL SELECTION**\n\n`;
+  let rationale = `🎯 **OPTIMAL ${targetModels}-MODEL SELECTION**\n\n`;
   rationale += `**Prompt:** "${prompt.substring(0, 80)}${prompt.length > 80 ? '...' : ''}"\n`;
   rationale += `**Category:** ${category} | **Type:** ${battleType}\n\n`;
   
@@ -495,7 +498,7 @@ export const selectOptimalModels = (prompt: string, category: string, battleType
     rationale += `**Detected:** ${characteristics.join(', ')}\n\n`;
   }
   
-  rationale += `**SELECTED CHAMPIONS (${finalSelected.length}/${maxModels}):**\n`;
+  rationale += `**SELECTED CHAMPIONS (${finalSelected.length}/${targetModels}):**\n`;
   
   finalSelected.forEach((s, index) => {
     const model = AVAILABLE_MODELS.find(m => m.id === s.modelId);
@@ -503,7 +506,7 @@ export const selectOptimalModels = (prompt: string, category: string, battleType
     rationale += `   ${s.reasons.slice(0, 2).join(', ')}\n\n`;
   });
   
-  rationale += `**STRATEGY:** Top 2 models selected for optimal competitive dynamics and faster battles.`;
+  rationale += `**STRATEGY:** Exactly ${targetModels} models selected for optimal competitive dynamics and faster battles.`;
 
   return {
     selected: finalSelected.map(s => s.modelId),
