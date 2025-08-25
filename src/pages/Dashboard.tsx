@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useBattle } from '../contexts/BattleContext';
 import { Battle, BattleScore } from '../types';
+import { systemMonitor, SystemHealth } from '../lib/system-monitor';
 import Navigation from '../components/Navigation';
 import FeedbackWidget from '../components/FeedbackWidget';
 import { 
@@ -29,6 +30,7 @@ import {
 export default function Dashboard() {
   const { user } = useAuth();
   const { battles, models, refreshBattles } = useBattle();
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
   const [stats, setStats] = useState({
     totalBattles: 0,
     winRate: 0,
@@ -43,6 +45,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     console.log('Dashboard: Component mounted, user:', user?.id);
+    
+    // Load system health
+    systemMonitor.getSystemHealth().then(setSystemHealth);
+    
     if (refreshBattles) {
       console.log('Dashboard: Calling refreshBattles');
       refreshBattles().catch(error => {
@@ -157,6 +163,41 @@ export default function Dashboard() {
               >
                 Upgrade for unlimited battles →
               </Link>
+            </div>
+          </div>
+        )}
+
+        {/* System Health Status */}
+        {systemHealth && systemHealth.overall !== 'excellent' && (
+          <div className={`rounded-2xl p-6 mb-8 border ${
+            systemHealth.overall === 'good' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700' :
+            systemHealth.overall === 'degraded' ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700' :
+            'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
+          }`}>
+            <div className="flex items-start space-x-3">
+              {systemHealth.overall === 'good' ? <TrendingUp className="w-6 h-6 text-blue-600 dark:text-blue-400 mt-1" /> :
+               systemHealth.overall === 'degraded' ? <AlertTriangle className="w-6 h-6 text-yellow-600 dark:text-yellow-400 mt-1" /> :
+               <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400 mt-1" />}
+              <div className="flex-1">
+                <h3 className={`font-semibold mb-2 ${
+                  systemHealth.overall === 'good' ? 'text-blue-900 dark:text-blue-100' :
+                  systemHealth.overall === 'degraded' ? 'text-yellow-900 dark:text-yellow-100' :
+                  'text-red-900 dark:text-red-100'
+                }`}>
+                  System Status: {systemHealth.overall}
+                </h3>
+                <div className="space-y-1">
+                  {systemHealth.recommendations.slice(0, 2).map((rec, idx) => (
+                    <p key={idx} className={`text-sm ${
+                      systemHealth.overall === 'good' ? 'text-blue-700 dark:text-blue-300' :
+                      systemHealth.overall === 'degraded' ? 'text-yellow-700 dark:text-yellow-300' :
+                      'text-red-700 dark:text-red-300'
+                    }`}>
+                      {rec}
+                    </p>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}

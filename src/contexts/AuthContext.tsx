@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { signUp, signIn, signOut, getProfile, updateProfile } from '../lib/auth';
 import { Profile, transformProfileFromDB } from '../types';
 import toast from 'react-hot-toast';
+import { dataPersistenceManager } from '../lib/data-persistence';
 
 interface AuthContextType {
   user: Profile | null;
@@ -193,6 +194,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(transformedProfile);
     } catch (error) {
       console.error('Error updating profile:', error);
+      // Revert optimistic update
+      setUser(user);
       throw error;
     }
   };
@@ -201,29 +204,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
 
     try {
-      // Handle demo users
-      const demoSession = localStorage.getItem('demo_session');
-      if (demoSession) {
-        if (!user) return;
-        const updatedUser = { 
-          ...user, 
-          battlesUsed: Math.min(user.battlesUsed + 1, user.battlesLimit),
+      // Use resilient data persistence manager
+      const result = await dataPersistenceManager.incrementBattleUsage(
+        user.id, 
+        user.battlesUsed, 
+        user.battlesLimit
+      );
+      
+      if (result.success) {
+        // Optimistic update to UI
+        setUser(prev => prev ? {
+          ...prev,
+          battlesUsed: result.newUsage,
           updatedAt: new Date().toISOString()
-        };
-        localStorage.setItem('demo_session', JSON.stringify(updatedUser));
-        setUser(updatedUser);
-        return;
+        } : null);
+      } else {
+        console.warn('Battle usage increment failed, but continuing with battle');
+        // Don't block the user - just log the issue
       }
-
-      // Real user update
-      if (!user) return;
-      const updatedProfile = await updateProfile(user.id, {
-        battles_used: Math.min(user.battlesUsed + 1, user.battlesLimit)
-      });
-      const transformedProfile = transformProfileFromDB(updatedProfile);
-      setUser(transformedProfile);
     } catch (error) {
       console.error('Error incrementing battle usage:', error);
+      // Don't throw - we don't want to block battle creation for usage tracking issues
     }
   };
 
@@ -231,24 +232,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     loading,
     authLoading,
-    login,
-    register,
-    logout,
-    updateUserProfile,
-    incrementBattleUsage
-  };
+      // Optimistic update first
+      const optimisticUser = {
+        ...user,
+        ...updates,
+        updatedAt: new Date().toISOString()
+      };
+      setUser(optimisticUser);
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
+      // Use resilient data persistence manager
+      const result = await dataPersistenceManager.updateProfile(user.id, updates);
+      
+      if (result.success && result.profile) {
+        // Update with actual result from database
+        setUser(result.profile);
+      } else if (!result.success) {
+        // Revert optimistic update on failure
+        setUser(user);
+        throw new Error('Profile update failed');
+      }

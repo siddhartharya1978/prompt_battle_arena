@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useBattle } from '../contexts/BattleContext';
 import ModelCard from '../components/ModelCard';
@@ -26,11 +26,13 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { selectOptimalModels } from '../lib/models';
+import { modelHealthMonitor, HealthCheckResult, getHealthStatusColor, getHealthStatusIcon, getHealthStatusBadge } from '../lib/model-health';
 
 export default function NewBattle() {
   const { user, incrementBattleUsage } = useAuth();
   const { models, createBattle, selectOptimalModels, getAutoSelectionReason, battleProgress } = useBattle();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Battle configuration state
   const [battleType, setBattleType] = useState<'prompt' | 'response'>('response');
@@ -48,6 +50,22 @@ export default function NewBattle() {
     rationale: string;
     deselected: Array<{modelId: string, reason: string}>;
   } | null>(null);
+  const [modelHealthStatus, setModelHealthStatus] = useState<HealthCheckResult | null>(null);
+  const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+
+  // Pre-populate from navigation state (smart recommendations)
+  useEffect(() => {
+    if (location.state) {
+      const state = location.state as any;
+      if (state.battleType) setBattleType(state.battleType);
+      if (state.prompt) setPrompt(state.prompt);
+      if (state.category) setPromptCategory(state.category);
+      if (state.battleMode) setBattleMode(state.battleMode);
+      
+      // Clear the state to prevent re-population on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const categories = [
     { id: 'general', name: 'General', description: 'General questions and conversations' },
@@ -110,14 +128,45 @@ export default function NewBattle() {
       return;
     }
     
+    setIsCheckingHealth(true);
+    toast.loading('Analyzing prompt and checking model health...');
+    
     const result = selectOptimalModels(prompt, promptCategory, battleType);
     setAutoSelectionResult(result);
     setSelectedModels(result.selected);
 
-    if (result.selected.length > 0) {
-      toast.success(`Auto-selected ${result.selected.length} optimal models based on prompt analysis`);
-    } else {
-      toast.error('No suitable models available for auto-selection');
+    // Check health of selected models
+    checkSelectedModelsHealth(result.selected);
+  };
+
+  const checkSelectedModelsHealth = async (modelIds: string[]) => {
+    try {
+      const healthResult = await modelHealthMonitor.checkAllModelsHealth(modelIds);
+      setModelHealthStatus(healthResult);
+      
+      toast.dismiss();
+      
+      if (healthResult.overallHealth === 'excellent') {
+        toast.success(`✅ Auto-selected ${modelIds.length} optimal models - all systems healthy!`);
+      } else if (healthResult.overallHealth === 'good') {
+        toast.success(`✅ Auto-selected ${modelIds.length} models - minor issues detected but battles will work perfectly`);
+      } else if (healthResult.overallHealth === 'degraded') {
+        toast(`⚠️ Auto-selected ${modelIds.length} models - some issues detected but enhanced fallbacks are active`, {
+          duration: 4000,
+          icon: '⚠️'
+        });
+      } else {
+        toast(`🛡️ Auto-selected ${modelIds.length} models - significant issues detected but ultra-resilient system will ensure battle success`, {
+          duration: 5000,
+          icon: '🛡️'
+        });
+      }
+    } catch (error) {
+      console.error('Health check failed:', error);
+      toast.dismiss();
+      toast.success(`Auto-selected ${modelIds.length} models - health check skipped, proceeding with full resilience`);
+    } finally {
+      setIsCheckingHealth(false);
     }
   };
 
@@ -508,11 +557,20 @@ export default function NewBattle() {
               {battleMode === 'auto' ? (
                 <button
                   onClick={autoSelectModels}
-                  disabled={!prompt.trim()}
+                  disabled={!prompt.trim() || isCheckingHealth}
                   className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Brain className="w-4 h-4" />
-                  <span>Scientific Auto-Selection</span>
+                  {isCheckingHealth ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Checking Health...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="w-4 h-4" />
+                      <span>Scientific Auto-Selection</span>
+                    </>
+                  )}
                 </button>
               ) : (
                 <button
@@ -534,6 +592,54 @@ export default function NewBattle() {
                 <p className="text-sm text-green-700 dark:text-green-300 mb-3">
                   {autoSelectionResult.rationale}
                 </p>
+                
+                {/* Model Health Status */}
+                {modelHealthStatus && (
+                  <div className="mt-4 p-3 bg-white dark:bg-gray-800 rounded-lg border border-green-300 dark:border-green-600">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="font-medium text-gray-900 dark:text-white">Model Health Status</h5>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        modelHealthStatus.overallHealth === 'excellent' ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400' :
+                        modelHealthStatus.overallHealth === 'good' ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' :
+                        modelHealthStatus.overallHealth === 'degraded' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400' :
+                        'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                      }`}>
+                        {modelHealthStatus.overallHealth}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                      {modelHealthStatus.healthyModels.length > 0 && (
+                        <div className="flex items-center space-x-1">
+                          <span className="text-green-600 dark:text-green-400">✅ Healthy:</span>
+                          <span className="text-gray-700 dark:text-gray-300">{modelHealthStatus.healthyModels.length}</span>
+                        </div>
+                      )}
+                      {modelHealthStatus.degradedModels.length > 0 && (
+                        <div className="flex items-center space-x-1">
+                          <span className="text-yellow-600 dark:text-yellow-400">⚠️ Degraded:</span>
+                          <span className="text-gray-700 dark:text-gray-300">{modelHealthStatus.degradedModels.length}</span>
+                        </div>
+                      )}
+                      {modelHealthStatus.unavailableModels.length > 0 && (
+                        <div className="flex items-center space-x-1">
+                          <span className="text-red-600 dark:text-red-400">❌ Unavailable:</span>
+                          <span className="text-gray-700 dark:text-gray-300">{modelHealthStatus.unavailableModels.length}</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {modelHealthStatus.recommendations.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">System Status:</p>
+                        {modelHealthStatus.recommendations.map((rec, idx) => (
+                          <p key={idx} className="text-xs text-blue-700 dark:text-blue-300">• {rec}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
                 {autoSelectionResult.deselected.length > 0 && (
                   <details className="text-sm">
                     <summary className="cursor-pointer text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300">
@@ -554,14 +660,47 @@ export default function NewBattle() {
             {/* Model Cards */}
             <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {models.filter(model => model.available).map((model) => (
-                <ModelCard
-                  key={model.id}
-                  model={model}
-                  isSelected={selectedModels.includes(model.id)}
-                  onToggle={() => battleMode === 'manual' ? handleModelToggle(model.id) : undefined}
-                  showSelection={battleMode === 'manual'}
-                  compact={false}
-                />
+                <div key={model.id} className="relative">
+                  <ModelCard
+                    model={model}
+                    isSelected={selectedModels.includes(model.id)}
+                    onToggle={() => battleMode === 'manual' ? handleModelToggle(model.id) : undefined}
+                    showSelection={battleMode === 'manual'}
+                    compact={false}
+                  />
+                  
+                  {/* Health Status Overlay */}
+                  {selectedModels.includes(model.id) && modelHealthStatus && (
+                    <div className="absolute top-2 right-2">
+                      {(() => {
+                        const isHealthy = modelHealthStatus.healthyModels.includes(model.id);
+                        const isDegraded = modelHealthStatus.degradedModels.includes(model.id);
+                        const isUnavailable = modelHealthStatus.unavailableModels.includes(model.id);
+                        
+                        if (isHealthy) {
+                          return (
+                            <div className="bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-2 py-1 rounded-full text-xs font-medium">
+                              ✅ Healthy
+                            </div>
+                          );
+                        } else if (isDegraded) {
+                          return (
+                            <div className="bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 px-2 py-1 rounded-full text-xs font-medium">
+                              ⚠️ Degraded
+                            </div>
+                          );
+                        } else if (isUnavailable) {
+                          return (
+                            <div className="bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 px-2 py-1 rounded-full text-xs font-medium">
+                              ❌ Issues
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
 
@@ -778,20 +917,20 @@ export default function NewBattle() {
             <div className="text-center">
               <button
                 onClick={handleCreateBattle}
-                disabled={!canCreateBattle() || isCreating || (
+                disabled={!canCreateBattle() || isCreating || isCheckingHealth || (
                   user?.plan === 'free' && 
                   typeof user?.battlesUsed === 'number' && 
                   typeof user?.battlesLimit === 'number' && 
                   user.battlesUsed >= user.battlesLimit
-                )} // Disable button if conditions are not met
+                )}
                 title={getDisabledButtonTooltip()} // Tooltip for disabled button
                 className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg hover:shadow-xl"
               >
-                {isCreating ? (
+                {isCreating || isCheckingHealth ? (
                   <>
                     <Activity className="w-5 h-5 animate-pulse" />
                     <span>
-                      {battleProgress?.phase || 'Starting'} Battle...
+                      {isCheckingHealth ? 'Checking Model Health...' : (battleProgress?.phase || 'Starting')} {isCheckingHealth ? '' : 'Battle...'}
                     </span>
                   </>
                 ) : (

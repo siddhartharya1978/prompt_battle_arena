@@ -6,6 +6,7 @@ import { Battle, BattleData, Model } from '../types';
 import { BattleProgress } from '../lib/battle-progress';
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
+import { dataPersistenceManager } from '../lib/data-persistence';
 
 interface BattleContextType {
   battles: Battle[];
@@ -47,8 +48,16 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
     const progressCallback = (progress: BattleProgress) => {
       setBattleProgress(progress);
       
-      // Update toast with current progress
-      const message = `${progress.phase}: ${progress.step} (${progress.progress}%)`;
+      // Create dynamic progress message
+      let message = `${progress.phase}`;
+      if (progress.subPhase) {
+        message += ` → ${progress.subPhase}`;
+      }
+      message += ` (${progress.progress}%)`;
+      
+      if (progress.estimatedTimeRemaining && progress.estimatedTimeRemaining > 0) {
+        message += ` • ~${progress.estimatedTimeRemaining}s remaining`;
+      }
       
       if (progressToastId) {
         toast.loading(message, { id: progressToastId });
@@ -56,22 +65,40 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
         progressToastId = toast.loading(message);
       }
       
-      // Show errors as they happen
-      if (progress.errors.length > 0) {
-        const latestError = progress.errors[progress.errors.length - 1];
-        toast.error(`Error: ${latestError}`, { duration: 3000 });
+      // Show latest success messages
+      if (progress.successMessages.length > 0) {
+        const latestSuccess = progress.successMessages[progress.successMessages.length - 1];
+        if (!latestSuccess.includes('completed response generation')) { // Avoid spam
+          toast.success(latestSuccess, { duration: 2000 });
+        }
       }
       
-      // Show warnings
+      // Show latest warnings (but not too many)
       if (progress.warnings.length > 0) {
         const latestWarning = progress.warnings[progress.warnings.length - 1];
-        toast(`⚠️ ${latestWarning}`, { duration: 2000 });
+        if (!latestWarning.includes('fallback strategy')) { // Avoid spam for common fallbacks
+          toast(`⚠️ ${latestWarning}`, { duration: 3000 });
+        }
+      }
+      
+      // Show critical errors only
+      if (progress.errors.length > 0) {
+        const latestError = progress.errors[progress.errors.length - 1];
+        if (!latestError.includes('encountered issues')) { // Only show critical errors
+          toast.error(`🚨 ${latestError}`, { duration: 4000 });
+        }
       }
     };
     
     try {
       const battleEngine = new ResilientBattleEngine(progressCallback);
       const battle = await battleEngine.createBattle(battleData);
+      
+      // Save battle with resilient persistence
+      const saveResult = await dataPersistenceManager.saveBattle(battle);
+      if (!saveResult.success) {
+        console.warn('Battle save failed, but battle completed successfully');
+      }
       
       // Dismiss progress toast and show success
       if (progressToastId) {
@@ -88,10 +115,11 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
         toast.success(
           winnerScore >= 10 
             ? `🎯 Perfect 10/10 prompt achieved by ${winnerModel?.name}!`
-            : `🔄 Best refinement: ${winnerScore}/10 by ${winnerModel?.name}`
+            : `🔄 Best refinement: ${winnerScore}/10 by ${winnerModel?.name}`,
+          { duration: 5000 }
         );
       } else {
-        toast.success(`🏆 Winner: ${winnerModel?.name} with ${winnerScore}/10!`);
+        toast.success(`🏆 Winner: ${winnerModel?.name} with ${winnerScore}/10!`, { duration: 5000 });
       }
       
       await refreshBattles();
@@ -102,6 +130,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
         toast.dismiss(progressToastId);
       }
       setBattleProgress(null);
+      toast.error(`Battle failed: ${error.message}`, { duration: 6000 });
       throw error;
     }
   };

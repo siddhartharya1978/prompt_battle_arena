@@ -411,6 +411,127 @@ export default function BattleResults() {
           </div>
         )}
 
+        {/* Battle Summary & System Status */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            📊 Battle Summary & System Performance
+          </h3>
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+              <div className="text-sm text-blue-600 dark:text-blue-400 mb-1">Battle Type</div>
+              <div className="font-semibold text-blue-900 dark:text-blue-100">
+                {battle.battleType === 'prompt' ? 'Prompt Refinement' : 'Response Generation'}
+              </div>
+            </div>
+            
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+              <div className="text-sm text-green-600 dark:text-green-400 mb-1">Success Rate</div>
+              <div className="font-semibold text-green-900 dark:text-green-100">
+                {battle.responses ? Math.round((battle.responses.length / battle.models.length) * 100) : 100}%
+              </div>
+            </div>
+            
+            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3">
+              <div className="text-sm text-purple-600 dark:text-purple-400 mb-1">Avg Response Time</div>
+              <div className="font-semibold text-purple-900 dark:text-purple-100">
+                {battle.responses ? Math.round(battle.responses.reduce((sum, r) => sum + r.latency, 0) / battle.responses.length) : 0}ms
+              </div>
+            </div>
+            
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3">
+              <div className="text-sm text-yellow-600 dark:text-yellow-400 mb-1">Total Cost</div>
+              <div className="font-semibold text-yellow-900 dark:text-yellow-100">
+                ₹{battle.totalCost.toFixed(4)}
+              </div>
+            </div>
+          </div>
+          
+          {/* System Status & Recommendations */}
+          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+            <h4 className="font-medium text-gray-900 dark:text-white mb-3">
+              🔧 System Performance & Recommendations
+            </h4>
+            
+            <div className="space-y-2">
+              {/* Check for fallback usage */}
+              {battle.responses && battle.responses.some(r => r.cost < 0.001) && (
+                <div className="flex items-start space-x-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300 font-medium">
+                      Fallback System Used
+                    </p>
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                      Some models used fallback responses due to API issues. Results are still valid but consider retrying for optimal performance.
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Performance recommendations */}
+              {battle.responses && battle.responses.some(r => r.latency > 5000) && (
+                <div className="flex items-start space-x-2">
+                  <Clock className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                      Slower Response Times Detected
+                    </p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400">
+                      Some models took longer than usual. Consider using "Turbo" mode for faster results or try during off-peak hours.
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Score-based recommendations */}
+              {winnerScore && winnerScore.overall < 8.0 && (
+                <div className="flex items-start space-x-2">
+                  <TrendingUp className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-purple-700 dark:text-purple-300 font-medium">
+                      Room for Improvement
+                    </p>
+                    <p className="text-xs text-purple-600 dark:text-purple-400">
+                      The winning score was {winnerScore.overall}/10. Try refining your prompt or using different models for potentially better results.
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Success indicators */}
+              {battle.responses && battle.responses.length === battle.models.length && (
+                <div className="flex items-start space-x-2">
+                  <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-green-700 dark:text-green-300 font-medium">
+                      Perfect Execution
+                    </p>
+                    <p className="text-xs text-green-600 dark:text-green-400">
+                      All {battle.models.length} models completed successfully with no fallbacks needed. Excellent system performance!
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Auto mode specific recommendations */}
+              {battle.battleMode === 'auto' && battle.autoSelectionReason && (
+                <div className="flex items-start space-x-2">
+                  <Brain className="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-indigo-700 dark:text-indigo-300 font-medium">
+                      Smart Auto-Selection Active
+                    </p>
+                    <p className="text-xs text-indigo-600 dark:text-indigo-400">
+                      AI automatically selected optimal models for your prompt type. Try Manual mode to compare with different model combinations.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Prompt Display */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -852,8 +973,105 @@ export default function BattleResults() {
         {/* Actions */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Actions
+            🎯 Next Steps & Actions
           </h3>
+          
+          {/* Smart Recommendations */}
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-4 mb-6 border border-blue-200 dark:border-blue-700">
+            <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-3">
+              💡 Smart Recommendations Based on Your Results
+            </h4>
+            
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* Prompt-specific recommendations */}
+              {battle.battleType === 'response' && winnerScore && winnerScore.overall < 9.0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                  <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                    🔄 Try a Prompt Battle
+                  </h5>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mb-2">
+                    Your response battle scored {winnerScore.overall}/10. A prompt battle could refine your prompt for even better results.
+                  </p>
+                  <Link
+                    to="/battle/new"
+                    state={{ 
+                      battleType: 'prompt', 
+                      prompt: battle.prompt, 
+                      category: battle.promptCategory 
+                    }}
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                  >
+                    Refine this prompt →
+                  </Link>
+                </div>
+              )}
+              
+              {/* Model recommendations */}
+              {battle.battleMode === 'manual' && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                  <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                    🧠 Try Auto Mode
+                  </h5>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mb-2">
+                    You used manual selection. Auto mode might select different models optimized for your specific prompt type.
+                  </p>
+                  <Link
+                    to="/battle/new"
+                    state={{ 
+                      battleType: battle.battleType, 
+                      prompt: battle.finalPrompt || battle.prompt, 
+                      category: battle.promptCategory,
+                      battleMode: 'auto'
+                    }}
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                  >
+                    Try with Auto mode →
+                  </Link>
+                </div>
+              )}
+              
+              {/* Category recommendations */}
+              {battle.promptCategory === 'general' && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                  <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                    🎯 Specify Category
+                  </h5>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mb-2">
+                    You used "general" category. Specific categories like "creative" or "technical" can improve model selection.
+                  </p>
+                  <Link
+                    to="/battle/new"
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                  >
+                    Try with specific category →
+                  </Link>
+                </div>
+              )}
+              
+              {/* Perfect score celebration */}
+              {winnerScore && winnerScore.overall >= 9.5 && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                  <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                    🎉 Excellent Results!
+                  </h5>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mb-2">
+                    Outstanding {winnerScore.overall}/10 score! This {battle.battleType} is production-ready.
+                  </p>
+                  <button
+                    onClick={() => handleCopy(
+                      battle.battleType === 'prompt' ? (battle.finalPrompt || battle.prompt) : battle.responses.find(r => r.modelId === battle.winner)?.response || '',
+                      'Winning result'
+                    )}
+                    className="text-xs text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 font-medium"
+                  >
+                    Copy winning result →
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Action Buttons */}
           <div className="flex flex-wrap gap-3">
             <button
               onClick={handleShare}
@@ -871,6 +1089,35 @@ export default function BattleResults() {
               <span>Export Results</span>
             </button>
 
+            {/* Smart "New Battle" button with context */}
+            {battle.battleType === 'response' ? (
+              <Link
+                to="/battle/new"
+                state={{ 
+                  battleType: 'prompt', 
+                  prompt: battle.prompt, 
+                  category: battle.promptCategory 
+                }}
+                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <Edit3 className="w-4 h-4" />
+                <span>Refine This Prompt</span>
+              </Link>
+            ) : (
+              <Link
+                to="/battle/new"
+                state={{ 
+                  battleType: 'response', 
+                  prompt: battle.finalPrompt || battle.prompt, 
+                  category: battle.promptCategory 
+                }}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Test Refined Prompt</span>
+              </Link>
+            )}
+            
             <Link
               to="/battle/new"
               className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"

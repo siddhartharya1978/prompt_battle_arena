@@ -22,9 +22,10 @@ export class ResilientBattleEngine {
     try {
       this.progressTracker.updatePhase(
         'Initialization', 
-        'Validating battle configuration', 
+        'Validating Configuration', 
         5, 
-        'Checking models and prompt...'
+        'Validating prompt and model selection...',
+        'Configuration Check'
       );
 
       // Validate inputs
@@ -38,14 +39,15 @@ export class ResilientBattleEngine {
 
       // Initialize model status
       battleData.models.forEach(modelId => {
-        this.progressTracker.updateModelStatus(modelId, 'pending');
+        this.progressTracker.updateModelStatus(modelId, 'pending', 0);
       });
 
       this.progressTracker.updatePhase(
         'Model Selection', 
-        'Preparing AI models', 
+        'Preparing AI Models', 
         10, 
-        `Selected ${battleData.models.length} models for battle`
+        `Initializing ${battleData.models.length} AI models for competitive battle...`,
+        'Model Initialization'
       );
 
       if (battleData.battle_type === 'response') {
@@ -71,9 +73,10 @@ export class ResilientBattleEngine {
   ): Promise<Battle> {
     this.progressTracker.updatePhase(
       'Response Generation', 
-      'Models generating responses', 
+      'AI Models Competing', 
       20, 
-      'Each model is crafting their best response...'
+      'Each AI model is crafting their best response to your prompt...',
+      'Competitive Response Generation'
     );
 
     const modelResults: Array<{modelId: string, response: string, cost: number, latency: number}> = [];
@@ -84,12 +87,13 @@ export class ResilientBattleEngine {
       const modelId = battleData.models[i];
       const progress = 20 + (i / battleData.models.length) * 40;
       
-      this.progressTracker.updateModelStatus(modelId, 'running');
+      this.progressTracker.updateModelStatus(modelId, 'running', 0);
       this.progressTracker.updatePhase(
         'Response Generation',
-        `${modelId} generating response`,
+        `AI Model Working`,
         progress,
-        `Model ${i + 1}/${battleData.models.length} working...`
+        `${this.getModelDisplayName(modelId)} is analyzing your prompt and generating response...`,
+        `Model ${i + 1}/${battleData.models.length}`
       );
 
       try {
@@ -98,12 +102,20 @@ export class ResilientBattleEngine {
           battleData.prompt,
           battleData.max_tokens,
           battleData.temperature,
-          (status) => this.progressTracker.updatePhase(
-            'Response Generation',
-            status,
-            progress,
-            `${modelId}: ${status}`
-          )
+          (status) => {
+            // Extract progress from status if available
+            const progressMatch = status.match(/(\d+)%/);
+            const modelProgress = progressMatch ? parseInt(progressMatch[1]) : 50;
+            
+            this.progressTracker.updateModelProgress(modelId, modelProgress, status);
+            this.progressTracker.updatePhase(
+              'Response Generation',
+              `AI Model Working`,
+              progress,
+              `${this.getModelDisplayName(modelId)}: ${status}`,
+              `Model ${i + 1}/${battleData.models.length}`
+            );
+          }
         );
 
         modelResults.push({
@@ -126,15 +138,16 @@ export class ResilientBattleEngine {
 
         totalCost += result.cost;
         successfulModels++;
-        this.progressTracker.updateModelStatus(modelId, 'completed');
+        this.progressTracker.updateModelStatus(modelId, 'completed', 100);
+        this.progressTracker.addSuccess(`${this.getModelDisplayName(modelId)} completed response generation`);
 
         if (result.fallbackUsed) {
-          this.progressTracker.addWarning(`${modelId} used fallback: ${result.fallbackUsed}`);
+          this.progressTracker.addWarning(`${this.getModelDisplayName(modelId)} used fallback strategy: ${result.fallbackUsed}`);
         }
 
       } catch (error) {
-        this.progressTracker.updateModelStatus(modelId, 'failed');
-        this.progressTracker.addError(`${modelId} failed: ${error.message}`);
+        this.progressTracker.updateModelStatus(modelId, 'failed', 0);
+        this.progressTracker.addError(`${this.getModelDisplayName(modelId)} encountered issues: ${error.message}`);
         
         // Generate synthetic response to keep battle going
         const syntheticResponse = this.generateSyntheticModelResponse(modelId, battleData.prompt);
@@ -155,14 +168,15 @@ export class ResilientBattleEngine {
 
     // Ensure we have at least one successful response
     if (successfulModels === 0) {
-      this.progressTracker.addWarning('All models failed, using synthetic responses');
+      this.progressTracker.addWarning('All models encountered issues - using enhanced synthetic responses to ensure battle completion');
     }
 
     this.progressTracker.updatePhase(
       'AI Judging', 
-      'Evaluating responses', 
+      'Expert AI Evaluation', 
       70, 
-      'AI judge analyzing all responses...'
+      'Professional AI judge analyzing all responses for accuracy, creativity, and structure...',
+      'Comprehensive Scoring'
     );
 
     // Generate scores with resilient judging
@@ -170,9 +184,10 @@ export class ResilientBattleEngine {
 
     this.progressTracker.updatePhase(
       'Determining Winner', 
-      'Calculating final scores', 
+      'Final Calculations', 
       90, 
-      'Determining the champion...'
+      'Calculating final scores and determining the ultimate champion...',
+      'Winner Selection'
     );
 
     // Find winner
@@ -216,9 +231,10 @@ export class ResilientBattleEngine {
   ): Promise<Battle> {
     this.progressTracker.updatePhase(
       'Prompt Optimization', 
-      'Starting iterative refinement', 
+      'Iterative AI Refinement', 
       20, 
-      'Models will compete to create the perfect prompt...'
+      'AI models will compete in multiple rounds to create the perfect prompt...',
+      'Multi-Round Competition'
     );
 
     let currentPrompt = battleData.prompt;
@@ -232,18 +248,28 @@ export class ResilientBattleEngine {
     while (round <= maxRounds && bestScore < 10.0) {
       this.progressTracker.updatePhase(
         'Prompt Optimization',
-        `Round ${round} - Models refining prompt`,
+        `Round ${round} Competition`,
         20 + (round / maxRounds) * 60,
-        `Round ${round}/${maxRounds}: Competing for the best prompt refinement...`
+        `Round ${round}/${maxRounds}: AI models competing to create the most effective prompt refinement...`,
+        `Competitive Refinement`
       );
 
       const roundResults: Array<{modelId: string, refinedPrompt: string, score: number}> = [];
 
       // Each model attempts to improve the current prompt
-      for (const modelId of battleData.models) {
-        this.progressTracker.updateModelStatus(modelId, 'running');
+      for (let i = 0; i < battleData.models.length; i++) {
+        const modelId = battleData.models[i];
+        this.progressTracker.updateModelStatus(modelId, 'running', 0);
         
         try {
+          this.progressTracker.updatePhase(
+            'Prompt Optimization',
+            `Round ${round} - ${this.getModelDisplayName(modelId)} Refining`,
+            20 + (round / maxRounds) * 60,
+            `${this.getModelDisplayName(modelId)} is analyzing and improving the current prompt...`,
+            `Model ${i + 1}/${battleData.models.length}`
+          );
+          
           const refinementPrompt = `Improve this prompt to be more effective:
 
 Original: "${currentPrompt}"
@@ -256,12 +282,19 @@ Make it clearer, more specific, and more likely to get excellent results. Respon
             refinementPrompt,
             400,
             0.3,
-            (status) => this.progressTracker.updatePhase(
-              'Prompt Optimization',
-              `Round ${round}: ${modelId} ${status}`,
-              20 + (round / maxRounds) * 60,
-              status
-            )
+            (status) => {
+              const progressMatch = status.match(/(\d+)%/);
+              const modelProgress = progressMatch ? parseInt(progressMatch[1]) : 50;
+              
+              this.progressTracker.updateModelProgress(modelId, modelProgress);
+              this.progressTracker.updatePhase(
+                'Prompt Optimization',
+                `Round ${round} - ${this.getModelDisplayName(modelId)} Working`,
+                20 + (round / maxRounds) * 60,
+                `${this.getModelDisplayName(modelId)}: ${status}`,
+                `Model ${i + 1}/${battleData.models.length}`
+              );
+            }
           );
 
           // Score the refinement
@@ -274,11 +307,12 @@ Make it clearer, more specific, and more likely to get excellent results. Respon
           });
 
           totalCost += result.cost;
-          this.progressTracker.updateModelStatus(modelId, 'completed');
+          this.progressTracker.updateModelStatus(modelId, 'completed', 100);
+          this.progressTracker.addSuccess(`${this.getModelDisplayName(modelId)} completed Round ${round} refinement`);
 
         } catch (error) {
-          this.progressTracker.updateModelStatus(modelId, 'failed');
-          this.progressTracker.addError(`Round ${round} - ${modelId}: ${error.message}`);
+          this.progressTracker.updateModelStatus(modelId, 'failed', 0);
+          this.progressTracker.addError(`Round ${round} - ${this.getModelDisplayName(modelId)}: ${error.message}`);
           
           // Add fallback result
           roundResults.push({
@@ -299,18 +333,21 @@ Make it clearer, more specific, and more likely to get excellent results. Respon
         currentPrompt = roundWinner.refinedPrompt;
         winner = roundWinner.modelId;
         
+        this.progressTracker.addSuccess(`New champion! ${this.getModelDisplayName(roundWinner.modelId)} achieved ${bestScore.toFixed(1)}/10`);
         this.progressTracker.updatePhase(
           'Prompt Optimization',
-          `Round ${round} complete - New best score!`,
+          `Round ${round} Complete - New Champion!`,
           20 + (round / maxRounds) * 60,
-          `${roundWinner.modelId} achieved ${bestScore.toFixed(1)}/10`
+          `🏆 ${this.getModelDisplayName(roundWinner.modelId)} achieved new best score: ${bestScore.toFixed(1)}/10`,
+          'Champion Update'
         );
       } else {
         this.progressTracker.updatePhase(
           'Prompt Optimization',
-          `Round ${round} complete - No improvement`,
+          `Round ${round} Complete - No Improvement`,
           20 + (round / maxRounds) * 60,
-          `Best score remains ${bestScore.toFixed(1)}/10`
+          `Current champion maintains lead with ${bestScore.toFixed(1)}/10 score`,
+          'Score Plateau'
         );
       }
 
@@ -319,11 +356,13 @@ Make it clearer, more specific, and more likely to get excellent results. Respon
 
       // Early termination if we achieve perfection
       if (bestScore >= 10.0) {
+        this.progressTracker.addSuccess(`Perfect 10/10 score achieved! Battle complete.`);
         this.progressTracker.updatePhase(
           'Prompt Optimization',
-          'Perfect score achieved!',
+          'Perfect Score Achieved!',
           80,
-          `🎯 Perfect 10/10 prompt achieved by ${winner}!`
+          `🎯 Perfect 10/10 prompt achieved by ${this.getModelDisplayName(winner)}! No further improvement possible.`,
+          'Perfect Consensus'
         );
         break;
       }
@@ -370,6 +409,11 @@ Make it clearer, more specific, and more likely to get excellent results. Respon
 
     this.storeBattleInCache(battle);
     return battle;
+  }
+
+  private getModelDisplayName(modelId: string): string {
+    const model = AVAILABLE_MODELS.find(m => m.id === modelId);
+    return model?.name || modelId;
   }
 
   private async generateResilientScores(
