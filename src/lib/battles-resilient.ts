@@ -99,8 +99,13 @@ export class ResilientBattleEngine {
         `${this.getModelDisplayName(modelId)} is analyzing your prompt and generating response...`,
         `Model ${i + 1}/${battleData.models.length}`
       );
-      // ALWAYS attempt database save - even for demo users
-      console.log('🔥 ATTEMPTING REAL DATABASE SAVE for battle:', battle.id);
+
+      try {
+        const result = await this.groqClient.callGroqAPI(
+          modelId,
+          battleData.prompt,
+          battleData.max_tokens,
+          battleData.temperature,
           (status) => {
             // Extract progress from status if available
             const progressMatch = status.match(/(\d+)%/);
@@ -125,11 +130,7 @@ export class ResilientBattleEngine {
         });
 
         responses.push({
-          console.error('❌ Battle insert failed:', battleError);
           id: `response_${Date.now()}_${modelId}`,
-        } else {
-          console.log('✅ Battle saved to database successfully');
-        }
           battleId,
           modelId,
           response: result.response,
@@ -145,12 +146,7 @@ export class ResilientBattleEngine {
         this.progressTracker.addSuccess(`${this.getModelDisplayName(modelId)} completed response generation`);
 
         if (result.fallbackUsed) {
-          if (responsesError) {
-            console.error('❌ Responses insert failed:', responsesError);
-            throw responsesError;
-          } else {
-            console.log('✅ Battle responses saved to database');
-          }
+          this.progressTracker.addWarning(`${this.getModelDisplayName(modelId)} used fallback response`);
         }
 
       } catch (error) {
