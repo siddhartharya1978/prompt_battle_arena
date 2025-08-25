@@ -242,15 +242,25 @@ export class ResilientBattleEngine {
     );
 
     let currentPrompt = battleData.prompt;
-    let bestScore = 5.0; // Start with baseline score
+    let bestScore = 0.0; // Start with no score
     let round = 1;
-    const maxRounds = 5; // Reduced for reliability
+    const maxRounds = 8; // Allow more rounds for real improvement
     let winner = battleData.models[0];
     let hasImproved = false;
+    const promptEvolution: Array<{round: number, prompt: string, modelId: string, score: number, improvements: string[]}> = [];
+    
+    // Add initial prompt to evolution
+    promptEvolution.push({
+      round: 0,
+      prompt: currentPrompt,
+      modelId: 'initial',
+      score: 0,
+      improvements: ['Original user prompt']
+    });
 
     this.progressTracker.setRoundInfo(1, maxRounds);
 
-    while (round <= maxRounds && bestScore < 9.5) {
+    while (round <= maxRounds && bestScore < 9.8) {
       this.progressTracker.updatePhase(
         'Prompt Optimization',
         `Round ${round} Competition`,
@@ -289,135 +299,35 @@ INSTRUCTIONS:
 - Ensure it will get better AI responses
 - Make it more actionable and detailed
 
-CRITICAL: Respond with ONLY the improved prompt. Do not include explanations or meta-commentary.`;
+    // Use the dedicated iterative prompt battle engine
+    const { iterativePromptBattle } = await import('./iterative-battle');
+    
+    this.progressTracker.updatePhase(
+      'Iterative Prompt Refinement', 
+      'Starting AI Competition', 
+      20, 
+      'Two AI models will take turns improving your prompt until it reaches 10/10...',
+      'Competitive Refinement'
+    );
 
-        const improvementResult = await this.groqClient.callGroqAPI(
-          currentModel,
-          refinementPrompt,
-          600,
-          0.3,
-          (status) => {
-            const progressMatch = status.match(/(\d+)%/);
-            const modelProgress = progressMatch ? parseInt(progressMatch[1]) : 50;
-            
-            this.progressTracker.updateModelProgress(currentModel, modelProgress);
-          }
-        );
-
-        let improvedPrompt = improvementResult.response.trim();
-        
-        // Clean up the response - remove any meta-commentary
-        if (improvedPrompt.includes('"')) {
-          const matches = improvedPrompt.match(/"([^"]+)"/);
-          if (matches) {
-            improvedPrompt = matches[1];
-          }
-        }
-        
-        // Ensure we actually have an improvement
-        if (improvedPrompt.length < currentPrompt.length * 0.8) {
-          improvedPrompt = currentPrompt + ". Please provide specific, detailed guidance with examples and actionable steps.";
-        }
-
-        totalCost += improvementResult.cost;
-        this.progressTracker.updateModelStatus(currentModel, 'completed', 100);
-
-        // Step 2: Reviewer model scores the improvement
-        this.progressTracker.updateModelStatus(reviewerModel, 'running', 0);
+    const iterativeResult = await iterativePromptBattle.runIterativeBattle(
+      battleData.prompt,
+      battleData.prompt_category,
+      (step, progress, details) => {
         this.progressTracker.updatePhase(
-          'Prompt Optimization',
-          `Round ${round} - ${this.getModelDisplayName(reviewerModel)} Reviewing`,
-          20 + (round / maxRounds) * 60,
-          `${this.getModelDisplayName(reviewerModel)} is evaluating the improvement...`,
-          `Review Phase`
+          'Iterative Prompt Refinement',
+          step,
+          20 + (progress * 0.6), // Scale to 20-80% range
+          details || step,
+          'AI Competition'
         );
-
-        const reviewPrompt = `You are a professional prompt evaluation expert. Compare these two prompts and rate the improvement.
-
-ORIGINAL PROMPT: "${currentPrompt}"
-IMPROVED PROMPT: "${improvedPrompt}"
-CATEGORY: ${battleData.prompt_category}
-
-Rate the improved version on a scale of 1-10:
-- 10/10 = Perfect, cannot be improved further
-- 8-9/10 = Significant improvement, much better
-- 6-7/10 = Some improvement, moderately better  
-- 4-5/10 = Minor improvement or no change
-- 1-3/10 = Worse than original
-
-Respond in this exact format:
-SCORE: [number 1-10]
-REASON: [brief explanation]`;
-
-        const reviewResult = await this.groqClient.callGroqAPI(
-          reviewerModel,
-          reviewPrompt,
-          200,
-          0.1
-        );
-
-        // Parse the review score
-        const scoreMatch = reviewResult.response.match(/SCORE:\s*(\d+(?:\.\d+)?)/i);
-        const score = scoreMatch ? Math.max(1, Math.min(10, parseFloat(scoreMatch[1]))) : 6.0;
-        
-        totalCost += reviewResult.cost;
-        this.progressTracker.updateModelStatus(reviewerModel, 'completed', 100);
-
-        // Check if this is a real improvement
-        if (score > bestScore + 0.3) {
-          bestScore = score;
-          currentPrompt = improvedPrompt;
-          winner = currentModel;
-          hasImproved = true;
-          
-          this.progressTracker.addSuccess(`🏆 New champion! ${this.getModelDisplayName(currentModel)} achieved ${bestScore.toFixed(1)}/10`);
-          this.progressTracker.updatePhase(
-            'Prompt Optimization',
-            `Round ${round} Complete - Improvement!`,
-            20 + (round / maxRounds) * 60,
-            `✅ Prompt improved! New score: ${bestScore.toFixed(1)}/10 by ${this.getModelDisplayName(currentModel)}`,
-            'Improvement Achieved'
-          );
-        } else {
-          this.progressTracker.updatePhase(
-            'Prompt Optimization',
-            `Round ${round} Complete - No Improvement`,
-            20 + (round / maxRounds) * 60,
-            `No significant improvement this round. Current best: ${bestScore.toFixed(1)}/10`,
-            'Score Plateau'
-          );
-        }
-
-      } catch (error) {
-        this.progressTracker.updateModelStatus(currentModel, 'failed', 0);
-        this.progressTracker.updateModelStatus(reviewerModel, 'failed', 0);
-        this.progressTracker.addError(`Round ${round} failed: ${error.message}`);
-        
-        // Continue to next round even if this one fails
       }
+    );
 
-      round++;
-      this.progressTracker.setRoundInfo(round, maxRounds);
-
-      // Early termination if we achieve near-perfection
-      if (bestScore >= 9.5) {
-        this.progressTracker.addSuccess(`Perfect 10/10 score achieved! Battle complete.`);
-        this.progressTracker.updatePhase(
-          'Prompt Optimization',
-          'Perfect Score Achieved!',
-          80,
-          `🎯 Excellent ${bestScore.toFixed(1)}/10 prompt achieved by ${this.getModelDisplayName(winner)}!`,
-          'Perfect Consensus'
-        );
-        break;
-      }
-    }
-
-    // If no improvement happened, at least make a small enhancement
-    if (!hasImproved && currentPrompt === battleData.prompt) {
-      currentPrompt = battleData.prompt + ". Please provide specific, detailed guidance with clear examples and actionable steps.";
-      this.progressTracker.addWarning("Applied minimal enhancement to ensure visible improvement");
-    }
+    totalCost += 0.05; // Estimate for iterative battle
+    const currentPrompt = iterativeResult.finalPrompt;
+    const winner = iterativeResult.winner;
+    const bestScore = iterativeResult.finalScore;
 
     // Generate final scores
     battleData.models.forEach(modelId => {

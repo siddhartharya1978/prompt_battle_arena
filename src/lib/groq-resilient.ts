@@ -336,10 +336,9 @@ export class ResilientGroqClient {
   }
 
   private isWebContainerEnvironment(): boolean {
-    // Only use synthetic responses if explicitly no Supabase URL configured
-    return !import.meta.env.VITE_SUPABASE_URL || 
-           import.meta.env.VITE_SUPABASE_URL.trim() === '' ||
-           import.meta.env.VITE_SUPABASE_URL === 'your_supabase_project_url';
+    // Never use synthetic responses - always try real API calls
+    // Only fall back to synthetic if API calls actually fail
+    return false;
   }
 
   private isRateLimitError(error: any): boolean {

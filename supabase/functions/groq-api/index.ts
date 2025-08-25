@@ -65,9 +65,10 @@ Deno.serve(async (req: Request) => {
     
     if (!groqApiKey) {
       console.error('❌ GROQ_API_KEY not found in environment variables');
+      console.error('Available env vars:', Object.keys(Deno.env.toObject()));
       return new Response(
         JSON.stringify({
-          error: 'Groq API not configured - GROQ_API_KEY environment variable missing'
+          error: 'GROQ_API_KEY environment variable missing. Please add it in Supabase Dashboard → Project Settings → Edge Functions → Environment Variables'
         }),
         {
           status: 500,
@@ -79,8 +80,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log('✅ GROQ_API_KEY found, making API call...');
+    console.log('✅ GROQ_API_KEY found, making API call to Groq...');
     console.log(`🤖 Simple API call: ${model}`);
+    console.log(`📝 Prompt length: ${prompt.length} characters`);
 
     // Simple, direct API call with short timeout
     const startTime = Date.now();
