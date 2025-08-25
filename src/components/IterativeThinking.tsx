@@ -171,19 +171,47 @@ export default function IterativeThinking({
                     
                     {expandedRounds.has(round.round) && (
                       <div className="p-4 border-t border-gray-200 dark:border-gray-600 space-y-4">
+                        {/* AI Thinking Process */}
+                        {round.improverModel && (
+                          <div>
+                            <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                              {getModelName(round.improverModel)}'s Thinking:
+                            </h5>
+                            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
+                              <p className="text-sm text-blue-900 dark:text-blue-100 italic">
+                                {round.improverThinking || 'Thinking process not captured'}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
                         {/* Improved Prompt */}
                         <div>
                           <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             {getModelName(round.improverModel)}'s Improvement:
                           </h5>
-                          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
-                            <p className="text-sm text-blue-900 dark:text-blue-100">
+                          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 border border-green-200 dark:border-green-700">
+                            <p className="text-sm text-green-900 dark:text-green-100">
                               "{round.improvedPrompt}"
                             </p>
                           </div>
                         </div>
                         
-                        {/* Review Feedback */}
+                        {/* Reviewer Thinking */}
+                        {round.reviewerThinking && (
+                          <div>
+                            <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                              {getModelName(round.reviewerModel)}'s Analysis:
+                            </h5>
+                            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 border border-purple-200 dark:border-purple-700">
+                              <p className="text-sm text-purple-900 dark:text-purple-100 italic">
+                                {round.reviewerThinking}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Review Score & Feedback */}
                         <div>
                           <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             {getModelName(round.reviewerModel)}'s Review:

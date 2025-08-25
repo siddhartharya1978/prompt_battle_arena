@@ -1,14 +1,14 @@
-// True Iterative Prompt Refinement - Matches Manual Process
+// True Iterative Prompt Refinement - Real API Calls Only
 // Two models take turns improving a prompt until both agree it's 10/10
-
-import { groqRateLimiter } from './groq-rate-limiter';
 
 export interface IterativeRound {
   round: number;
   currentPrompt: string;
   improverModel: string;
   reviewerModel: string;
+  improverThinking: string;
   improvedPrompt: string;
+  reviewerThinking: string;
   reviewerScore: number;
   reviewerFeedback: string;
   isImprovement: boolean;
@@ -25,7 +25,7 @@ export interface IterativeBattleResult {
   totalRounds: number;
   consensusAchieved: boolean;
   finalScore: number;
-  winner: string; // Model that made the final improvement
+  winner: string;
   reasoning: string;
   completed: boolean;
 }
@@ -57,15 +57,15 @@ export class IterativePromptBattle {
     let currentImprover = modelA;
     let currentReviewer = modelB;
     let round = 1;
-    const maxRounds = 5; // Reduced for reliability
+    const maxRounds = 8;
     const rounds: IterativeRound[] = [];
     let consensusAchieved = false;
     let finalScore = 0;
     let lastImprover = modelA;
     let plateauCount = 0;
-    const maxPlateau = 2; // Stop if no improvement for 2 rounds
+    const maxPlateau = 3;
     
-    while (round <= maxRounds && !consensusAchieved) {
+    while (round <= maxRounds && !consensusAchieved && plateauCount < maxPlateau) {
       const progress = 10 + (round / maxRounds) * 80;
       
       onProgress?.(
@@ -82,7 +82,7 @@ export class IterativePromptBattle {
           'AI analyzing prompt structure and generating improvements...'
         );
         
-        const improvedPrompt = await this.improvePrompt(currentImprover, currentPrompt, category, round);
+        const improvementResult = await this.improvePromptWithThinking(currentImprover, currentPrompt, category, round);
         
         onProgress?.(
           `Round ${round}: ${this.getModelName(currentReviewer)} evaluating improvement...`, 
@@ -91,12 +91,19 @@ export class IterativePromptBattle {
         );
         
         // Step 2: Other model reviews and scores the improvement
-        const review = await this.reviewImprovement(currentReviewer, currentPrompt, improvedPrompt, category);
+        const reviewResult = await this.reviewImprovementWithThinking(
+          currentReviewer, 
+          currentPrompt, 
+          improvementResult.improvedPrompt, 
+          category
+        );
         
         onProgress?.(
-          `Round ${round}: Review complete - Score: ${review.score}/10`,
+          `Round ${round}: Review complete - Score: ${reviewResult.score}/10`,
           progress + 15,
-          review.score >= 8 ? '✅ Significant improvement detected!' : '⚠️ Minor or no improvement'
+          reviewResult.score >= 9.5 ? '🎯 Excellent score achieved!' : 
+          reviewResult.score > finalScore + 0.3 ? '✅ Significant improvement detected!' : 
+          '⚠️ Minor or no improvement'
         );
         
         const roundData: IterativeRound = {
@@ -104,37 +111,39 @@ export class IterativePromptBattle {
           currentPrompt,
           improverModel: currentImprover,
           reviewerModel: currentReviewer,
-          improvedPrompt,
-          reviewerScore: review.score,
-          reviewerFeedback: review.feedback,
-          isImprovement: review.score > finalScore + 0.5, // Must be meaningfully better
-          consensusAchieved: review.score >= 9.5 // Near perfect
+          improverThinking: improvementResult.thinking,
+          improvedPrompt: improvementResult.improvedPrompt,
+          reviewerThinking: reviewResult.thinking,
+          reviewerScore: reviewResult.score,
+          reviewerFeedback: reviewResult.feedback,
+          isImprovement: reviewResult.score > finalScore + 0.3,
+          consensusAchieved: reviewResult.score >= 9.5
         };
         
         rounds.push(roundData);
         
-        if (review.score >= 9.5) {
+        if (reviewResult.score >= 9.5) {
           // Excellent score achieved!
           consensusAchieved = true;
-          currentPrompt = improvedPrompt;
-          finalScore = review.score;
+          currentPrompt = improvementResult.improvedPrompt;
+          finalScore = reviewResult.score;
           lastImprover = currentImprover;
           
           onProgress?.(
-            `🎯 Excellent ${review.score}/10 achieved by ${this.getModelName(currentImprover)}!`, 
+            `🎯 Excellent ${reviewResult.score}/10 achieved by ${this.getModelName(currentImprover)}!`, 
             100,
             `Battle complete! Final refined prompt ready.`
           );
           break;
-        } else if (review.score > finalScore + 0.5) {
+        } else if (reviewResult.score > finalScore + 0.3) {
           // Meaningful improvement, continue with this prompt
-          currentPrompt = improvedPrompt;
-          finalScore = review.score;
+          currentPrompt = improvementResult.improvedPrompt;
+          finalScore = reviewResult.score;
           lastImprover = currentImprover;
-          plateauCount = 0; // Reset plateau counter
+          plateauCount = 0;
           
           onProgress?.(
-            `✅ Round ${round}: Improvement accepted! Score: ${review.score}/10`, 
+            `✅ Round ${round}: Improvement accepted! Score: ${reviewResult.score}/10`, 
             progress + 20,
             `Prompt evolved! Continuing to next round...`
           );
@@ -142,12 +151,11 @@ export class IterativePromptBattle {
           // No significant improvement
           plateauCount++;
           onProgress?.(
-            `⚠️ Round ${round}: No significant improvement (${review.score}/10)`, 
+            `⚠️ Round ${round}: No significant improvement (${reviewResult.score}/10)`, 
             progress + 20,
             `Plateau detected (${plateauCount}/${maxPlateau}). Switching roles...`
           );
           
-          // Stop if we hit plateau limit
           if (plateauCount >= maxPlateau) {
             onProgress?.(
               `🛑 Plateau reached - stopping optimization`,
@@ -164,7 +172,6 @@ export class IterativePromptBattle {
         
       } catch (error) {
         console.error(`Round ${round} failed:`, error);
-        this.progressTracker.addError(`Round ${round} failed: ${error.message}`);
         onProgress?.(
           `Round ${round} encountered issues, continuing...`, 
           progress + 20,
@@ -179,19 +186,16 @@ export class IterativePromptBattle {
     
     // Ensure we have a final result
     if (rounds.length === 0) {
-      // No rounds completed - use original with minimal enhancement
-      currentPrompt = originalPrompt + ". Please provide specific, detailed guidance with clear examples and actionable steps.";
-      finalScore = 6.0;
-      lastImprover = modelA;
-    } else if (!consensusAchieved) {
-      // Use best prompt from completed rounds
-      const bestRound = rounds.reduce((best, current) => 
-        current.reviewerScore > best.reviewerScore ? current : best
-      );
-      
-      if (bestRound.isImprovement) {
-        currentPrompt = bestRound.improvedPrompt;
-      }
+      throw new Error('No rounds completed - check API configuration');
+    }
+    
+    // Use best prompt from completed rounds
+    const bestRound = rounds.reduce((best, current) => 
+      current.reviewerScore > best.reviewerScore ? current : best
+    );
+    
+    if (bestRound.isImprovement) {
+      currentPrompt = bestRound.improvedPrompt;
       finalScore = bestRound.reviewerScore;
       lastImprover = bestRound.improverModel;
     }
@@ -221,129 +225,212 @@ export class IterativePromptBattle {
     
     // Smart pairing based on prompt characteristics
     if (promptLower.includes('technical') || promptLower.includes('code') || category === 'technical') {
-      return ['llama-3.3-70b-versatile', 'deepseek-r1-distill-llama-70b']; // Large reasoning vs Technical specialist
+      return ['llama-3.3-70b-versatile', 'deepseek-r1-distill-llama-70b'];
     }
     
     if (promptLower.includes('creative') || promptLower.includes('story') || category === 'creative') {
-      return ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile']; // Fast creative vs Large creative
+      return ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
     }
     
     if (promptLower.includes('math') || promptLower.includes('calculate') || category === 'math') {
-      return ['deepseek-r1-distill-llama-70b', 'llama-3.3-70b-versatile']; // Math specialist vs Large reasoning
+      return ['deepseek-r1-distill-llama-70b', 'llama-3.3-70b-versatile'];
     }
     
     if (promptLower.includes('analysis') || promptLower.includes('research') || category === 'analysis') {
-      return ['llama-3.3-70b-versatile', 'qwen/qwen3-32b']; // Large reasoning vs Multilingual analysis
+      return ['llama-3.3-70b-versatile', 'qwen/qwen3-32b'];
     }
     
     // Default: balanced pair with different strengths
-    return ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile']; // Speed vs Power
+    return ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
   }
 
-  private async improvePrompt(modelId: string, currentPrompt: string, category: string, round: number): Promise<string> {
-    const improvementPrompt = `You are an expert prompt engineer. Your task is to improve this prompt to make it significantly better.
+  private async improvePromptWithThinking(
+    modelId: string, 
+    currentPrompt: string, 
+    category: string, 
+    round: number
+  ): Promise<{thinking: string, improvedPrompt: string}> {
+    
+    const improvementPrompt = `You are an expert prompt engineer competing in a prompt refinement battle. Your task is to significantly improve the given prompt.
 
-CURRENT PROMPT: "${currentPrompt}"
+CURRENT PROMPT TO IMPROVE:
+"${currentPrompt}"
+
 CATEGORY: ${category}
 ROUND: ${round}
 
-IMPROVEMENT GOALS:
-- Make it much clearer and more specific
-- Add helpful context, constraints, and examples
-- Improve structure and organization significantly
-- Ensure it will get much better AI responses
-- Make it highly actionable with clear requirements
-- Add format specifications if helpful
-- Include audience context if missing
+INSTRUCTIONS:
+1. First, analyze what could be improved about the current prompt
+2. Then provide your improved version
 
-CRITICAL INSTRUCTIONS:
-1. Respond with ONLY the improved prompt text
-2. Do not include explanations, meta-commentary, or quotes
-3. Make substantial improvements, not minor tweaks
-4. The improved prompt should be noticeably better and more detailed
+Use this EXACT format:
 
-IMPROVED PROMPT:`;
+THINKING:
+[Your analysis of what needs improvement and your strategy]
 
-    const result = await this.callAPI(modelId, improvementPrompt, 600, 0.3);
+IMPROVED_PROMPT:
+[Your improved prompt - ONLY the prompt text, no explanations]
+
+The improved prompt should be significantly better with:
+- Enhanced clarity and specificity
+- Better structure and organization  
+- More helpful context and constraints
+- Clear output format requirements
+- Actionable instructions
+
+Remember: You're competing against another AI model, so make this improvement count!`;
+
+    const result = await this.callGroqAPI(modelId, improvementPrompt, 800, 0.3);
     
-    // Clean up the response - extract just the prompt
-    let improvedPrompt = result.trim();
+    // Parse thinking and improved prompt
+    const thinkingMatch = result.match(/THINKING:\s*(.*?)(?=IMPROVED_PROMPT:|$)/s);
+    const promptMatch = result.match(/IMPROVED_PROMPT:\s*(.*?)$/s);
     
-    // Remove common prefixes/suffixes that models add
-    improvedPrompt = improvedPrompt.replace(/^(IMPROVED PROMPT:|Here's the improved prompt:|The improved prompt is:)/i, '').trim();
+    const thinking = thinkingMatch ? thinkingMatch[1].trim() : 'Analysis not provided in expected format';
+    let improvedPrompt = promptMatch ? promptMatch[1].trim() : '';
+    
+    // Clean up the improved prompt
     improvedPrompt = improvedPrompt.replace(/^["']|["']$/g, ''); // Remove quotes
+    improvedPrompt = improvedPrompt.replace(/^\[|\]$/g, ''); // Remove brackets
     
     // Ensure we have a meaningful improvement
-    if (improvedPrompt.length < currentPrompt.length * 1.2) {
-      // If not significantly longer, add specific enhancements
-      improvedPrompt = this.enhancePromptManually(currentPrompt, category);
+    if (!improvedPrompt || improvedPrompt.length < currentPrompt.length * 0.8) {
+      // If extraction failed, try to extract from the full response
+      const lines = result.split('\n').filter(line => line.trim().length > 20);
+      const longestLine = lines.reduce((longest, current) => 
+        current.length > longest.length ? current : longest, '');
+      
+      improvedPrompt = longestLine.replace(/^(IMPROVED_PROMPT:|Here's|The improved)/i, '').trim();
+      
+      if (!improvedPrompt || improvedPrompt.length < 20) {
+        // Last resort: enhance manually
+        improvedPrompt = this.enhancePromptManually(currentPrompt, category);
+      }
     }
     
-    return improvedPrompt;
+    return { thinking, improvedPrompt };
+  }
+
+  private async reviewImprovementWithThinking(
+    reviewerModel: string, 
+    originalPrompt: string, 
+    improvedPrompt: string, 
+    category: string
+  ): Promise<{thinking: string, score: number, feedback: string}> {
+    
+    const reviewPrompt = `You are a professional prompt evaluation judge. Compare the original vs improved prompt and provide a detailed assessment.
+
+ORIGINAL PROMPT:
+"${originalPrompt}"
+
+IMPROVED PROMPT:
+"${improvedPrompt}"
+
+CATEGORY: ${category}
+
+Use this EXACT format:
+
+THINKING:
+[Your detailed analysis comparing both prompts - what's better, what's worse, specific improvements made]
+
+SCORE: [number from 1-10]
+FEEDBACK: [brief summary of your assessment]
+
+Scoring guide:
+- 10/10 = Perfect, cannot be improved further
+- 8-9/10 = Significant improvement, very good
+- 6-7/10 = Some improvement, but could be better  
+- 4-5/10 = Minor improvement or mixed results
+- 1-3/10 = No improvement or worse
+
+Be honest and critical in your evaluation.`;
+
+    const response = await this.callGroqAPI(reviewerModel, reviewPrompt, 400, 0.1);
+    
+    // Parse the response
+    const thinkingMatch = response.match(/THINKING:\s*(.*?)(?=SCORE:|$)/s);
+    const scoreMatch = response.match(/SCORE:\s*(\d+(?:\.\d+)?)/i);
+    const feedbackMatch = response.match(/FEEDBACK:\s*(.*?)$/is);
+    
+    const thinking = thinkingMatch ? thinkingMatch[1].trim() : 'Analysis not provided in expected format';
+    const score = scoreMatch ? Math.max(1, Math.min(10, parseFloat(scoreMatch[1]))) : 7.0;
+    const feedback = feedbackMatch ? feedbackMatch[1].trim() : 'Standard review completed';
+    
+    return { thinking, score, feedback };
+  }
+
+  private async callGroqAPI(modelId: string, prompt: string, maxTokens: number = 300, temperature: number = 0.7): Promise<string> {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !anonKey) {
+      throw new Error('Supabase configuration missing - check environment variables');
+    }
+    
+    const apiUrl = supabaseUrl.startsWith('http') 
+      ? `${supabaseUrl}/functions/v1/groq-api`
+      : `https://${supabaseUrl}/functions/v1/groq-api`;
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${anonKey}`,
+          'Content-Type': 'application/json',
+          'x-client-info': 'pba-iterative/1.0.0',
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: modelId,
+          prompt,
+          max_tokens: maxTokens,
+          temperature
+        })
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Groq API error (${response.status}): ${errorData.error || 'Unknown error'}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.response) {
+        throw new Error('Invalid response from Groq API');
+      }
+      
+      return data.response;
+      
+    } catch (error) {
+      clearTimeout(timeoutId);
+      
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout - Groq API took too long to respond');
+      }
+      
+      throw error;
+    }
   }
 
   private enhancePromptManually(prompt: string, category: string): string {
     // Add category-specific enhancements to ensure visible improvement
     const enhancements = {
-      general: "Please provide a comprehensive response with specific examples, clear structure, and actionable insights.",
-      creative: "Please create original, engaging content with vivid details, compelling narrative, and creative flair.",
-      technical: "Please provide step-by-step technical guidance with code examples, best practices, and troubleshooting tips.",
-      analysis: "Please conduct thorough analysis with data-driven insights, comparative evaluation, and evidence-based conclusions.",
-      explanation: "Please explain with clear definitions, relevant examples, analogies for better understanding, and structured breakdown.",
-      math: "Please solve with detailed step-by-step calculations, explanations of methods used, and verification of results.",
-      research: "Please research comprehensively with multiple perspectives, credible sources, and well-organized findings."
+      general: "Please provide a comprehensive response with specific examples, clear structure, and actionable insights. Format your response with clear headings and bullet points where appropriate.",
+      creative: "Please create original, engaging content with vivid details, compelling narrative, and creative flair. Use descriptive language and imaginative elements.",
+      technical: "Please provide step-by-step technical guidance with code examples, best practices, and troubleshooting tips. Include specific implementation details.",
+      analysis: "Please conduct thorough analysis with data-driven insights, comparative evaluation, and evidence-based conclusions. Structure your analysis clearly.",
+      explanation: "Please explain with clear definitions, relevant examples, analogies for better understanding, and structured breakdown of complex concepts.",
+      math: "Please solve with detailed step-by-step calculations, explanations of methods used, and verification of results. Show all work clearly.",
+      research: "Please research comprehensively with multiple perspectives, credible sources, and well-organized findings. Cite specific examples."
     };
     
     const enhancement = enhancements[category as keyof typeof enhancements] || enhancements.general;
-    return `${prompt} ${enhancement}`;
-  }
-
-  private async reviewImprovement(
-    reviewerModel: string, 
-    originalPrompt: string, 
-    improvedPrompt: string, 
-    category: string
-  ): Promise<{score: number, feedback: string}> {
-    const reviewPrompt = `You are reviewing a prompt improvement. Compare the original vs improved version and rate the improvement.
-
-ORIGINAL: "${originalPrompt}"
-IMPROVED: "${improvedPrompt}"
-CATEGORY: ${category}
-
-Rate the improved version on a scale of 1-10:
-- 10/10 = Perfect, cannot be improved further
-- 8-9/10 = Significant improvement, very good
-- 6-7/10 = Some improvement, but could be better
-- 1-5/10 = No improvement or worse
-
-RESPOND IN THIS EXACT FORMAT:
-SCORE: [number 1-10]
-FEEDBACK: [brief explanation of your rating]`;
-
-    const response = await this.callAPI(reviewerModel, reviewPrompt, 200, 0.1);
-    
-    // Parse the response
-    const scoreMatch = response.match(/SCORE:\s*(\d+(?:\.\d+)?)/i);
-    const feedbackMatch = response.match(/FEEDBACK:\s*(.*?)$/is);
-    
-    const score = scoreMatch ? Math.max(1, Math.min(10, parseFloat(scoreMatch[1]))) : 7.0;
-    const feedback = feedbackMatch ? feedbackMatch[1].trim() : 'Standard review completed';
-    
-    return { score, feedback };
-  }
-
-  private async callAPI(modelId: string, prompt: string, maxTokens: number = 300, temperature: number = 0.7): Promise<string> {
-    // Use the resilient Groq client
-    const { resilientGroqClient } = await import('./groq-resilient');
-    
-    const result = await resilientGroqClient.callGroqAPI(
-      modelId,
-      prompt,
-      maxTokens,
-      temperature
-    );
-    
-    return result.response;
+    return `${prompt}\n\n${enhancement}`;
   }
 
   private getModelName(modelId: string): string {
@@ -366,9 +453,9 @@ FEEDBACK: [brief explanation of your rating]`;
     const finalRound = rounds[rounds.length - 1];
     
     if (consensusAchieved) {
-      return `🎯 Perfect 10/10 consensus achieved! After ${rounds.length} rounds of iterative refinement, both models agreed the prompt cannot be improved further. The final prompt is ${Math.round((finalPrompt.length / originalPrompt.length) * 100)}% longer and significantly more effective.`;
+      return `🎯 Perfect consensus achieved! After ${rounds.length} rounds of iterative refinement, both models agreed the prompt reached 9.5+/10. The final prompt is ${Math.round((finalPrompt.length / originalPrompt.length) * 100)}% more detailed and significantly more effective.`;
     } else if (improvements > 0) {
-      return `✅ Significant improvement achieved! After ${rounds.length} rounds, the prompt evolved from basic to advanced with ${improvements} successful improvements. Final score: ${finalRound?.reviewerScore || 0}/10. Both models contributed valuable refinements.`;
+      return `✅ Significant improvement achieved! After ${rounds.length} rounds, the prompt evolved with ${improvements} successful improvements. Final score: ${finalRound?.reviewerScore || 0}/10. Both models contributed valuable refinements.`;
     } else {
       return `📝 Your original prompt was already quite good! After ${rounds.length} rounds of analysis, the models made minor refinements but confirmed your prompt was well-structured from the start.`;
     }

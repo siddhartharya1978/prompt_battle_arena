@@ -336,8 +336,7 @@ export class ResilientGroqClient {
   }
 
   private isWebContainerEnvironment(): boolean {
-    // Never use synthetic responses - always try real API calls
-    // Only fall back to synthetic if API calls actually fail
+    // Always try real API calls first - no synthetic shortcuts
     return false;
   }
 

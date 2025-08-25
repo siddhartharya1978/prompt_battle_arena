@@ -233,7 +233,6 @@ export class ResilientBattleEngine {
     responses: BattleResponse[],
     scores: Record<string, BattleScore>
   ): Promise<Battle> {
-    // Use the dedicated iterative prompt battle engine
     const { iterativePromptBattle } = await import('./iterative-battle');
     
     this.progressTracker.updatePhase(
@@ -287,7 +286,7 @@ export class ResilientBattleEngine {
       models: battleData.models,
       mode: battleData.mode,
       battleMode: battleData.battle_mode,
-      rounds: iterativeResult.rounds || 1,
+      rounds: iterativeResult.totalRounds || 1,
       maxTokens: battleData.max_tokens,
       temperature: battleData.temperature,
       status: 'completed',
@@ -298,6 +297,16 @@ export class ResilientBattleEngine {
       updatedAt: new Date().toISOString(),
       responses,
       scores,
+      promptEvolution: iterativeResult.rounds.map(round => ({
+        id: `evolution_${Date.now()}_${round.round}`,
+        battleId,
+        round: round.round,
+        prompt: round.improvedPrompt,
+        modelId: round.improverModel,
+        improvements: [round.improverThinking],
+        score: round.reviewerScore,
+        createdAt: new Date().toISOString()
+      })),
       globalConsensus: finalScore >= 10.0
     };
 
