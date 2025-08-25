@@ -92,20 +92,32 @@ Deno.serve(async (req: Request) => {
     // Simple, direct API call with short timeout
     const startTime = Date.now();
     
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${groqApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: max_tokens || 500,
-        temperature: temperature === 0 ? 1e-8 : (temperature || 0.7),
-        stream: false
-      })
-    });
+    // Add timeout and retry logic
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    
+    let response;
+    try {
+      response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${groqApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: Math.min(max_tokens || 500, 1000), // Cap tokens to prevent overload
+          temperature: temperature === 0 ? 0.01 : Math.max(0.01, Math.min(1.0, temperature || 0.7)), // Ensure valid range
+          stream: false,
+          top_p: 0.9, // Add top_p for better stability
+          frequency_penalty: 0.1 // Reduce repetition
+        })
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -113,15 +125,22 @@ Deno.serve(async (req: Request) => {
       console.error('❌ Groq API Error:', {
         status: response.status,
         statusText: response.statusText,
-        errorData
+        errorData,
+        model,
+        promptLength: prompt.length,
+        maxTokens: max_tokens
       });
       
       if (response.status === 429) {
-        throw new Error('Rate limit - please wait a moment');
+        throw new Error('Rate limit exceeded - automatic retry in progress');
       } else if (response.status === 401) {
-        throw new Error('Invalid GROQ_API_KEY - check your API key configuration');
+        throw new Error('Authentication failed - GROQ_API_KEY may be invalid or expired');
+      } else if (response.status === 500) {
+        throw new Error(`Groq server error - model ${model} may be temporarily unavailable`);
+      } else if (response.status === 503) {
+        throw new Error('Groq service temporarily unavailable - automatic retry active');
       } else {
-        throw new Error(`Groq API error: ${response.status} - ${errorData.error?.message || response.statusText}`);
+        throw new Error(`Groq API error (${response.status}): ${errorData.error?.message || errorData.message || response.statusText}`);
       }
     }
 
