@@ -21,14 +21,15 @@ import {
   Crown,
   AlertCircle,
   CheckCircle,
-  ArrowRight
+  ArrowRight,
+  Activity
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { selectOptimalModels } from '../lib/models';
 
 export default function NewBattle() {
   const { user, incrementBattleUsage } = useAuth();
-  const { models, createBattle, selectOptimalModels, getAutoSelectionReason } = useBattle();
+  const { models, createBattle, selectOptimalModels, getAutoSelectionReason, battleProgress } = useBattle();
   const navigate = useNavigate();
 
   // Battle configuration state
@@ -169,14 +170,6 @@ export default function NewBattle() {
     }
 
     setIsCreating(true);
-    console.log('🚀 STARTING REAL PRODUCTION BATTLE EXECUTION');
-    
-    // Show progress toast with real execution info
-    const progressToast = toast.loading(
-      battleType === 'prompt' 
-        ? 'Running real 10/10 prompt optimization - continuing until perfect prompt achieved...'
-        : 'Executing real AI model battle with live API calls...'
-    );
 
     try {
       // Validate models are available
@@ -202,40 +195,19 @@ export default function NewBattle() {
         auto_selection_reason: battleMode === 'auto' ? getAutoSelectionReason(prompt, promptCategory, selectedModels) : undefined
       };
 
-      console.log('🎯 EXECUTING REAL BATTLE WITH LIVE API CALLS:', battleData);
-      
       const battle = await createBattle(battleData);
-      console.log('🏆 REAL BATTLE COMPLETED:', battle.id, 'Winner:', battle.winner, 'Final Score:', battle.scores[battle.winner]?.overall);
       
       // Increment usage for real users
       await incrementBattleUsage();
       
-      // Dismiss progress toast and show success
-      toast.dismiss(progressToast);
-      
-      if (battleType === 'prompt') {
-        const winnerScore = battle.winner ? battle.scores[battle.winner]?.overall : 0;
-        toast.success(
-          winnerScore >= 10 
-            ? `🎯 PERFECT 10/10 PROMPT ACHIEVED by ${getModelInfo(battle.winner).name} in ${battle.rounds} rounds!`
-            : `🔄 Best optimization: ${winnerScore}/10 by ${getModelInfo(battle.winner).name} (${battle.rounds} rounds)`
-        );
-      } else {
-        toast.success(
-          `🏆 Battle winner: ${getModelInfo(battle.winner).name} with ${battle.scores[battle.winner]?.overall}/10!`
-        );
-      }
-      
       // Ensure we have a valid battle ID before navigating
       if (battle && battle.id) {
-        console.log('🔄 NAVIGATING TO REAL BATTLE RESULTS:', battle.id);
         navigate(`/battle/${battle.id}/results`);
       } else {
         throw new Error('Battle created but no ID returned');
       }
     } catch (error) {
-      console.error('REAL BATTLE EXECUTION ERROR:', error);
-      toast.dismiss(progressToast);
+      console.error('Battle execution error:', error);
       
       // Show detailed error for API issues
       let errorMessage = 'Failed to execute battle';
@@ -725,6 +697,69 @@ export default function NewBattle() {
 
           {/* Create Battle Button */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+            {/* Real-time Progress Display */}
+            {battleProgress && (
+              <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-2">
+                    <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400 animate-pulse" />
+                    <span className="font-medium text-blue-900 dark:text-blue-100">
+                      {battleProgress.phase}
+                    </span>
+                  </div>
+                  <span className="text-sm text-blue-700 dark:text-blue-300">
+                    {battleProgress.progress}%
+                  </span>
+                </div>
+                
+                <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2 mb-3">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${battleProgress.progress}%` }}
+                  />
+                </div>
+                
+                <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+                  {battleProgress.details}
+                </p>
+                
+                {battleProgress.currentRound && battleProgress.totalRounds && (
+                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                    Round {battleProgress.currentRound} of {battleProgress.totalRounds}
+                  </p>
+                )}
+                
+                {/* Model Status */}
+                {Object.keys(battleProgress.modelStatus).length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {Object.entries(battleProgress.modelStatus).map(([modelId, status]) => {
+                      const model = models.find(m => m.id === modelId);
+                      return (
+                        <div
+                          key={modelId}
+                          className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs ${
+                            status === 'completed' 
+                              ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                              : status === 'running'
+                              ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400'
+                              : status === 'failed'
+                              ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                          }`}
+                        >
+                          <span>{model?.icon || '🤖'}</span>
+                          <span>{model?.name || modelId}</span>
+                          {status === 'running' && <div className="w-2 h-2 bg-current rounded-full animate-pulse" />}
+                          {status === 'completed' && <CheckCircle className="w-3 h-3" />}
+                          {status === 'failed' && <AlertCircle className="w-3 h-3" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+            
             <div className="text-center">
               <button
                 onClick={handleCreateBattle}
@@ -738,8 +773,10 @@ export default function NewBattle() {
               >
                 {isCreating ? (
                   <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Creating {battleType === 'prompt' ? 'Prompt' : 'Response'} Battle...</span>
+                    <Activity className="w-5 h-5 animate-pulse" />
+                    <span>
+                      {battleProgress?.phase || 'Starting'} Battle...
+                    </span>
                   </>
                 ) : (
                   <>
