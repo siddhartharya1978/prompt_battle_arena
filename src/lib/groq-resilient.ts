@@ -128,16 +128,29 @@ export class ResilientGroqClient {
     maxTokens: number,
     temperature: number
   ): Promise<GroqCallResult> {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    let supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     
     // Robust validation of environment variables
     if (!supabaseUrl || supabaseUrl.trim() === '') {
-      throw new Error('VITE_SUPABASE_URL environment variable is missing or empty');
+      throw new Error('VITE_SUPABASE_URL environment variable is missing or empty. Please check your .env file and ensure it contains your Supabase project URL (e.g., https://yourproject.supabase.co)');
     }
     
     if (!anonKey || anonKey.trim() === '') {
-      throw new Error('VITE_SUPABASE_ANON_KEY environment variable is missing or empty');
+      throw new Error('VITE_SUPABASE_ANON_KEY environment variable is missing or empty. Please check your .env file and ensure it contains your Supabase anon key');
+    }
+
+    // Fix common URL issues
+    supabaseUrl = supabaseUrl.trim();
+    
+    // Convert localhost URLs to proper format if needed
+    if (supabaseUrl.includes('localhost') || supabaseUrl.includes('127.0.0.1')) {
+      throw new Error('VITE_SUPABASE_URL cannot be localhost. Please use your actual Supabase project URL from https://supabase.com/dashboard (e.g., https://yourproject.supabase.co)');
+    }
+    
+    // Ensure URL has proper protocol
+    if (!supabaseUrl.startsWith('http://') && !supabaseUrl.startsWith('https://')) {
+      supabaseUrl = `https://${supabaseUrl}`;
     }
 
     // Validate and construct API URL
@@ -147,21 +160,17 @@ export class ResilientGroqClient {
       const cleanUrl = supabaseUrl.replace(/\/+$/, '');
       
       // Validate URL format
-      if (!cleanUrl.includes('.supabase.co') && !cleanUrl.includes('localhost')) {
-        throw new Error(`Invalid Supabase URL format: ${cleanUrl}`);
+      if (!cleanUrl.includes('.supabase.co')) {
+        throw new Error(`Invalid Supabase URL format: ${cleanUrl}. Expected format: https://yourproject.supabase.co`);
       }
       
       // Construct the edge function URL
-      if (cleanUrl.startsWith('http')) {
-        apiUrl = `${cleanUrl}/functions/v1/groq-api`;
-      } else {
-        apiUrl = `https://${cleanUrl}/functions/v1/groq-api`;
-      }
+      apiUrl = `${cleanUrl}/functions/v1/groq-api`;
       
       // Validate final URL
       new URL(apiUrl); // This will throw if URL is invalid
     } catch (urlError) {
-      throw new Error(`Failed to construct valid API URL from VITE_SUPABASE_URL: ${urlError.message}`);
+      throw new Error(`Failed to construct valid API URL from VITE_SUPABASE_URL: ${urlError.message}. Please ensure VITE_SUPABASE_URL is set to your Supabase project URL (e.g., https://yourproject.supabase.co)`);
     }
 
     // Validate anon key format (should be a JWT-like string)
@@ -196,7 +205,7 @@ export class ResilientGroqClient {
           throw new Error('Request timed out after 45 seconds');
         }
         if (fetchError.message.includes('Failed to fetch')) {
-          throw new Error(`Network error: Unable to reach Supabase Edge Function at ${apiUrl}. Check your internet connection and Supabase configuration.`);
+          throw new Error(`Network error: Unable to reach Supabase Edge Function at ${apiUrl}. This usually means:\n1. VITE_SUPABASE_URL is incorrect (should be https://yourproject.supabase.co)\n2. The groq-api Edge Function is not deployed\n3. Network connectivity issues\n\nPlease check your Supabase project URL in .env file.`);
         }
         throw new Error(`Fetch failed: ${fetchError.message}`);
       });
