@@ -146,7 +146,17 @@ export default function NewBattle() {
   };
 
   const canCreateBattle = () => {
-    return prompt.trim().length > 0 && selectedModels.length >= 2;
+    const minPromptLength = 10; // Minimum characters for a valid prompt
+    return prompt.trim().length >= minPromptLength && selectedModels.length >= 2;
+  };
+
+  const getDisabledButtonTooltip = () => {
+    if (prompt.trim().length === 0) return "Please enter a prompt";
+    if (prompt.trim().length < 10) return "Prompt must be at least 10 characters long";
+    if (selectedModels.length < 2) return "Please select at least 2 models";
+    if (user?.plan === 'free' && user.battlesUsed >= user.battlesLimit) return "Daily battle limit reached. Upgrade for unlimited battles!";
+    if (isCreating) return "Battle is already being created...";
+    return ""; // Should not be disabled
   };
 
   const handleCreateBattle = async () => {
@@ -454,6 +464,11 @@ export default function NewBattle() {
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   {prompt.length} characters
                 </span>
+                {prompt.trim().length > 0 && prompt.trim().length < 10 && (
+                  <span className="text-sm text-orange-600 dark:text-orange-400">
+                    Prompt must be at least 10 characters long
+                  </span>
+                )}
                 {prompt.length > 500 && (
                   <span className="text-sm text-orange-600 dark:text-orange-400">
                     Consider shortening for better results
@@ -768,7 +783,8 @@ export default function NewBattle() {
                   typeof user?.battlesUsed === 'number' && 
                   typeof user?.battlesLimit === 'number' && 
                   user.battlesUsed >= user.battlesLimit
-                )}
+                )} // Disable button if conditions are not met
+                title={getDisabledButtonTooltip()} // Tooltip for disabled button
                 className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg hover:shadow-xl"
               >
                 {isCreating ? (
@@ -787,10 +803,10 @@ export default function NewBattle() {
                 )}
               </button>
               
-              {!canCreateBattle() && (
+              {(!canCreateBattle() || (user?.plan === 'free' && user.battlesUsed >= user.battlesLimit)) && (
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                  Enter a prompt and select at least 2 models to continue
-                </p>
+                  {getDisabledButtonTooltip()}
+                </p> // Display the same tooltip message below the button
               )}
               
               {user?.plan === 'free' && 
