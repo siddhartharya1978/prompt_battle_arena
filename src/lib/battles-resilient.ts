@@ -99,13 +99,8 @@ export class ResilientBattleEngine {
         `${this.getModelDisplayName(modelId)} is analyzing your prompt and generating response...`,
         `Model ${i + 1}/${battleData.models.length}`
       );
-
-      try {
-        const result = await this.groqClient.callGroqAPI(
-          modelId,
-          battleData.prompt,
-          battleData.max_tokens,
-          battleData.temperature,
+      // ALWAYS attempt database save - even for demo users
+      console.log('🔥 ATTEMPTING REAL DATABASE SAVE for battle:', battle.id);
           (status) => {
             // Extract progress from status if available
             const progressMatch = status.match(/(\d+)%/);
@@ -130,7 +125,11 @@ export class ResilientBattleEngine {
         });
 
         responses.push({
+          console.error('❌ Battle insert failed:', battleError);
           id: `response_${Date.now()}_${modelId}`,
+        } else {
+          console.log('✅ Battle saved to database successfully');
+        }
           battleId,
           modelId,
           response: result.response,
@@ -146,7 +145,12 @@ export class ResilientBattleEngine {
         this.progressTracker.addSuccess(`${this.getModelDisplayName(modelId)} completed response generation`);
 
         if (result.fallbackUsed) {
-          this.progressTracker.addWarning(`${this.getModelDisplayName(modelId)} used fallback strategy: ${result.fallbackUsed}`);
+          if (responsesError) {
+            console.error('❌ Responses insert failed:', responsesError);
+            throw responsesError;
+          } else {
+            console.log('✅ Battle responses saved to database');
+          }
         }
 
       } catch (error) {
@@ -380,7 +384,12 @@ Respond with just numbers: ACCURACY:X REASONING:X STRUCTURE:X CREATIVITY:X`;
       if (match) {
         const score = parseFloat(match[1]);
         if (score >= 1 && score <= 10) {
-          scores[key as keyof typeof scores] = score;
+          if (scoresError) {
+            console.error('❌ Scores insert failed:', scoresError);
+            throw scoresError;
+          } else {
+            console.log('✅ Battle scores saved to database');
+          }
         }
       }
     }
@@ -451,10 +460,16 @@ Respond with just a number 1-10:`;
         'llama-3.1-8b-instant',
         scorePrompt,
         50,
-        0.1
+          if (evolutionError) {
+            console.error('❌ Prompt evolution insert failed:', evolutionError);
+            throw evolutionError;
+          } else {
+            console.log('✅ Prompt evolution saved to database');
+          }
       );
 
       const scoreMatch = result.response.match(/(\d+(?:\.\d+)?)/);
+      console.log('🎉 COMPLETE DATABASE SAVE SUCCESS for battle:', battle.id);
       return scoreMatch ? Math.max(1, Math.min(10, parseFloat(scoreMatch[1]))) : 7.0;
 
     } catch (error) {

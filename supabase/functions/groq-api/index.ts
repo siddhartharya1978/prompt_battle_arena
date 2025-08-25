@@ -60,6 +60,13 @@ Deno.serve(async (req: Request) => {
       throw new Error('Model and prompt are required');
     }
 
+    console.log('🔥 REAL GROQ API CALL STARTING:', {
+      model,
+      promptLength: prompt.length,
+      maxTokens: max_tokens,
+      temperature,
+      timestamp: new Date().toISOString()
+    });
     // Get Groq API key from environment
     const groqApiKey = Deno.env.get('GROQ_API_KEY');
     
@@ -80,9 +87,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log('✅ GROQ_API_KEY found, making API call to Groq...');
-    console.log(`🤖 Simple API call: ${model}`);
-    console.log(`📝 Prompt length: ${prompt.length} characters`);
+    console.log('✅ GROQ_API_KEY found, making REAL API call to Groq...');
 
     // Simple, direct API call with short timeout
     const startTime = Date.now();
@@ -96,7 +101,7 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         model,
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: Math.min(max_tokens || 300, 300), // Limit tokens for speed
+        max_tokens: max_tokens || 500,
         temperature: temperature === 0 ? 1e-8 : (temperature || 0.7),
         stream: false
       })
@@ -125,7 +130,13 @@ Deno.serve(async (req: Request) => {
     const latency = Date.now() - startTime;
     const cost = calculateGroqCost(model, data.usage.total_tokens);
 
-    console.log(`✅ Simple API success: ${latency}ms`);
+    console.log('🎉 REAL GROQ API SUCCESS:', {
+      model,
+      latency: `${latency}ms`,
+      tokens: data.usage.total_tokens,
+      cost: `₹${cost.toFixed(6)}`,
+      responseLength: data.choices[0]?.message?.content?.length || 0
+    });
 
     // Return successful response
     return new Response(

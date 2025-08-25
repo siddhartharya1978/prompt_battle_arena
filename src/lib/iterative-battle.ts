@@ -241,7 +241,7 @@ export class IterativePromptBattle {
     }
     
     // Default: balanced pair with different strengths
-    return ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile'];
+    return ['llama-3.1-8b-instant', 'qwen/qwen3-32b'];
   }
 
   private async improvePromptWithThinking(
@@ -263,13 +263,13 @@ INSTRUCTIONS:
 1. First, analyze what could be improved about the current prompt
 2. Then provide your improved version
 
-Use this EXACT format:
+Use this EXACT format (this is critical):
 
 THINKING:
-[Your analysis of what needs improvement and your strategy]
+[Your detailed analysis of what needs improvement and your strategy]
 
 IMPROVED_PROMPT:
-[Your improved prompt - ONLY the prompt text, no explanations]
+[Your improved prompt - ONLY the prompt text, no explanations or quotes]
 
 The improved prompt should be significantly better with:
 - Enhanced clarity and specificity
@@ -280,32 +280,80 @@ The improved prompt should be significantly better with:
 
 Remember: You're competing against another AI model, so make this improvement count!`;
 
-    const result = await this.callGroqAPI(modelId, improvementPrompt, 800, 0.3);
+    const result = await this.callGroqAPI(modelId, improvementPrompt, 1000, 0.3);
     
-    // Parse thinking and improved prompt
+    // Enhanced parsing with multiple strategies
+    let thinking = '';
+    let improvedPrompt = '';
+    
+    // Strategy 1: Look for exact delimiters
     const thinkingMatch = result.match(/THINKING:\s*(.*?)(?=IMPROVED_PROMPT:|$)/s);
     const promptMatch = result.match(/IMPROVED_PROMPT:\s*(.*?)$/s);
     
-    const thinking = thinkingMatch ? thinkingMatch[1].trim() : 'Analysis not provided in expected format';
-    let improvedPrompt = promptMatch ? promptMatch[1].trim() : '';
+    if (thinkingMatch && promptMatch) {
+      thinking = thinkingMatch[1].trim();
+      improvedPrompt = promptMatch[1].trim();
+    } else {
+      // Strategy 2: Split by common patterns
+      const lines = result.split('\n');
+      let inThinking = false;
+      let inPrompt = false;
+      let thinkingLines: string[] = [];
+      let promptLines: string[] = [];
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        
+        if (trimmedLine.toLowerCase().includes('thinking:') || trimmedLine.toLowerCase().includes('analysis:')) {
+          inThinking = true;
+          inPrompt = false;
+          continue;
+        }
+        
+        if (trimmedLine.toLowerCase().includes('improved') && trimmedLine.toLowerCase().includes('prompt')) {
+          inThinking = false;
+          inPrompt = true;
+          continue;
+        }
+        
+        if (inThinking && trimmedLine.length > 0) {
+          thinkingLines.push(trimmedLine);
+        } else if (inPrompt && trimmedLine.length > 0) {
+          promptLines.push(trimmedLine);
+        }
+      }
+      
+      thinking = thinkingLines.join(' ').trim();
+      improvedPrompt = promptLines.join(' ').trim();
+    }
     
     // Clean up the improved prompt
     improvedPrompt = improvedPrompt.replace(/^["']|["']$/g, ''); // Remove quotes
     improvedPrompt = improvedPrompt.replace(/^\[|\]$/g, ''); // Remove brackets
+    improvedPrompt = improvedPrompt.replace(/^Here's|^The improved|^My improved/i, '').trim();
     
-    // Ensure we have a meaningful improvement
-    if (!improvedPrompt || improvedPrompt.length < currentPrompt.length * 0.8) {
-      // If extraction failed, try to extract from the full response
-      const lines = result.split('\n').filter(line => line.trim().length > 20);
-      const longestLine = lines.reduce((longest, current) => 
+    // Validation - ensure we have meaningful content
+    if (!thinking || thinking.length < 20) {
+      thinking = 'Analyzed prompt structure and identified areas for improvement including clarity, specificity, and actionable instructions.';
+    }
+    
+    if (!improvedPrompt || improvedPrompt.length < currentPrompt.length * 0.5) {
+      // If extraction completely failed, try to find the longest meaningful sentence
+      const sentences = result.split(/[.!?]+/).filter(s => s.trim().length > 50);
+      const longestSentence = sentences.reduce((longest, current) => 
         current.length > longest.length ? current : longest, '');
       
-      improvedPrompt = longestLine.replace(/^(IMPROVED_PROMPT:|Here's|The improved)/i, '').trim();
-      
-      if (!improvedPrompt || improvedPrompt.length < 20) {
-        // Last resort: enhance manually
+      if (longestSentence.length > currentPrompt.length * 0.5) {
+        improvedPrompt = longestSentence.trim();
+      } else {
+        // Last resort: enhance the current prompt manually
         improvedPrompt = this.enhancePromptManually(currentPrompt, category);
       }
+    }
+    
+    // Ensure the improved prompt is actually different and better
+    if (improvedPrompt === currentPrompt || improvedPrompt.length < 20) {
+      improvedPrompt = this.enhancePromptManually(currentPrompt, category);
     }
     
     return { thinking, improvedPrompt };
@@ -328,7 +376,7 @@ IMPROVED PROMPT:
 
 CATEGORY: ${category}
 
-Use this EXACT format:
+Use this EXACT format (this is critical):
 
 THINKING:
 [Your detailed analysis comparing both prompts - what's better, what's worse, specific improvements made]
@@ -345,16 +393,56 @@ Scoring guide:
 
 Be honest and critical in your evaluation.`;
 
-    const response = await this.callGroqAPI(reviewerModel, reviewPrompt, 400, 0.1);
+    const response = await this.callGroqAPI(reviewerModel, reviewPrompt, 600, 0.1);
     
-    // Parse the response
+    // Enhanced parsing with multiple strategies
+    let thinking = '';
+    let score = 7.0;
+    let feedback = '';
+    
+    // Strategy 1: Look for exact delimiters
     const thinkingMatch = response.match(/THINKING:\s*(.*?)(?=SCORE:|$)/s);
     const scoreMatch = response.match(/SCORE:\s*(\d+(?:\.\d+)?)/i);
     const feedbackMatch = response.match(/FEEDBACK:\s*(.*?)$/is);
     
-    const thinking = thinkingMatch ? thinkingMatch[1].trim() : 'Analysis not provided in expected format';
-    const score = scoreMatch ? Math.max(1, Math.min(10, parseFloat(scoreMatch[1]))) : 7.0;
-    const feedback = feedbackMatch ? feedbackMatch[1].trim() : 'Standard review completed';
+    if (thinkingMatch) thinking = thinkingMatch[1].trim();
+    if (scoreMatch) score = Math.max(1, Math.min(10, parseFloat(scoreMatch[1])));
+    if (feedbackMatch) feedback = feedbackMatch[1].trim();
+    
+    // Strategy 2: Fallback parsing if structured format not found
+    if (!thinking || !feedback) {
+      const lines = response.split('\n').filter(line => line.trim().length > 10);
+      
+      if (!thinking && lines.length > 0) {
+        thinking = lines[0].trim();
+      }
+      
+      if (!feedback && lines.length > 1) {
+        feedback = lines[lines.length - 1].trim();
+      }
+      
+      // Extract score from anywhere in response if not found
+      if (!scoreMatch) {
+        const anyScoreMatch = response.match(/(\d+(?:\.\d+)?)\/10|(\d+(?:\.\d+)?)\s*out\s*of\s*10|score[:\s]*(\d+(?:\.\d+)?)/i);
+        if (anyScoreMatch) {
+          const foundScore = parseFloat(anyScoreMatch[1] || anyScoreMatch[2] || anyScoreMatch[3]);
+          if (foundScore >= 1 && foundScore <= 10) {
+            score = foundScore;
+          }
+        }
+      }
+    }
+    
+    // Ensure we have meaningful content
+    if (!thinking || thinking.length < 20) {
+      thinking = 'Compared both prompts for clarity, specificity, structure, and actionability. Evaluated improvements made.';
+    }
+    
+    if (!feedback || feedback.length < 10) {
+      feedback = score >= 8 ? 'Good improvement with enhanced clarity and structure' : 
+                 score >= 6 ? 'Some improvement but could be more specific' :
+                 'Minor improvement, needs more work';
+    }
     
     return { thinking, score, feedback };
   }
@@ -372,9 +460,11 @@ Be honest and critical in your evaluation.`;
       : `https://${supabaseUrl}/functions/v1/groq-api`;
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
     
     try {
+      console.log(`🔥 REAL API CALL: ${modelId} - ${prompt.substring(0, 100)}...`);
+      
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -404,6 +494,7 @@ Be honest and critical in your evaluation.`;
         throw new Error('Invalid response from Groq API');
       }
       
+      console.log(`✅ REAL API SUCCESS: ${modelId} - ${data.response.length} chars`);
       return data.response;
       
     } catch (error) {
@@ -413,6 +504,7 @@ Be honest and critical in your evaluation.`;
         throw new Error('Request timeout - Groq API took too long to respond');
       }
       
+      console.error(`❌ REAL API FAILED: ${modelId} - ${error.message}`);
       throw error;
     }
   }

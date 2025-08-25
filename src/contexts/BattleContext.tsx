@@ -33,7 +33,45 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
     
     try {
       setLoading(true);
-      const userBattles = await getUserBattles();
+      
+      // Try to load from Supabase first, then fallback to localStorage
+      let userBattles: Battle[] = [];
+      
+      try {
+        console.log('🔍 Loading battles from Supabase for user:', user.id);
+        const { data, error } = await supabase
+          .from('battles')
+          .select(`
+            *,
+            battle_responses(*),
+            battle_scores(*),
+            prompt_evolution(*)
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error('❌ Supabase battles query failed:', error);
+          throw error;
+        }
+        
+        if (data && data.length > 0) {
+          console.log(`✅ Loaded ${data.length} battles from Supabase`);
+          userBattles = data.map(transformBattleFromDB);
+        } else {
+          console.log('📝 No battles found in Supabase, checking localStorage');
+        }
+      } catch (supabaseError) {
+        console.error('Supabase query failed, using localStorage:', supabaseError);
+      }
+      
+      // Fallback to localStorage if Supabase fails or no data
+      if (userBattles.length === 0) {
+        const localBattles = await getUserBattles();
+        userBattles = localBattles || [];
+        console.log(`📱 Loaded ${userBattles.length} battles from localStorage`);
+      }
+      
       setBattles(userBattles || []);
     } catch (error) {
       console.error('Error refreshing battles:', error);
