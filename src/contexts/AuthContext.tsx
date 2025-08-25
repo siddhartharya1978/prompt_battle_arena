@@ -90,26 +90,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setAuthLoading(true);
     try {
-      // Normalize credentials for demo account matching
-      const normalizedEmail = email.toLowerCase().trim();
-      const normalizedPassword = password.trim();
-      
-      // Debug logging to identify credential matching issues
-      console.log('Login attempt:', {
-        originalEmail: email,
-        originalPassword: password,
-        normalizedEmail,
-        normalizedPassword,
-        demoUserMatch: normalizedEmail === 'demo@example.com' && normalizedPassword === 'demo123',
-        adminUserMatch: normalizedEmail === 'admin@pba.com' && normalizedPassword === 'admin123'
-      });
-      
       // Check for demo credentials
-      if (normalizedEmail === 'demo@example.com' && normalizedPassword === 'demo123') {
-        console.log('Demo user credentials matched - bypassing Supabase');
+      if (email.trim().toLowerCase() === 'demo@example.com' && password === 'demo123') {
         const demoUser = {
           id: 'demo-user-id',
-          email: normalizedEmail,
+          email: 'demo@example.com',
           name: 'Demo User',
           avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
           plan: 'free' as const,
@@ -122,15 +107,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
         localStorage.setItem('demo_session', JSON.stringify(demoUser));
         setUser(demoUser);
-        console.log('Demo user login successful');
         return;
       }
 
-      if (normalizedEmail === 'admin@pba.com' && normalizedPassword === 'admin123') {
-        console.log('Demo admin credentials matched - bypassing Supabase');
+      if (email.trim().toLowerCase() === 'admin@pba.com' && password === 'admin123') {
         const adminUser = {
           id: 'admin-user-id',
-          email: normalizedEmail,
+          email: 'admin@pba.com',
           name: 'Admin User',
           avatarUrl: 'https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
           plan: 'premium' as const,
@@ -143,21 +126,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
         localStorage.setItem('demo_session', JSON.stringify(adminUser));
         setUser(adminUser);
-        console.log('Demo admin login successful');
         return;
       }
 
       // Real authentication
-      console.log('No demo credentials matched - attempting Supabase authentication');
       try {
-        const { user: authUser } = await signIn(normalizedEmail, password);
+        const { user: authUser } = await signIn(email.trim(), password);
         if (authUser) {
           await loadUserProfile(authUser);
         }
       } catch (supabaseError) {
-        // If Supabase auth fails, provide more context
-        console.error('Supabase authentication failed:', supabaseError);
-        throw new Error(`Authentication failed: ${supabaseError.message}. Please check if Supabase is properly connected or use the demo accounts.`);
+        throw new Error(`Supabase authentication failed:\n\n${supabaseError.message}`);
       }
     } finally {
       setAuthLoading(false);
