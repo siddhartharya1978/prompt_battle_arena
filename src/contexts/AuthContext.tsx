@@ -238,3 +238,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     updateUserProfile,
     incrementBattleUsage,
   };
+}
