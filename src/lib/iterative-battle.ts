@@ -280,21 +280,24 @@ The improved prompt should be significantly better with:
 
 Remember: You're competing against another AI model, so make this improvement count!`;
 
-    const result = await this.callGroqAPI(modelId, improvementPrompt, 1000, 0.3);
+    const result = await this.callGroqAPI(modelId, improvementPrompt, 1500, 0.3);
     
-    // Enhanced parsing with multiple strategies
+    // ROBUST parsing with multiple fallback strategies
     let thinking = '';
     let improvedPrompt = '';
     
-    // Strategy 1: Look for exact delimiters
-    const thinkingMatch = result.match(/THINKING:\s*(.*?)(?=IMPROVED_PROMPT:|$)/s);
-    const promptMatch = result.match(/IMPROVED_PROMPT:\s*(.*?)$/s);
+    // Strategy 1: Look for exact delimiters with better regex
+    const thinkingMatch = result.match(/THINKING:\s*([\s\S]*?)(?=\n\s*IMPROVED_PROMPT:|$)/i);
+    const promptMatch = result.match(/IMPROVED_PROMPT:\s*([\s\S]*?)$/i);
     
     if (thinkingMatch && promptMatch) {
       thinking = thinkingMatch[1].trim();
       improvedPrompt = promptMatch[1].trim();
+      console.log(`✅ Strategy 1 success for ${modelId}`);
     } else {
-      // Strategy 2: Split by common patterns
+      console.log(`⚠️ Strategy 1 failed for ${modelId}, trying Strategy 2`);
+      
+      // Strategy 2: Line-by-line parsing with state machine
       const lines = result.split('\n');
       let inThinking = false;
       let inPrompt = false;
@@ -304,15 +307,18 @@ Remember: You're competing against another AI model, so make this improvement co
       for (const line of lines) {
         const trimmedLine = line.trim();
         
-        if (trimmedLine.toLowerCase().includes('thinking:') || trimmedLine.toLowerCase().includes('analysis:')) {
+        if (trimmedLine.toLowerCase().startsWith('thinking:') || trimmedLine.toLowerCase().includes('analysis:')) {
           inThinking = true;
           inPrompt = false;
+          // Don't include the header line
           continue;
         }
         
-        if (trimmedLine.toLowerCase().includes('improved') && trimmedLine.toLowerCase().includes('prompt')) {
+        if (trimmedLine.toLowerCase().startsWith('improved_prompt:') || 
+            (trimmedLine.toLowerCase().includes('improved') && trimmedLine.toLowerCase().includes('prompt:'))) {
           inThinking = false;
           inPrompt = true;
+          // Don't include the header line
           continue;
         }
         
@@ -325,36 +331,78 @@ Remember: You're competing against another AI model, so make this improvement co
       
       thinking = thinkingLines.join(' ').trim();
       improvedPrompt = promptLines.join(' ').trim();
+      
+      if (thinking && improvedPrompt) {
+        console.log(`✅ Strategy 2 success for ${modelId}`);
+      } else {
+        console.log(`⚠️ Strategy 2 failed for ${modelId}, trying Strategy 3`);
+        
+        // Strategy 3: Find the longest coherent text blocks
+        const paragraphs = result.split('\n\n').filter(p => p.trim().length > 50);
+        
+        if (paragraphs.length >= 2) {
+          thinking = paragraphs[0].trim();
+          improvedPrompt = paragraphs[paragraphs.length - 1].trim();
+          console.log(`✅ Strategy 3 success for ${modelId}`);
+        } else {
+          console.log(`⚠️ All strategies failed for ${modelId}, using fallback`);
+        }
+      }
     }
     
-    // Clean up the improved prompt
+    // AGGRESSIVE cleanup of the improved prompt
     improvedPrompt = improvedPrompt.replace(/^["']|["']$/g, ''); // Remove quotes
     improvedPrompt = improvedPrompt.replace(/^\[|\]$/g, ''); // Remove brackets
-    improvedPrompt = improvedPrompt.replace(/^Here's|^The improved|^My improved/i, '').trim();
+    improvedPrompt = improvedPrompt.replace(/^(Here's|The improved|My improved|Improved version:|Here is)/i, '').trim();
+    improvedPrompt = improvedPrompt.replace(/^(prompt:|version:)/i, '').trim();
+    
+    // Remove any remaining formatting artifacts
+    improvedPrompt = improvedPrompt.replace(/^\*\*|\*\*$/g, '').trim(); // Remove bold markers
+    improvedPrompt = improvedPrompt.replace(/^-\s*|^\*\s*|^\d+\.\s*/g, '').trim(); // Remove list markers
     
     // Validation - ensure we have meaningful content
     if (!thinking || thinking.length < 20) {
       thinking = 'Analyzed prompt structure and identified areas for improvement including clarity, specificity, and actionable instructions.';
     }
     
-    if (!improvedPrompt || improvedPrompt.length < currentPrompt.length * 0.5) {
-      // If extraction completely failed, try to find the longest meaningful sentence
-      const sentences = result.split(/[.!?]+/).filter(s => s.trim().length > 50);
-      const longestSentence = sentences.reduce((longest, current) => 
-        current.length > longest.length ? current : longest, '');
+    if (!improvedPrompt || improvedPrompt.length < Math.min(currentPrompt.length * 0.8, 50)) {
+      console.log(`⚠️ Improved prompt too short for ${modelId}, using emergency extraction`);
       
-      if (longestSentence.length > currentPrompt.length * 0.5) {
-        improvedPrompt = longestSentence.trim();
+      // Emergency extraction: find the longest meaningful text block
+      const textBlocks = result.split(/\n\s*\n/).filter(block => {
+        const cleaned = block.trim();
+        return cleaned.length > 50 && 
+               !cleaned.toLowerCase().includes('thinking') &&
+               !cleaned.toLowerCase().includes('analysis') &&
+               cleaned.includes(' '); // Must contain spaces (not just a title)
+      });
+      
+      if (textBlocks.length > 0) {
+        // Take the longest block that looks like a prompt
+        const bestBlock = textBlocks.reduce((longest, current) => 
+          current.length > longest.length ? current : longest, '');
+        improvedPrompt = bestBlock.trim();
+        console.log(`✅ Emergency extraction successful for ${modelId}`);
       } else {
-        // Last resort: enhance the current prompt manually
+        console.log(`🚨 Emergency extraction failed for ${modelId}, using manual enhancement`);
         improvedPrompt = this.enhancePromptManually(currentPrompt, category);
       }
     }
     
-    // Ensure the improved prompt is actually different and better
-    if (improvedPrompt === currentPrompt || improvedPrompt.length < 20) {
+    // Final validation - ensure the improved prompt is actually different and meaningful
+    if (improvedPrompt === currentPrompt || 
+        improvedPrompt.length < 20 || 
+        improvedPrompt.toLowerCase().includes('thinking') ||
+        improvedPrompt.toLowerCase().includes('analysis')) {
+      console.log(`🔧 Final validation failed for ${modelId}, applying manual enhancement`);
       improvedPrompt = this.enhancePromptManually(currentPrompt, category);
     }
+    
+    console.log(`📝 ${modelId} improvement complete:`, {
+      thinkingLength: thinking.length,
+      improvedLength: improvedPrompt.length,
+      originalLength: currentPrompt.length
+    });
     
     return { thinking, improvedPrompt };
   }
@@ -393,43 +441,99 @@ Scoring guide:
 
 Be honest and critical in your evaluation.`;
 
-    const response = await this.callGroqAPI(reviewerModel, reviewPrompt, 600, 0.1);
+    const response = await this.callGroqAPI(reviewerModel, reviewPrompt, 800, 0.1);
     
-    // Enhanced parsing with multiple strategies
+    // ROBUST parsing with multiple strategies
     let thinking = '';
     let score = 7.0;
     let feedback = '';
     
-    // Strategy 1: Look for exact delimiters
-    const thinkingMatch = response.match(/THINKING:\s*(.*?)(?=SCORE:|$)/s);
+    // Strategy 1: Look for exact delimiters with improved regex
+    const thinkingMatch = response.match(/THINKING:\s*([\s\S]*?)(?=\n\s*SCORE:|$)/i);
     const scoreMatch = response.match(/SCORE:\s*(\d+(?:\.\d+)?)/i);
-    const feedbackMatch = response.match(/FEEDBACK:\s*(.*?)$/is);
+    const feedbackMatch = response.match(/FEEDBACK:\s*([\s\S]*?)$/i);
     
     if (thinkingMatch) thinking = thinkingMatch[1].trim();
     if (scoreMatch) score = Math.max(1, Math.min(10, parseFloat(scoreMatch[1])));
     if (feedbackMatch) feedback = feedbackMatch[1].trim();
     
-    // Strategy 2: Fallback parsing if structured format not found
+    // Strategy 2: Line-by-line parsing if structured format not found
     if (!thinking || !feedback) {
-      const lines = response.split('\n').filter(line => line.trim().length > 10);
+      const lines = response.split('\n');
+      let inThinking = false;
+      let inFeedback = false;
+      let thinkingLines: string[] = [];
+      let feedbackLines: string[] = [];
       
-      if (!thinking && lines.length > 0) {
-        thinking = lines[0].trim();
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        
+        if (trimmedLine.toLowerCase().startsWith('thinking:')) {
+          inThinking = true;
+          inFeedback = false;
+          continue;
+        }
+        
+        if (trimmedLine.toLowerCase().startsWith('feedback:')) {
+          inThinking = false;
+          inFeedback = true;
+          continue;
+        }
+        
+        if (trimmedLine.toLowerCase().startsWith('score:')) {
+          inThinking = false;
+          inFeedback = false;
+          continue;
+        }
+        
+        if (inThinking && trimmedLine.length > 0) {
+          thinkingLines.push(trimmedLine);
+        } else if (inFeedback && trimmedLine.length > 0) {
+          feedbackLines.push(trimmedLine);
+        }
       }
       
-      if (!feedback && lines.length > 1) {
-        feedback = lines[lines.length - 1].trim();
+      if (!thinking && thinkingLines.length > 0) {
+        thinking = thinkingLines.join(' ').trim();
+      }
+      
+      if (!feedback && feedbackLines.length > 0) {
+        feedback = feedbackLines.join(' ').trim();
       }
       
       // Extract score from anywhere in response if not found
       if (!scoreMatch) {
-        const anyScoreMatch = response.match(/(\d+(?:\.\d+)?)\/10|(\d+(?:\.\d+)?)\s*out\s*of\s*10|score[:\s]*(\d+(?:\.\d+)?)/i);
+        const anyScoreMatch = response.match(/(\d+(?:\.\d+)?)\/10|(\d+(?:\.\d+)?)\s*out\s*of\s*10|(?:score|rating)[:\s]*(\d+(?:\.\d+)?)/i);
         if (anyScoreMatch) {
           const foundScore = parseFloat(anyScoreMatch[1] || anyScoreMatch[2] || anyScoreMatch[3]);
           if (foundScore >= 1 && foundScore <= 10) {
             score = foundScore;
           }
         }
+      }
+    }
+    
+    // Strategy 3: Emergency fallback if still no content
+    if (!thinking || thinking.length < 20) {
+      const meaningfulSentences = response.split(/[.!?]+/).filter(s => 
+        s.trim().length > 30 && 
+        !s.toLowerCase().includes('score') &&
+        !s.toLowerCase().includes('feedback')
+      );
+      
+      if (meaningfulSentences.length > 0) {
+        thinking = meaningfulSentences[0].trim();
+      }
+    }
+    
+    if (!feedback || feedback.length < 10) {
+      const meaningfulSentences = response.split(/[.!?]+/).filter(s => 
+        s.trim().length > 20 && 
+        !s.toLowerCase().includes('thinking')
+      );
+      
+      if (meaningfulSentences.length > 0) {
+        feedback = meaningfulSentences[meaningfulSentences.length - 1].trim();
       }
     }
     
@@ -443,6 +547,12 @@ Be honest and critical in your evaluation.`;
                  score >= 6 ? 'Some improvement but could be more specific' :
                  'Minor improvement, needs more work';
     }
+    
+    console.log(`📊 ${reviewerModel} review complete:`, {
+      thinkingLength: thinking.length,
+      feedbackLength: feedback.length,
+      score: score
+    });
     
     return { thinking, score, feedback };
   }
@@ -460,7 +570,7 @@ Be honest and critical in your evaluation.`;
       : `https://${supabaseUrl}/functions/v1/groq-api`;
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for better completion
     
     try {
       console.log(`🔥 REAL API CALL: ${modelId} - ${prompt.substring(0, 100)}...`);
@@ -494,6 +604,11 @@ Be honest and critical in your evaluation.`;
         throw new Error('Invalid response from Groq API');
       }
       
+      // Validate response completeness
+      if (data.response.length < 50) {
+        console.warn(`⚠️ Short response from ${modelId}: ${data.response.length} chars`);
+      }
+      
       console.log(`✅ REAL API SUCCESS: ${modelId} - ${data.response.length} chars`);
       return data.response;
       
@@ -501,7 +616,7 @@ Be honest and critical in your evaluation.`;
       clearTimeout(timeoutId);
       
       if (error.name === 'AbortError') {
-        throw new Error('Request timeout - Groq API took too long to respond');
+        throw new Error(`Request timeout - ${modelId} took longer than 60 seconds to respond`);
       }
       
       console.error(`❌ REAL API FAILED: ${modelId} - ${error.message}`);
@@ -510,19 +625,30 @@ Be honest and critical in your evaluation.`;
   }
 
   private enhancePromptManually(prompt: string, category: string): string {
-    // Add category-specific enhancements to ensure visible improvement
+    // Add category-specific enhancements to ensure visible improvement and prevent truncation
     const enhancements = {
-      general: "Please provide a comprehensive response with specific examples, clear structure, and actionable insights. Format your response with clear headings and bullet points where appropriate.",
-      creative: "Please create original, engaging content with vivid details, compelling narrative, and creative flair. Use descriptive language and imaginative elements.",
-      technical: "Please provide step-by-step technical guidance with code examples, best practices, and troubleshooting tips. Include specific implementation details.",
-      analysis: "Please conduct thorough analysis with data-driven insights, comparative evaluation, and evidence-based conclusions. Structure your analysis clearly.",
-      explanation: "Please explain with clear definitions, relevant examples, analogies for better understanding, and structured breakdown of complex concepts.",
-      math: "Please solve with detailed step-by-step calculations, explanations of methods used, and verification of results. Show all work clearly.",
-      research: "Please research comprehensively with multiple perspectives, credible sources, and well-organized findings. Cite specific examples."
+      general: "Please provide a comprehensive response with specific examples, clear structure, and actionable insights. Format your response with clear headings and bullet points where appropriate. Ensure completeness and practical value.",
+      creative: "Please create original, engaging content with vivid details, compelling narrative, and creative flair. Use descriptive language and imaginative elements. Make it memorable and impactful.",
+      technical: "Please provide step-by-step technical guidance with code examples, best practices, and troubleshooting tips. Include specific implementation details and common pitfalls to avoid.",
+      analysis: "Please conduct thorough analysis with data-driven insights, comparative evaluation, and evidence-based conclusions. Structure your analysis clearly with supporting evidence.",
+      explanation: "Please explain with clear definitions, relevant examples, analogies for better understanding, and structured breakdown of complex concepts. Make it accessible and comprehensive.",
+      math: "Please solve with detailed step-by-step calculations, explanations of methods used, and verification of results. Show all work clearly and explain reasoning.",
+      research: "Please research comprehensively with multiple perspectives, credible sources, and well-organized findings. Cite specific examples and provide balanced viewpoints."
     };
     
     const enhancement = enhancements[category as keyof typeof enhancements] || enhancements.general;
-    return `${prompt}\n\n${enhancement}`;
+    
+    // Ensure the enhanced prompt is complete and well-formed
+    const enhancedPrompt = `${prompt.trim()}\n\n${enhancement}`;
+    
+    // Add a completion check to prevent truncation
+    if (enhancedPrompt.length > 800) {
+      // If too long, create a more focused enhancement
+      const focusedEnhancement = enhancement.split('.')[0] + '. Provide detailed, actionable guidance.';
+      return `${prompt.trim()}\n\n${focusedEnhancement}`;
+    }
+    
+    return enhancedPrompt;
   }
 
   private getModelName(modelId: string): string {
