@@ -25,7 +25,7 @@ class ModelHealthMonitor {
   private healthCache: Map<string, ModelHealthStatus> = new Map();
   private lastGlobalCheck = 0;
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-  private readonly HEALTH_CHECK_TIMEOUT = 10000; // 10 seconds
+  private readonly HEALTH_CHECK_TIMEOUT = 45000; // 45 seconds
 
   static getInstance(): ModelHealthMonitor {
     if (!ModelHealthMonitor.instance) {

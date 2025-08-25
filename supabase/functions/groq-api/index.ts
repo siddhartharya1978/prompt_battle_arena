@@ -4,8 +4,8 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const retryWithBackoff = async <T>(
   fn: () => Promise<T>,
-  maxRetries: number = 5,
-  baseDelay: number = 1000
+  maxRetries: number = 8,
+  baseDelay: number = 2000
 ): Promise<T> => {
   let lastError: Error;
   
