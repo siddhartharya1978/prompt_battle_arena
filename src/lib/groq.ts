@@ -80,7 +80,14 @@ const attemptGroqAPICall = async (
   }
   
   // Call Supabase Edge Function for real API integration
-  const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/groq-api`;
+  let supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  
+  // Ensure URL has protocol
+  if (supabaseUrl && !supabaseUrl.startsWith('http://') && !supabaseUrl.startsWith('https://')) {
+    supabaseUrl = `https://${supabaseUrl}`;
+  }
+  
+  const apiUrl = `${supabaseUrl}/functions/v1/groq-api`;
   
   if (!apiUrl || !import.meta.env.VITE_SUPABASE_URL) {
     throw new Error('Supabase URL not configured. Please set VITE_SUPABASE_URL in your environment variables.');
