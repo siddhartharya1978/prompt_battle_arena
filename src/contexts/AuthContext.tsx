@@ -90,11 +90,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setAuthLoading(true);
     try {
+      // Normalize credentials for demo account matching
+      const normalizedEmail = email.toLowerCase().trim();
+      const normalizedPassword = password.trim();
+      
       // Check for demo credentials
-      if (email === 'demo@example.com' && password === 'demo123') {
+      if (normalizedEmail === 'demo@example.com' && normalizedPassword === 'demo123') {
         const demoUser = {
           id: 'demo-user-id',
-          email: 'demo@example.com',
+          email: normalizedEmail,
           name: 'Demo User',
           avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
           plan: 'free' as const,
@@ -111,10 +115,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (email === 'admin@pba.com' && password === 'admin123') {
+      if (normalizedEmail === 'admin@pba.com' && normalizedPassword === 'admin123') {
         const adminUser = {
           id: 'admin-user-id',
-          email: 'admin@pba.com',
+          email: normalizedEmail,
           name: 'Admin User',
           avatarUrl: 'https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
           plan: 'premium' as const,
@@ -133,7 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Real authentication
       try {
-        const { user: authUser } = await signIn(email, password);
+        const { user: authUser } = await signIn(normalizedEmail, password);
         if (authUser) {
           await loadUserProfile(authUser);
         }
