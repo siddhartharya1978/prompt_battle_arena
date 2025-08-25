@@ -384,11 +384,7 @@ INSTRUCTIONS:
     for (const result of modelResults) {
       try {
         // Try AI judging first
-        const judgePrompt = \`Rate this response on a scale of 1-10 for each criterion:
-      }
-    }
-  }
-}
+        const judgePrompt = `Rate this response on a scale of 1-10 for each criterion:
 
 Response: "${result.response}"
 Category: ${category}
@@ -413,7 +409,7 @@ Respond with just numbers: ACCURACY:X REASONING:X STRUCTURE:X CREATIVITY:X`;
 
       } catch (error) {
         // Fallback to algorithmic scoring
-        this.progressTracker.addWarning(\`AI judging failed for ${result.modelId}, using algorithmic scoring`);
+        this.progressTracker.addWarning(`AI judging failed for ${result.modelId}, using algorithmic scoring`);
         scores[result.modelId] = this.generateAlgorithmicScore(result.response, category);
       }
     }
@@ -500,7 +496,7 @@ Respond with just numbers: ACCURACY:X REASONING:X STRUCTURE:X CREATIVITY:X`;
 
   private async scorePromptRefinement(refinedPrompt: string, originalPrompt: string): Promise<number> {
     try {
-      const scorePrompt = \`Compare these two prompts and rate the improvement (1-10):
+      const scorePrompt = `Compare these two prompts and rate the improvement (1-10):
 
 Original: "${originalPrompt}"
 Refined: "${refinedPrompt}"
@@ -553,9 +549,9 @@ Respond with just a number 1-10:`;
     let response = '';
 
     if (promptLower.includes('explain')) {
-      response = \`This is a comprehensive explanation addressing your question. As ${modelName}, I provide clear, structured information that covers the key concepts while maintaining appropriate depth for your needs.`;
+      response = `This is a comprehensive explanation addressing your question. As ${modelName}, I provide clear, structured information that covers the key concepts while maintaining appropriate depth for your needs.`;
     } else if (promptLower.includes('create') || promptLower.includes('write')) {
-      response = \`Here's a creative response crafted specifically for your request. This content demonstrates ${modelName}'s capabilities in generating original, engaging material that meets your specifications.`;
+      response = `Here's a creative response crafted specifically for your request. This content demonstrates ${modelName}'s capabilities in generating original, engaging material that meets your specifications.`;
     } else if (promptLower.includes('analyze') || promptLower.includes('compare')) {
       response = `This analysis provides a thorough examination of your topic. Using ${modelName}'s analytical capabilities, I've structured this response to offer clear insights and actionable conclusions.`;
     } else {
