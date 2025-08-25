@@ -233,72 +233,6 @@ export class ResilientBattleEngine {
     responses: BattleResponse[],
     scores: Record<string, BattleScore>
   ): Promise<Battle> {
-    this.progressTracker.updatePhase(
-      'Prompt Optimization', 
-      'Iterative AI Refinement', 
-      20, 
-      'AI models will compete in multiple rounds to create the perfect prompt...',
-      'Multi-Round Competition'
-    );
-
-    let currentPrompt = battleData.prompt;
-    let bestScore = 0.0; // Start with no score
-    let round = 1;
-    const maxRounds = 8; // Allow more rounds for real improvement
-    let winner = battleData.models[0];
-    let hasImproved = false;
-    const promptEvolution: Array<{round: number, prompt: string, modelId: string, score: number, improvements: string[]}> = [];
-    
-    // Add initial prompt to evolution
-    promptEvolution.push({
-      round: 0,
-      prompt: currentPrompt,
-      modelId: 'initial',
-      score: 0,
-      improvements: ['Original user prompt']
-    });
-
-    this.progressTracker.setRoundInfo(1, maxRounds);
-
-    while (round <= maxRounds && bestScore < 9.8) {
-      this.progressTracker.updatePhase(
-        'Prompt Optimization',
-        `Round ${round} Competition`,
-        20 + (round / maxRounds) * 60,
-        `Round ${round}/${maxRounds}: AI models competing to create the most effective prompt refinement...`,
-        `Competitive Refinement`
-      );
-
-      // Take turns - each model tries to improve the current best prompt
-      const currentModel = battleData.models[(round - 1) % battleData.models.length];
-      const reviewerModel = battleData.models[round % battleData.models.length];
-
-      this.progressTracker.updateModelStatus(currentModel, 'running', 0);
-      this.progressTracker.updatePhase(
-        'Prompt Optimization',
-        `Round ${round} - ${this.getModelDisplayName(currentModel)} Improving`,
-        20 + (round / maxRounds) * 60,
-        `${this.getModelDisplayName(currentModel)} is analyzing and improving the current prompt...`,
-        `Round ${round}/${maxRounds}`
-      );
-
-      try {
-        // Step 1: Current model improves the prompt
-        const refinementPrompt = `You are an expert prompt engineer. Your task is to significantly improve this prompt to make it more effective and specific.
-
-CURRENT PROMPT TO IMPROVE:
-"${currentPrompt}"
-
-CATEGORY: ${battleData.prompt_category}
-ROUND: ${round}
-
-INSTRUCTIONS:
-- Make it significantly clearer and more specific
-- Add helpful context and constraints
-- Improve structure and organization
-- Ensure it will get better AI responses
-- Make it more actionable and detailed
-
     // Use the dedicated iterative prompt battle engine
     const { iterativePromptBattle } = await import('./iterative-battle');
     
@@ -325,19 +259,19 @@ INSTRUCTIONS:
     );
 
     totalCost += 0.05; // Estimate for iterative battle
-    const currentPrompt = iterativeResult.finalPrompt;
+    const finalPrompt = iterativeResult.finalPrompt;
     const winner = iterativeResult.winner;
-    const bestScore = iterativeResult.finalScore;
+    const finalScore = iterativeResult.finalScore;
 
     // Generate final scores
     battleData.models.forEach(modelId => {
       scores[modelId] = {
-        accuracy: modelId === winner ? bestScore : bestScore - 1.0,
-        reasoning: modelId === winner ? bestScore : bestScore - 0.8,
-        structure: modelId === winner ? bestScore : bestScore - 1.2,
-        creativity: modelId === winner ? bestScore : bestScore - 0.5,
-        overall: modelId === winner ? bestScore : bestScore - 1.0,
-        notes: modelId === winner ? `Champion: Created best prompt refinement (${bestScore.toFixed(1)}/10)` : `Good refinement attempt (${(bestScore - 1.0).toFixed(1)}/10)`
+        accuracy: modelId === winner ? finalScore : finalScore - 1.0,
+        reasoning: modelId === winner ? finalScore : finalScore - 0.8,
+        structure: modelId === winner ? finalScore : finalScore - 1.2,
+        creativity: modelId === winner ? finalScore : finalScore - 0.5,
+        overall: modelId === winner ? finalScore : finalScore - 1.0,
+        notes: modelId === winner ? `Champion: Created best prompt refinement (${finalScore.toFixed(1)}/10)` : `Good refinement attempt (${(finalScore - 1.0).toFixed(1)}/10)`
       };
     });
 
@@ -348,12 +282,12 @@ INSTRUCTIONS:
       userId: 'current-user-id',
       battleType: 'prompt',
       prompt: battleData.prompt,
-      finalPrompt: currentPrompt,
+      finalPrompt: finalPrompt,
       promptCategory: battleData.prompt_category,
       models: battleData.models,
       mode: battleData.mode,
       battleMode: battleData.battle_mode,
-      rounds: round - 1,
+      rounds: iterativeResult.rounds || 1,
       maxTokens: battleData.max_tokens,
       temperature: battleData.temperature,
       status: 'completed',
@@ -364,7 +298,7 @@ INSTRUCTIONS:
       updatedAt: new Date().toISOString(),
       responses,
       scores,
-      globalConsensus: bestScore >= 10.0
+      globalConsensus: finalScore >= 10.0
     };
 
     this.storeBattleInCache(battle);
