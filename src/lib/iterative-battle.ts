@@ -1,6 +1,8 @@
 // True Iterative Prompt Refinement - Real API Calls Only
 // Two models take turns improving a prompt until both agree it's 10/10
 
+import { ResilientGroqClient } from './groq-resilient';
+
 export interface IterativeRound {
   round: number;
   currentPrompt: string;
@@ -32,6 +34,11 @@ export interface IterativeBattleResult {
 
 export class IterativePromptBattle {
   private static instance: IterativePromptBattle;
+  private resilientGroqClient: ResilientGroqClient;
+  
+  constructor() {
+    this.resilientGroqClient = new ResilientGroqClient();
+  }
   
   static getInstance(): IterativePromptBattle {
     if (!IterativePromptBattle.instance) {
@@ -280,7 +287,7 @@ The improved prompt should be significantly better with:
 
 Remember: You're competing against another AI model, so make this improvement count!`;
 
-    const result = await this.callGroqAPI(modelId, improvementPrompt, 1500, 0.3);
+    const result = await this.resilientGroqClient.callGroqAPI(modelId, improvementPrompt, 1500, 0.3);
     
     // ROBUST parsing with multiple fallback strategies
     let thinking = '';
@@ -441,7 +448,7 @@ Scoring guide:
 
 Be honest and critical in your evaluation.`;
 
-    const response = await this.callGroqAPI(reviewerModel, reviewPrompt, 800, 0.1);
+    const response = await this.resilientGroqClient.callGroqAPI(reviewerModel, reviewPrompt, 800, 0.1);
     
     // ROBUST parsing with multiple strategies
     let thinking = '';
@@ -555,73 +562,6 @@ Be honest and critical in your evaluation.`;
     });
     
     return { thinking, score, feedback };
-  }
-
-  private async callGroqAPI(modelId: string, prompt: string, maxTokens: number = 300, temperature: number = 0.7): Promise<string> {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    
-    if (!supabaseUrl || !anonKey) {
-      throw new Error('Supabase configuration missing - check environment variables');
-    }
-    
-    const apiUrl = supabaseUrl.startsWith('http') 
-      ? `${supabaseUrl}/functions/v1/groq-api`
-      : `https://${supabaseUrl}/functions/v1/groq-api`;
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for better completion
-    
-    try {
-      console.log(`🔥 REAL API CALL: ${modelId} - ${prompt.substring(0, 100)}...`);
-      
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${anonKey}`,
-          'Content-Type': 'application/json',
-          'x-client-info': 'pba-iterative/1.0.0',
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: modelId,
-          prompt,
-          max_tokens: maxTokens,
-          temperature
-        })
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Groq API error (${response.status}): ${errorData.error || 'Unknown error'}`);
-      }
-      
-      const data = await response.json();
-      
-      if (!data.response) {
-        throw new Error('Invalid response from Groq API');
-      }
-      
-      // Validate response completeness
-      if (data.response.length < 50) {
-        console.warn(`⚠️ Short response from ${modelId}: ${data.response.length} chars`);
-      }
-      
-      console.log(`✅ REAL API SUCCESS: ${modelId} - ${data.response.length} chars`);
-      return data.response;
-      
-    } catch (error) {
-      clearTimeout(timeoutId);
-      
-      if (error.name === 'AbortError') {
-        throw new Error(`Request timeout - ${modelId} took longer than 60 seconds to respond`);
-      }
-      
-      console.error(`❌ REAL API FAILED: ${modelId} - ${error.message}`);
-      throw error;
-    }
   }
 
   private enhancePromptManually(prompt: string, category: string): string {
