@@ -94,8 +94,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const normalizedEmail = email.toLowerCase().trim();
       const normalizedPassword = password.trim();
       
+      // Debug logging to identify credential matching issues
+      console.log('Login attempt:', {
+        originalEmail: email,
+        originalPassword: password,
+        normalizedEmail,
+        normalizedPassword,
+        demoUserMatch: normalizedEmail === 'demo@example.com' && normalizedPassword === 'demo123',
+        adminUserMatch: normalizedEmail === 'admin@pba.com' && normalizedPassword === 'admin123'
+      });
+      
       // Check for demo credentials
       if (normalizedEmail === 'demo@example.com' && normalizedPassword === 'demo123') {
+        console.log('Demo user credentials matched - bypassing Supabase');
         const demoUser = {
           id: 'demo-user-id',
           email: normalizedEmail,
@@ -116,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (normalizedEmail === 'admin@pba.com' && normalizedPassword === 'admin123') {
+        console.log('Demo admin credentials matched - bypassing Supabase');
         const adminUser = {
           id: 'admin-user-id',
           email: normalizedEmail,
@@ -136,6 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Real authentication
+      console.log('No demo credentials matched - attempting Supabase authentication');
       try {
         const { user: authUser } = await signIn(normalizedEmail, password);
         if (authUser) {
