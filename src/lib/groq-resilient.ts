@@ -131,13 +131,43 @@ export class ResilientGroqClient {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     
-    if (!supabaseUrl || !anonKey) {
-      throw new Error('Supabase configuration missing');
+    // Robust validation of environment variables
+    if (!supabaseUrl || supabaseUrl.trim() === '') {
+      throw new Error('VITE_SUPABASE_URL environment variable is missing or empty');
+    }
+    
+    if (!anonKey || anonKey.trim() === '') {
+      throw new Error('VITE_SUPABASE_ANON_KEY environment variable is missing or empty');
     }
 
-    const apiUrl = supabaseUrl.startsWith('http') 
-      ? `${supabaseUrl}/functions/v1/groq-api`
-      : `https://${supabaseUrl}/functions/v1/groq-api`;
+    // Validate and construct API URL
+    let apiUrl: string;
+    try {
+      // Remove any trailing slashes and ensure proper format
+      const cleanUrl = supabaseUrl.replace(/\/+$/, '');
+      
+      // Validate URL format
+      if (!cleanUrl.includes('.supabase.co') && !cleanUrl.includes('localhost')) {
+        throw new Error(`Invalid Supabase URL format: ${cleanUrl}`);
+      }
+      
+      // Construct the edge function URL
+      if (cleanUrl.startsWith('http')) {
+        apiUrl = `${cleanUrl}/functions/v1/groq-api`;
+      } else {
+        apiUrl = `https://${cleanUrl}/functions/v1/groq-api`;
+      }
+      
+      // Validate final URL
+      new URL(apiUrl); // This will throw if URL is invalid
+    } catch (urlError) {
+      throw new Error(`Failed to construct valid API URL from VITE_SUPABASE_URL: ${urlError.message}`);
+    }
+
+    // Validate anon key format (should be a JWT-like string)
+    if (!anonKey.includes('.') || anonKey.length < 100) {
+      throw new Error('VITE_SUPABASE_ANON_KEY appears to be invalid (should be a JWT token)');
+    }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
@@ -145,6 +175,7 @@ export class ResilientGroqClient {
     try {
       const startTime = Date.now();
       
+      // Additional fetch validation
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -159,13 +190,22 @@ export class ResilientGroqClient {
           max_tokens: maxTokens,
           temperature: temperature === 0 ? 1e-8 : temperature
         })
+      }).catch((fetchError) => {
+        // Provide more specific error messages for common fetch failures
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Request timed out after 45 seconds');
+        }
+        if (fetchError.message.includes('Failed to fetch')) {
+          throw new Error(`Network error: Unable to reach Supabase Edge Function at ${apiUrl}. Check your internet connection and Supabase configuration.`);
+        }
+        throw new Error(`Fetch failed: ${fetchError.message}`);
       });
 
       clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(`API Error (${response.status}): ${errorData.error || 'Unknown error'}`);
+        throw new Error(`Edge Function Error (${response.status}): ${errorData.error || response.statusText || 'Unknown error'}`);
       }
 
       const data = await response.json();
@@ -178,6 +218,13 @@ export class ResilientGroqClient {
         latency,
         attempts: 1
       };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      // Re-throw with enhanced error context
+      if (error instanceof Error) {
+        throw new Error(`Groq API call failed: ${error.message}`);
+      }
+      throw error;
     } finally {
       clearTimeout(timeoutId);
     }
