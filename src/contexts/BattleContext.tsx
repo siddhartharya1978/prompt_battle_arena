@@ -32,6 +32,22 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   const refreshBattles = async () => {
     if (!user) return;
     
+    // Skip Supabase for demo users - they use localStorage only
+    if (user.id === 'demo-user-id' || user.id === 'admin-user-id') {
+      try {
+        setLoading(true);
+        const localBattles = await getUserBattles();
+        setBattles(localBattles || []);
+        console.log(`📱 Demo user: Loaded ${localBattles?.length || 0} battles from localStorage`);
+      } catch (error) {
+        console.error('Error loading demo battles from localStorage:', error);
+        setBattles([]);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+    
     try {
       setLoading(true);
       
