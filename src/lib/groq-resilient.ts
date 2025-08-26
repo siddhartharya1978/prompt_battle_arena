@@ -120,10 +120,9 @@ export class ResilientGroqClient {
     progressCallback?.(`Generating synthetic response...`);
     
     // ALL REAL POLICY - NO SYNTHETIC RESPONSES
-    console.error(`💥 [ResilientGroqClient] ALL REAL GROQ API ATTEMPTS EXHAUSTED for model ${originalModel}`);
+    console.error(`💥 [ResilientGroqClient] ALL REAL GROQ API ATTEMPTS EXHAUSTED for model ${model}`);
     console.error(`💥 [ResilientGroqClient] Original error: ${lastError?.message}`);
     console.error(`💥 [ResilientGroqClient] Total attempts: ${totalAttempts}`);
-    console.error(`💥 [ResilientGroqClient] Fallback models tried: ${fallbackModels.join(', ')}`);
     
     throw new Error(`ALL REAL GROQ API ATTEMPTS FAILED: ${lastError?.message || 'Unknown error'}. No synthetic fallbacks - this is a genuine API failure that must be handled at the battle level.`);
   } // End of callGroqAPI

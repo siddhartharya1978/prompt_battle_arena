@@ -262,7 +262,7 @@ export default function BattleResults() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <Navigation />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center space-x-4">
@@ -277,7 +277,7 @@ export default function BattleResults() {
                     Battle Failed
                   </h1>
                   <p className="text-gray-600 dark:text-gray-300">
-                    Groq API Error - ALL REAL Policy Enforced
+                    API Error - No Synthetic Data Generated
                   </p>
                 </div>
               </div>
@@ -290,10 +290,10 @@ export default function BattleResults() {
                   <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400 mt-1 flex-shrink-0" />
                   <div>
                     <h3 className="text-lg font-bold text-red-900 dark:text-red-100 mb-2">
-                      Groq API Failure - Honest Error Reporting
+                      API Failure - Honest Error Reporting
                     </h3>
                     <p className="text-red-700 dark:text-red-300 mb-4">
-                      This battle could not be completed due to external Groq API issues. In accordance with our 
+                      This battle could not be completed due to external API issues. In accordance with our 
                       "ALL REAL" policy, no synthetic or mock data was generated. The battle has been honestly 
                       recorded as failed, and you can retry when the API is stable.
                     </p>
@@ -307,7 +307,7 @@ export default function BattleResults() {
                     <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
                       <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">What This Means:</h4>
                       <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                        <li>• The Groq API experienced technical difficulties</li>
+                        <li>• The external API experienced technical difficulties</li>
                         <li>• No fake or synthetic data was generated</li>
                         <li>• Your battle attempt was recorded honestly as failed</li>
                         <li>• You can retry immediately - the issue is likely temporary</li>

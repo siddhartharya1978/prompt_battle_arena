@@ -1,13 +1,23 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getUserBattles, getBattle as getBattleAPI } from '../lib/battles';
 import { ResilientBattleEngine } from '../lib/battles-resilient';
 import { AVAILABLE_MODELS, selectOptimalModels, getAutoSelectionReason } from '../lib/models';
-import { Battle, BattleData, Model } from '../types';
+import { Battle, BattleData, Model, transformBattleFromDB } from '../types';
 import { BattleProgress } from '../lib/battle-progress';
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
 import { dataPersistenceManager } from '../lib/data-persistence';
 import { supabase } from '../lib/supabase';
+
+// Fallback function for getting battles from localStorage
+const getUserBattles = async (): Promise<Battle[]> => {
+  try {
+    const demoCache = JSON.parse(localStorage.getItem('demo_battles') || '[]');
+    return demoCache;
+  } catch (error) {
+    console.error('Error loading battles from cache:', error);
+    return [];
+  }
+};
 
 interface BattleContextType {
   battles: Battle[];

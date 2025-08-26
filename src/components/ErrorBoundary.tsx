@@ -23,7 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    console.error('🚨 [ErrorBoundary] CRITICAL ERROR CAUGHT:', error, errorInfo);
     
     // Show user-friendly error message
     if (error.message.includes('rate limit')) {
@@ -32,6 +32,8 @@ export class ErrorBoundary extends Component<Props, State> {
       toast.error('Request timed out. The system will retry automatically.', { duration: 4000 });
     } else if (error.message.includes('fetch') || error.message.includes('network')) {
       toast.error('Network issue detected. Please check your connection.', { duration: 4000 });
+    } else if (error.message.includes('flawless-battle-engine')) {
+      toast.error('Battle system error. Please try again or contact support.', { duration: 5000 });
     } else {
       toast.error('An unexpected error occurred. Our team has been notified.', { duration: 4000 });
     }

@@ -1,5 +1,20 @@
 import { supabase } from './supabase';
-import { Profile, transformProfileFromDB } from '../types';
+import { Profile } from '../types';
+
+// Transform function for database profile data
+const transformProfileFromDB = (dbProfile: any): Profile => ({
+  id: dbProfile.id,
+  email: dbProfile.email,
+  name: dbProfile.name,
+  avatarUrl: dbProfile.avatar_url,
+  plan: dbProfile.plan,
+  role: dbProfile.role,
+  battlesUsed: dbProfile.battles_used || 0,
+  battlesLimit: dbProfile.battles_limit || 3,
+  lastResetAt: dbProfile.last_reset_at,
+  createdAt: dbProfile.created_at,
+  updatedAt: dbProfile.updated_at
+});
 
 export const signUp = async (email: string, password: string, name: string) => {
   // Validate inputs

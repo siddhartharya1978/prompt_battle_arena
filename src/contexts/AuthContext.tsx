@@ -2,9 +2,24 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { signUp, signIn, signOut, getProfile, updateProfile } from '../lib/auth';
-import { Profile, transformProfileFromDB } from '../types';
+import { Profile } from '../types';
 import toast from 'react-hot-toast';
 import { dataPersistenceManager } from '../lib/data-persistence';
+
+// Transform function for database profile data
+const transformProfileFromDB = (dbProfile: any): Profile => ({
+  id: dbProfile.id,
+  email: dbProfile.email,
+  name: dbProfile.name,
+  avatarUrl: dbProfile.avatar_url,
+  plan: dbProfile.plan,
+  role: dbProfile.role,
+  battlesUsed: dbProfile.battles_used || 0,
+  battlesLimit: dbProfile.battles_limit || 3,
+  lastResetAt: dbProfile.last_reset_at,
+  createdAt: dbProfile.created_at,
+  updatedAt: dbProfile.updated_at
+});
 
 interface AuthContextType {
   user: Profile | null;
