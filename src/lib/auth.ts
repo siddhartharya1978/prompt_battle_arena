@@ -94,15 +94,16 @@ export const getProfile = async (userId: string): Promise<Profile | null> => {
     .from('profiles')
     .select('*')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
 
   if (error) {
-    if (error.code === 'PGRST116') {
-      console.log('ℹ️ [Auth] No profile found for user:', userId);
-      return null; // No profile found
-    }
     console.error('❌ [Auth] Profile query error:', error);
     throw error;
+  }
+
+  if (!data) {
+    console.log('ℹ️ [Auth] No profile found for user:', userId);
+    return null; // No profile found
   }
 
   console.log('✅ [Auth] Profile loaded for:', data.email);
