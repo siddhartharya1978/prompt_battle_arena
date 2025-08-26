@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { bulletproofSupabase } from '../lib/supabase-bulletproof';
 import { signUp, signIn, signOut, getProfile, updateProfile } from '../lib/auth';
 import { Profile, transformProfileFromDB } from '../types';
 import toast from 'react-hot-toast';
@@ -41,20 +41,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       try {
         console.log('🔍 [Auth] Checking existing session...');
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('❌ [Auth] Session check error:', error);
-          if (mounted) {
-            setUser(null);
-            setLoading(false);
-          }
-          return;
-        }
+        const session = await bulletproofSupabase.getSession();
         
         if (session?.user && mounted) {
           console.log('✅ [Auth] Found Supabase session for user:', session.user.email);
-          await loadUserProfile(session.user);
+          const result = await bulletproofSupabase.signIn(session.user.email!, 'session-restore');
+          if (result.profile) {
+            setUser(result.profile);
+          }
         } else {
           console.log('📝 [Auth] No active Supabase session found');
           if (mounted) {
@@ -77,14 +71,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkSession();
 
     // Listen for auth changes with proper cleanup
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const client = bulletproofSupabase.getClient();
+    if (!client) {
+      setLoading(false);
+      return;
+    }
+    
+    const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
       
       console.log('🔄 [Auth] Auth state changed:', event, session?.user?.email || 'no user');
       
       if (event === 'SIGNED_IN' && session?.user) {
         setAuthLoading(true);
-        await loadUserProfile(session.user);
+        try {
+          const result = await bulletproofSupabase.signIn(session.user.email!, 'auto-signin');
+          if (result.profile) {
+            setUser(result.profile);
+          }
+        } catch (error) {
+          console.error('❌ [Auth] Auto sign-in failed:', error);
+          setUser(null);
+        }
         setAuthLoading(false);
       } else if (event === 'SIGNED_OUT') {
         console.log('🚪 [Auth] User signed out, clearing state');
@@ -101,112 +109,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const loadUserProfile = async (authUser: User) => {
-    try {
-      console.log('👤 [Auth] Loading profile for user:', authUser.id);
-      const profile = await getProfile(authUser.id);
-      if (profile) {
-        setUser(profile);
-        console.log('✅ [Auth] Profile loaded successfully:', profile.email);
-      } else {
-        console.warn('⚠️ [Auth] No profile found, creating one for user:', authUser.id);
-        // Create missing profile for existing auth user
-        const newProfile = {
-          id: authUser.id,
-          email: authUser.email!,
-          name: authUser.user_metadata?.name || authUser.email!.split('@')[0],
-          avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
-          plan: 'free' as const,
-          role: authUser.email === 'admin@pba.com' ? 'admin' as const : 'user' as const,
-          battles_used: 0,
-          battles_limit: authUser.email === 'admin@pba.com' ? 999 : 3,
-          last_reset_at: new Date().toISOString().split('T')[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        
-        try {
-          const { error: insertError } = await supabase.from('profiles').insert(newProfile);
-          if (insertError) {
-            console.error('❌ [Auth] Failed to create profile:', insertError);
-            // Set user anyway with basic data
-            setUser({
-              id: authUser.id,
-              email: authUser.email!,
-              name: authUser.user_metadata?.name || authUser.email!.split('@')[0],
-              avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
-              plan: 'free',
-              role: 'user',
-              battlesUsed: 0,
-              battlesLimit: 3,
-              lastResetAt: new Date().toISOString().split('T')[0],
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            });
-          } else {
-            console.log('✅ [Auth] Profile created successfully for existing user');
-            setUser({
-              id: authUser.id,
-              email: authUser.email!,
-              name: newProfile.name,
-              avatarUrl: newProfile.avatar_url,
-              plan: newProfile.plan,
-              role: newProfile.role,
-              battlesUsed: newProfile.battles_used,
-              battlesLimit: newProfile.battles_limit,
-              lastResetAt: newProfile.last_reset_at,
-              createdAt: newProfile.created_at,
-              updatedAt: newProfile.updated_at
-            });
-          }
-        } catch (profileCreateError) {
-          console.error('❌ [Auth] Profile creation failed:', profileCreateError);
-          // Set user anyway with basic data to prevent infinite loading
-          setUser({
-            id: authUser.id,
-            email: authUser.email!,
-            name: authUser.user_metadata?.name || authUser.email!.split('@')[0],
-            avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
-            plan: 'free',
-            role: 'user',
-            battlesUsed: 0,
-            battlesLimit: 3,
-            lastResetAt: new Date().toISOString().split('T')[0],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          });
-        }
-      }
-    } catch (error) {
-      console.error('❌ [Auth] Error loading profile:', error);
-      // Don't show error toast and don't set user to null - this causes infinite loading
-      // Instead, create a basic user profile to allow login to complete
-      console.log('🔄 [Auth] Creating fallback user profile due to error');
-      setUser({
-        id: authUser.id,
-        email: authUser.email!,
-        name: authUser.user_metadata?.name || authUser.email!.split('@')[0],
-        avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
-        plan: 'free',
-        role: 'user',
-        battlesUsed: 0,
-        battlesLimit: 3,
-        lastResetAt: new Date().toISOString().split('T')[0],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-    }
-  };
 
   const login = async (email: string, password: string) => {
     setAuthLoading(true);
     try {
       console.log('🔐 [Auth] Attempting login for:', email);
       
-      const { user: authUser } = await signIn(email.trim(), password);
-      if (authUser) {
-        console.log('✅ [Auth] Supabase login successful for:', authUser.email);
-        // Profile will be loaded via onAuthStateChange
+      const result = await signIn(email.trim(), password);
+      if (result.user && result.profile) {
+        console.log('✅ [Auth] Login successful for:', result.user.email);
+        setUser(result.profile);
       } else {
         throw new Error('Login failed - no user returned');
       }
@@ -302,20 +214,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(optimisticUser);
     
     try {
-      const dbUpdates: any = {};
-      if (updates.name !== undefined) dbUpdates.name = updates.name;
-      if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .update(dbUpdates)
-        .eq('id', user.id)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      const updatedProfile = transformProfileFromDB(data);
+      const updatedProfile = await bulletproofSupabase.updateProfile(user.id, updates);
+      if (!updatedProfile) {
+        throw new Error('Profile update returned null');
+      }
       setUser(updatedProfile);
       console.log('✅ [Auth] Profile updated successfully');
     } catch (error) {

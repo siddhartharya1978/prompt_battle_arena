@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useBattle } from '../contexts/BattleContext';
 import { Profile } from '../types';
-import { supabase, supabaseAdmin } from '../lib/supabase';
+import { bulletproofSupabase } from '../lib/supabase-bulletproof';
 import { runComprehensiveE2ETests } from '../lib/comprehensive-tests';
 import Navigation from '../components/Navigation';
 import {
@@ -40,7 +40,12 @@ export default function AdminPanel() {
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        const { data, error } = await supabase
+        const client = bulletproofSupabase.getClient();
+        if (!client) {
+          throw new Error('Supabase not initialized');
+        }
+        
+        const { data, error } = await client
           .from('profiles')
           .select('*')
           .order('created_at', { ascending: false });
@@ -49,6 +54,7 @@ export default function AdminPanel() {
         setUsers(data || []);
       } catch (error) {
         console.error('Error loading users:', error);
+        setUsers([]);
       } finally {
         setLoadingUsers(false);
       }
@@ -56,6 +62,8 @@ export default function AdminPanel() {
 
     if (user?.role === 'admin') {
       loadUsers();
+    } else {
+      setLoadingUsers(false);
     }
   }, [user]);
   const [featureFlags, setFeatureFlags] = useState({

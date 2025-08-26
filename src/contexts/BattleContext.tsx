@@ -6,7 +6,7 @@ import { BattleProgress } from '../lib/battle-progress';
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
 import { dataPersistenceManager } from '../lib/data-persistence';
-import { supabase } from '../lib/supabase';
+import { bulletproofSupabase } from '../lib/supabase-bulletproof';
 
 // Fallback function for getting battles from localStorage
 const getUserBattles = async (): Promise<Battle[]> => {
@@ -49,25 +49,15 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       let userBattles: Battle[] = [];
       
       try {
-        const { data, error } = await supabase
-          .from('battles')
-          .select(`
-            *,
-            battle_responses(*),
-            battle_scores(*),
-            prompt_evolution(*)
-          `)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-        
-        if (error) {
-          console.error('❌ [BattleContext] Supabase battles query failed:', error);
-          throw error;
+        const result = await bulletproofSupabase.getBattles(user.id);
+        if (result.error) {
+          console.error('❌ [BattleContext] Supabase battles query failed:', result.error);
+          throw new Error(result.error);
         }
         
-        if (data && data.length > 0) {
-          console.log(`✅ [BattleContext] Loaded ${data.length} battles from Supabase`);
-          userBattles = data.map(transformBattleFromDB).filter(Boolean);
+        if (result.battles && result.battles.length > 0) {
+          console.log(`✅ [BattleContext] Loaded ${result.battles.length} battles from Supabase`);
+          userBattles = result.battles;
         } else {
           console.log('📝 [BattleContext] No battles found in Supabase, checking localStorage');
           // For demo users or new users, check localStorage as fallback
@@ -115,7 +105,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       console.log('✅ [BattleContext] Status:', battle.status);
       
       // Save battle with resilient persistence
-      const saveResult = await dataPersistenceManager.saveBattle(battle);
+      const saveResult = await bulletproofSupabase.saveBattle(battle);
       if (!saveResult.success) {
         console.warn('⚠️ [BattleContext] Battle save failed, but battle completed successfully');
         toast.success('🏆 Battle completed! (Note: Save to database failed, but results are cached locally)', { duration: 4000 });

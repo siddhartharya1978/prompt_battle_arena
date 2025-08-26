@@ -1,5 +1,5 @@
 // Ultra-reliable data persistence with retry mechanisms and optimistic updates
-import { supabase } from './supabase';
+import { bulletproofSupabase } from './supabase-bulletproof';
 import { Profile, Battle } from '../types';
 
 export interface PersistenceOptions {
@@ -42,22 +42,16 @@ export class DataPersistenceManager {
       // Attempt database update with retries for ALL users
       console.log(`🔄 [DataPersistence] ATTEMPTING: Supabase update for user ${userId}`);
       const result = await this.retryOperation(async () => {
-        const { data, error } = await supabase
-          .from('profiles')
-          .update({ 
-            battles_used: optimisticUsage,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', userId)
-          .select('battles_used')
-          .single();
-
-        if (error) {
-          console.error(`❌ [DataPersistence] SUPABASE UPDATE FAILED: ${error.message}`);
-          throw error;
+        const updatedProfile = await bulletproofSupabase.updateProfile(userId, {
+          battlesUsed: optimisticUsage
+        });
+        
+        if (!updatedProfile) {
+          throw new Error('Profile update returned null');
         }
-        console.log(`✅ [DataPersistence] SUPABASE UPDATE SUCCESS: User ${userId} usage = ${data.battles_used}`);
-        return data;
+        
+        console.log(`✅ [DataPersistence] SUPABASE UPDATE SUCCESS: User ${userId} usage = ${updatedProfile.battlesUsed}`);
+        return { battles_used: updatedProfile.battlesUsed };
       }, options);
 
       console.log(`🎉 [DataPersistence] ===== BATTLE USAGE INCREMENT COMPLETE SUCCESS =====`);
@@ -89,153 +83,8 @@ export class DataPersistenceManager {
       throw new Error('Invalid battle data provided');
     }
     
-    console.log(`💾 [DataPersistence] ===== STARTING BATTLE SAVE =====`);
-    console.log(`💾 [DataPersistence] Battle ID: ${battle.id}`);
-    console.log(`💾 [DataPersistence] User ID: ${battle.userId}`);
-    console.log(`💾 [DataPersistence] Battle Type: ${battle.battleType}`);
-    console.log(`💾 [DataPersistence] Status: ${battle.status}`);
-    console.log(`💾 [DataPersistence] Models: ${battle.models.join(', ')}`);
-    console.log(`💾 [DataPersistence] Responses: ${battle.responses.length}`);
-    console.log(`💾 [DataPersistence] Scores: ${Object.keys(battle.scores).length}`);
-    
-    const options: PersistenceOptions = {
-      maxRetries: 3,
-      retryDelay: 2000,
-      optimistic: true,
-      fallbackToLocal: true
-    };
-
-    try {
-      // Always save to localStorage first (immediate backup)
-      console.log(`🔄 [DataPersistence] STEP 1: Saving to localStorage backup...`);
-      await this.saveBattleToLocalStorage(battle);
-      console.log(`✅ [DataPersistence] STEP 1 SUCCESS: Battle ${battle.id} saved to localStorage backup`);
-
-      // Attempt database save with retries for ALL users
-      console.log(`🔄 [DataPersistence] STEP 2: Attempting Supabase save...`);
-      const saveResult = await this.retryOperation(async () => {
-        console.log(`🔄 [DataPersistence] SUPABASE: Inserting main battle record...`);
-        
-        // Save main battle record
-        const { error: battleError } = await supabase
-          .from('battles')
-          .insert({
-            id: battle.id,
-            user_id: battle.userId,
-            battle_type: battle.battleType,
-            prompt: battle.prompt,
-            final_prompt: battle.finalPrompt,
-            prompt_category: battle.promptCategory,
-            models: battle.models,
-            mode: battle.mode,
-            battle_mode: battle.battleMode,
-            rounds: battle.rounds,
-            max_tokens: battle.maxTokens,
-            temperature: battle.temperature,
-            status: battle.status,
-            winner: battle.winner,
-            total_cost: battle.totalCost,
-            auto_selection_reason: battle.autoSelectionReason
-          });
-
-        if (battleError) {
-          console.error(`❌ [DataPersistence] SUPABASE MAIN BATTLE INSERT FAILED: ${battleError.message}`);
-          throw battleError;
-        }
-        console.log(`✅ [DataPersistence] SUPABASE SUCCESS: Main battle record saved for ${battle.id}`);
-
-        // Save responses
-        if (battle.responses.length > 0) {
-          console.log(`🔄 [DataPersistence] SUPABASE: Inserting ${battle.responses.length} responses...`);
-          const { error: responsesError } = await supabase
-            .from('battle_responses')
-            .insert(battle.responses.map(r => ({
-              id: r.id,
-              battle_id: r.battleId,
-              model_id: r.modelId,
-              response: r.response,
-              latency: r.latency,
-              tokens: r.tokens,
-              cost: r.cost
-            })));
-
-          if (responsesError) {
-            console.error(`❌ [DataPersistence] SUPABASE RESPONSES INSERT FAILED: ${responsesError.message}`);
-            throw responsesError;
-          }
-          console.log(`✅ [DataPersistence] SUPABASE SUCCESS: ${battle.responses.length} responses saved`);
-        }
-
-        // Save scores
-        const scoreEntries = Object.entries(battle.scores).map(([modelId, score]) => ({
-          id: `score_${Date.now()}_${modelId}`,
-          battle_id: battle.id,
-          model_id: modelId,
-          accuracy: score.accuracy,
-          reasoning: score.reasoning,
-          structure: score.structure,
-          creativity: score.creativity,
-          overall: score.overall,
-          notes: score.notes
-        }));
-
-        if (scoreEntries.length > 0) {
-          console.log(`🔄 [DataPersistence] SUPABASE: Inserting ${scoreEntries.length} scores...`);
-          const { error: scoresError } = await supabase
-            .from('battle_scores')
-            .insert(scoreEntries);
-
-          if (scoresError) {
-            console.error(`❌ [DataPersistence] SUPABASE SCORES INSERT FAILED: ${scoresError.message}`);
-            throw scoresError;
-          }
-          console.log(`✅ [DataPersistence] SUPABASE SUCCESS: ${scoreEntries.length} scores saved`);
-        }
-
-        // Save prompt evolution if exists
-        if (battle.promptEvolution && battle.promptEvolution.length > 0) {
-          console.log(`🔄 [DataPersistence] SUPABASE: Inserting ${battle.promptEvolution.length} evolution records...`);
-          const { error: evolutionError } = await supabase
-            .from('prompt_evolution')
-            .insert(battle.promptEvolution.map(p => ({
-              id: p.id,
-              battle_id: p.battleId,
-              round: p.round,
-              prompt: p.prompt,
-              model_id: p.modelId,
-              improvements: p.improvements,
-              score: p.score
-            })));
-
-          if (evolutionError) {
-            console.error(`❌ [DataPersistence] SUPABASE EVOLUTION INSERT FAILED: ${evolutionError.message}`);
-            throw evolutionError;
-          }
-          console.log(`✅ [DataPersistence] SUPABASE SUCCESS: ${battle.promptEvolution.length} evolution records saved`);
-        }
-        
-        console.log(`🎉 [DataPersistence] ===== COMPLETE SUPABASE SAVE SUCCESS =====`);
-        console.log(`🎉 [DataPersistence] Battle ${battle.id} and ALL related records saved to Supabase`);
-        return true;
-      }, options);
-
-      console.log(`🎉 [DataPersistence] ===== BATTLE SAVE COMPLETE SUCCESS =====`);
-      return { success: true, battleId: battle.id };
-
-
-    } catch (error) {
-      console.error(`💥 [DataPersistence] ===== BATTLE SAVE FAILED =====`);
-      console.error(`💥 [DataPersistence] Battle ID: ${battle.id}`);
-      console.error(`💥 [DataPersistence] Error: ${error.message}`);
-      
-      if (options.fallbackToLocal) {
-        console.log(`🔄 [DataPersistence] FALLBACK SUCCESS: Battle ${battle.id} saved to localStorage`);
-        return { success: true, battleId: battle.id }; // localStorage save succeeded
-      }
-
-      console.error(`💥 [DataPersistence] CRITICAL FAILURE: Battle ${battle.id} save completely failed`);
-      return { success: false, battleId: battle.id };
-    }
+    // Use bulletproof Supabase save
+    return await bulletproofSupabase.saveBattle(battle);
   }
 
   private async saveBattleToLocalStorage(battle: Battle): Promise<void> {

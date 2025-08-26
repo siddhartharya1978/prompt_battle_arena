@@ -1,5 +1,5 @@
-import { supabase } from './supabase';
-import { Profile, transformProfileFromDB } from '../types';
+import { bulletproofSupabase } from './supabase-bulletproof';
+import { Profile } from '../types';
 
 export const signUp = async (email: string, password: string, name: string) => {
   // Validate inputs
@@ -18,14 +18,19 @@ export const signUp = async (email: string, password: string, name: string) => {
   if (password.length < 6) {
     throw new Error('Password must be at least 6 characters');
   }
+
+  const client = bulletproofSupabase.getClient();
+  if (!client) {
+    throw new Error('Supabase not initialized');
+  }
   
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
+  const { data, error } = await client.auth.signUp({
+    email: email.trim(),
+    password: password.trim(),
     options: {
       data: {
-        name,
-        full_name: name,
+        name: name.trim(),
+        full_name: name.trim(),
       },
       emailRedirectTo: undefined, // Disable email confirmation
     },
@@ -34,13 +39,12 @@ export const signUp = async (email: string, password: string, name: string) => {
   if (error) throw error;
   
   // Create profile immediately after signup
-  if (data.user && !data.user.email_confirmed_at) {
-    // For demo purposes, we'll create the profile immediately
+  if (data.user) {
     try {
       const profileData = {
         id: data.user.id,
         email: data.user.email!,
-        name: name,
+        name: name.trim(),
         avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
         plan: 'free' as const,
         role: data.user.email === 'admin@pba.com' ? 'admin' as const : 'user' as const,
@@ -51,9 +55,10 @@ export const signUp = async (email: string, password: string, name: string) => {
         updated_at: new Date().toISOString()
       };
       
-      await supabase.from('profiles').insert(profileData);
+      await client.from('profiles').insert(profileData);
     } catch (profileError) {
       console.error('Error creating profile during signup:', profileError);
+      // Don't throw - user can still sign up
     }
   }
   
@@ -70,144 +75,21 @@ export const signIn = async (email: string, password: string) => {
     throw new Error('Password is required');
   }
   
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  if (error) throw error;
-  
-  // Check if user has a profile, create one if missing
-  if (data.user) {
-    try {
-      const { data: existingProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .maybeSingle();
-      
-      if (profileError && profileError.code !== 'PGRST116') {
-        console.error('Error checking profile:', profileError);
-      }
-      
-      // Create profile if it doesn't exist
-      if (!existingProfile) {
-        console.log('Creating missing profile for existing user:', data.user.email);
-        const profileData = {
-          id: data.user.id,
-          email: data.user.email!,
-          name: data.user.user_metadata?.name || data.user.email!.split('@')[0],
-          avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
-          plan: 'free' as const,
-          role: data.user.email === 'admin@pba.com' ? 'admin' as const : 'user' as const,
-          battles_used: 0,
-          battles_limit: data.user.email === 'admin@pba.com' ? 999 : 3,
-          last_reset_at: new Date().toISOString().split('T')[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        
-        const { error: insertError } = await supabase.from('profiles').insert(profileData);
-        if (insertError) {
-          console.error('Error creating profile during signin:', insertError);
-          // Don't throw error - user can still sign in
-        }
-      }
-    } catch (profileError) {
-      console.error('Profile check/creation failed during signin:', profileError);
-      // Don't throw error - user can still sign in
-    }
-  }
-  
-  return data;
+  // Use bulletproof sign in
+  return await bulletproofSupabase.signIn(email, password);
 };
 
 export const signOut = async () => {
-  console.log('🚪 [Auth] Signing out from Supabase...');
-  
-  try {
-    // Clear local state first for immediate UX response
-    localStorage.removeItem('demo_battles');
-    localStorage.removeItem('pba_theme');
-    
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('❌ [Auth] Supabase signOut error:', error);
-      throw error;
-    }
-    console.log('✅ [Auth] Supabase signOut successful');
-  } catch (error) {
-    console.error('❌ [Auth] Critical signOut failure:', error);
-    // Force clear session even if API call fails
-    await supabase.auth.signOut({ scope: 'local' });
-    // Don't throw error - user should still be logged out locally
-    console.log('✅ [Auth] Local logout completed despite API error');
+  const result = await bulletproofSupabase.signOut();
+  if (!result.success && result.error) {
+    throw new Error(result.error);
   }
 };
 
 export const getProfile = async (userId: string): Promise<Profile | null> => {
-  if (!userId) return null;
-  
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (error) {
-    console.error('Error fetching profile:', error);
-    return null;
-  }
-
-  return data ? transformProfileFromDB(data) : null;
+  return await bulletproofSupabase.getProfile(userId);
 };
 
 export const updateProfile = async (userId: string, updates: Partial<Profile>) => {
-  if (!userId) throw new Error('User ID is required');
-  
-  // Convert camelCase to snake_case for database
-  const dbUpdates: any = {};
-  if (updates.name !== undefined) dbUpdates.name = updates.name;
-  if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
-  if (updates.plan !== undefined) dbUpdates.plan = updates.plan;
-  if (updates.role !== undefined) dbUpdates.role = updates.role;
-  if (updates.battlesUsed !== undefined) dbUpdates.battles_used = updates.battlesUsed;
-  if (updates.battlesLimit !== undefined) dbUpdates.battles_limit = updates.battlesLimit;
-  
-  const { data, error } = await supabase
-    .from('profiles')
-    .update(dbUpdates)
-    .eq('id', userId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return transformProfileFromDB(data);
-};
-
-export const updateProfileWithAvatar = async (
-  userId: string,
-  updates: Partial<Profile>,
-  avatarFile?: File
-) => {
-  let finalUpdates = { ...updates };
-
-  if (avatarFile) {
-    try {
-      // Import uploadAvatar function dynamically to avoid circular dependencies
-      const { uploadAvatar } = await import('./storage');
-      const avatarUrl = await uploadAvatar(avatarFile, userId);
-      finalUpdates.avatar_url = avatarUrl;
-    } catch (error) {
-      console.error('Avatar upload failed:', error);
-      // Continue with profile update even if avatar upload fails
-    }
-  }
-
-  // Convert camelCase updates to snake_case for database
-  const dbUpdates: any = {};
-  if (finalUpdates.name !== undefined) dbUpdates.name = finalUpdates.name;
-  if (finalUpdates.avatarUrl !== undefined) dbUpdates.avatar_url = finalUpdates.avatarUrl;
-  
-  return updateProfile(userId, finalUpdates);
+  return await bulletproofSupabase.updateProfile(userId, updates);
 };
