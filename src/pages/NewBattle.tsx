@@ -112,17 +112,9 @@ export default function NewBattle() {
   };
 
   const canCreateBattle = () => {
-    const errors: string[] = [];
-    
     if (!prompt.trim() || prompt.trim().length < 10) return false;
-    if (!prompt.trim()) errors.push("Please enter a prompt");
-    if (prompt.trim().length < 10) errors.push("Prompt must be at least 10 characters");
     if (battleMode === 'manual' && selectedModels.length < 2) return false;
-    if (battleMode === 'manual' && selectedModels.length < 2) errors.push("Please select exactly 2 models");
     if (user?.plan === 'free' && user.battlesUsed >= user.battlesLimit) return false;
-    if (user?.plan === 'free' && user.battlesUsed >= user.battlesLimit) errors.push("Daily battle limit reached");
-    
-    setValidationErrors(errors);
     return true;
   };
 
