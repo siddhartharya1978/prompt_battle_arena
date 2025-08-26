@@ -5,8 +5,7 @@ import { Battle, BattleData, Model, transformBattleFromDB } from '../types';
 import { BattleProgress } from '../lib/battle-progress';
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
-import { dataPersistenceManager } from '../lib/data-persistence';
-import { bulletproofSupabase } from '../lib/supabase-bulletproof';
+import { supabase } from '../lib/supabase';
 
 // Fallback function for getting battles from localStorage
 const getUserBattles = async (): Promise<Battle[]> => {
@@ -49,15 +48,25 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       let userBattles: Battle[] = [];
       
       try {
-        const result = await bulletproofSupabase.getBattles(user.id);
-        if (result.error) {
-          console.error('❌ [BattleContext] Supabase battles query failed:', result.error);
-          throw new Error(result.error);
+        const { data, error } = await supabase
+          .from('battles')
+          .select(`
+            *,
+            battle_responses(*),
+            battle_scores(*),
+            prompt_evolution(*)
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error('❌ [BattleContext] Supabase battles query failed:', error);
+          throw new Error(error.message);
         }
         
-        if (result.battles && result.battles.length > 0) {
-          console.log(`✅ [BattleContext] Loaded ${result.battles.length} battles from Supabase`);
-          userBattles = result.battles;
+        if (data && data.length > 0) {
+          console.log(`✅ [BattleContext] Loaded ${data.length} battles from Supabase`);
+          userBattles = data.map(transformBattleFromDB);
         } else {
           console.log('📝 [BattleContext] No battles found in Supabase, checking localStorage');
           // For demo users or new users, check localStorage as fallback
@@ -104,13 +113,13 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       console.log('✅ [BattleContext] Winner:', battle.winner);
       console.log('✅ [BattleContext] Status:', battle.status);
       
-      // Save battle with resilient persistence
-      const saveResult = await bulletproofSupabase.saveBattle(battle);
-      if (!saveResult.success) {
-        console.warn('⚠️ [BattleContext] Battle save failed, but battle completed successfully');
-        toast.success('🏆 Battle completed! (Note: Save to database failed, but results are cached locally)', { duration: 4000 });
-      } else {
-        console.log('✅ [BattleContext] Battle saved successfully');
+      // Try to save to Supabase, fallback to localStorage
+      try {
+        await this.saveBattleToSupabase(battle);
+        console.log('✅ [BattleContext] Battle saved to Supabase');
+      } catch (error) {
+        console.warn('⚠️ [BattleContext] Supabase save failed, using localStorage:', error);
+        this.storeBattleInCache(battle);
       }
       
       setBattleProgress(null);
@@ -144,6 +153,89 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       throw error;
     }
   };
+
+  private async saveBattleToSupabase(battle: Battle) {
+    // Save main battle record
+    const { error: battleError } = await supabase
+      .from('battles')
+      .insert({
+        id: battle.id,
+        user_id: battle.userId,
+        battle_type: battle.battleType,
+        prompt: battle.prompt,
+        final_prompt: battle.finalPrompt,
+        prompt_category: battle.promptCategory,
+        models: battle.models,
+        mode: battle.mode,
+        battle_mode: battle.battleMode,
+        rounds: battle.rounds,
+        max_tokens: battle.maxTokens,
+        temperature: battle.temperature,
+        status: battle.status,
+        winner: battle.winner,
+        total_cost: battle.totalCost,
+        auto_selection_reason: battle.autoSelectionReason
+      });
+
+    if (battleError) throw battleError;
+
+    // Save responses if any
+    if (battle.responses && battle.responses.length > 0) {
+      const responsesData = battle.responses.map(r => ({
+        id: r.id,
+        battle_id: battle.id,
+        model_id: r.modelId,
+        response: r.response,
+        latency: r.latency,
+        tokens: r.tokens,
+        cost: r.cost
+      }));
+
+      const { error: responsesError } = await supabase
+        .from('battle_responses')
+        .insert(responsesData);
+
+      if (responsesError) {
+        console.warn('Failed to save responses:', responsesError);
+      }
+    }
+
+    // Save scores if any
+    if (battle.scores && Object.keys(battle.scores).length > 0) {
+      const scoresData = Object.entries(battle.scores).map(([modelId, score]) => ({
+        id: `score_${Date.now()}_${modelId}`,
+        battle_id: battle.id,
+        model_id: modelId,
+        accuracy: score.accuracy,
+        reasoning: score.reasoning,
+        structure: score.structure,
+        creativity: score.creativity,
+        overall: score.overall,
+        notes: score.notes
+      }));
+
+      const { error: scoresError } = await supabase
+        .from('battle_scores')
+        .insert(scoresData);
+
+      if (scoresError) {
+        console.warn('Failed to save scores:', scoresError);
+      }
+    }
+  }
+
+  private storeBattleInCache(battle: Battle) {
+    try {
+      const demoCache = JSON.parse(localStorage.getItem('demo_battles') || '[]');
+      demoCache.unshift(battle);
+      if (demoCache.length > 50) {
+        demoCache.splice(50);
+      }
+      localStorage.setItem('demo_battles', JSON.stringify(demoCache));
+    } catch (error) {
+      console.error('Error storing battle in cache:', error);
+    }
+  }
 
   const getBattle = (battleId: string): Battle | null => {
     return battles.find(b => b.id === battleId) || null;
