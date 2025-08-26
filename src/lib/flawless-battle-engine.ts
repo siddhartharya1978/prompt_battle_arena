@@ -1,6 +1,7 @@
 // FLAWLESS BATTLE ENGINE - UX-Perfect Implementation
 // Guarantees smooth user experience with comprehensive error handling
 
+import { v4 as uuidv4 } from 'uuid';
 import { BattleData, Battle, BattleResponse, BattleScore } from '../types';
 import { AVAILABLE_MODELS } from './models';
 import { resilientGroqClient } from './groq-resilient';

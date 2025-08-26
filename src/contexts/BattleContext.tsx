@@ -80,7 +80,8 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
     }
     
     // Generate proper UUID for battle
-    const battleId = `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const { v4: uuidv4 } = await import('uuid');
+    const battleId = uuidv4();
     
     const progressCallback = (progress: BattleProgress) => {
       setBattleProgress(progress);
@@ -98,11 +99,11 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       
       // Try to save to Supabase first, then localStorage
       try {
-        await this.saveBattleToSupabase(battle);
+        await saveBattleToSupabase(battle);
         console.log('✅ [BattleContext] Battle saved to Supabase');
       } catch (supabaseError) {
         console.error('❌ [BattleContext] Supabase save failed, using localStorage:', supabaseError);
-        this.storeBattleInCache(battle);
+        storeBattleInCache(battle);
         console.log('✅ [BattleContext] Battle saved to localStorage');
       }
       
@@ -126,7 +127,6 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const saveBattleToSupabase = async (battle: Battle) => {
   // SAVE BATTLE TO SUPABASE
   const saveBattleToSupabase = async (battle: Battle) => {
     console.log('💾 [BattleContext] Saving battle to Supabase:', battle.id);
@@ -154,8 +154,6 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       });
 
     if (battleError) throw battleError;
-      console.error('❌ [BattleContext] Battle insert failed:', battleError);
-    }
     console.log('✅ [BattleContext] Battle record saved');
 
     // Save responses
@@ -248,6 +246,87 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error storing battle in cache:', error);
     }
+  };
+
+  // CREATE BATTLE WITH PROPER FLOW
+  const createBattleWithProperFlow = async (
+    battleData: BattleData,
+    battleId: string,
+    progressCallback: (progress: BattleProgress) => void
+  ): Promise<Battle> => {
+    console.log('🚀 [BattleContext] Starting battle creation with proper flow');
+    
+    // Step 1: Create initial battle record
+    const initialBattle: Battle = {
+      id: battleId,
+      userId: battleData.user_id,
+      battleType: battleData.battle_type,
+      prompt: battleData.prompt,
+      finalPrompt: null,
+      promptCategory: battleData.prompt_category,
+      models: battleData.models,
+      mode: battleData.mode,
+      battleMode: battleData.battle_mode,
+      rounds: battleData.rounds,
+      maxTokens: battleData.max_tokens,
+      temperature: battleData.temperature,
+      status: 'running',
+      winner: null,
+      totalCost: 0,
+      autoSelectionReason: battleData.auto_selection_reason,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      responses: [],
+      scores: {}
+    };
+
+    // Step 2: Save initial battle to ensure it exists
+    try {
+      await saveBattleToSupabase(initialBattle);
+      console.log('✅ [BattleContext] Initial battle record saved');
+    } catch (error) {
+      console.error('❌ [BattleContext] Failed to save initial battle:', error);
+      storeBattleInCache(initialBattle);
+      console.log('✅ [BattleContext] Initial battle cached locally');
+    }
+
+    // Step 3: Execute battle using flawless engine
+    const { flawlessBattleEngine } = await import('../lib/flawless-battle-engine');
+    
+    const config = {
+      prompt: battleData.prompt,
+      category: battleData.prompt_category,
+      battleType: battleData.battle_type,
+      models: battleData.models,
+      userId: battleData.user_id,
+      battleId: battleId,
+      maxRounds: battleData.rounds,
+      qualityThreshold: 8.5
+    };
+
+    const result = await flawlessBattleEngine.runFlawlessBattle(config, 
+      (phase, progress, details) => {
+        progressCallback({
+          phase,
+          step: details,
+          progress,
+          details,
+          modelStatus: {},
+          modelProgress: {},
+          errors: [],
+          warnings: [],
+          successMessages: [],
+          phaseStartTime: Date.now(),
+          totalStartTime: Date.now()
+        });
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error || 'Battle execution failed');
+    }
+
+    return result.battle;
   };
 
   const getBattle = (battleId: string): Battle | null => {
