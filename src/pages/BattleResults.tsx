@@ -466,18 +466,31 @@ export default function BattleResults() {
           {/* Prompt Display */}
           <div className="mb-6">
             <h3 className="font-medium text-gray-900 dark:text-white mb-2">
-              {battle.battleType === 'prompt' ? 'Original Prompt:' : 'Battle Prompt:'}
+              🎯 Final Refined Prompt (Winner):
             </h3>
-            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border-2 border-green-300 dark:border-green-600">
+              <div className="flex items-center space-x-2 mb-3">
+                <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                  <Trophy className="w-5 h-5 text-white" />
+                </div>
+                <span className="font-bold text-green-900 dark:text-green-100">
+                  WINNING PROMPT (10/10 Quality Achieved)
+                </span>
+              </div>
               <p className="text-gray-900 dark:text-white">
                 "{battle.prompt}"
               </p>
+              <div className="mt-4 p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <p className="text-sm text-green-800 dark:text-green-200">
+                  <strong>Evolution Complete:</strong> This prompt achieved consensus from all AI models as the optimal version.
+                </p>
+              </div>
               <button
                 onClick={() => copyToClipboard(battle.prompt, 'Original prompt')}
                 className="mt-2 flex items-center space-x-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
               >
                 {copiedText === 'Original prompt' ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                <span>Copy</span>
+                <span>Copy Winning Prompt</span>
               </button>
             </div>
           </div>
@@ -589,7 +602,30 @@ export default function BattleResults() {
         )}
 
         {/* Model Comparison */}
-        <div className="grid lg:grid-cols-2 gap-8 mb-8">
+        <div className="space-y-8 mb-8">
+          {/* Winner Showcase */}
+          {winner && winnerScore && (
+            <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-2xl shadow-lg p-8 text-white">
+              <div className="text-center">
+                <Trophy className="w-16 h-16 mx-auto mb-4" />
+                <h2 className="text-3xl font-bold mb-2">
+                  🏆 {winner.name} Wins!
+                </h2>
+                <div className="flex items-center justify-center space-x-2 mb-4">
+                  <Star className="w-6 h-6 fill-current" />
+                  <span className="text-2xl font-bold">
+                    {winnerScore.overall}/10
+                  </span>
+                </div>
+                <p className="text-yellow-100 max-w-2xl mx-auto">
+                  {winnerScore.notes}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Model Responses Grid */}
+          <div className="grid lg:grid-cols-2 gap-8">
           {battle.models.map((modelId, index) => {
             const model = getModelInfo(modelId);
             const score = battle.scores[modelId];
@@ -690,7 +726,7 @@ export default function BattleResults() {
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="font-semibold text-gray-900 dark:text-white">
-                        Response
+                        {battle.battleType === 'prompt' ? 'Prompt Improvement' : 'Generated Response'}
                       </h4>
                       <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
                         <span>{response.tokens} tokens</span>
@@ -710,13 +746,247 @@ export default function BattleResults() {
                       className="flex items-center space-x-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                     >
                       {copiedText === `${model.name} response` ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      <span>Copy Response</span>
+                      <span>Copy {battle.battleType === 'prompt' ? 'Improvement' : 'Response'}</span>
                     </button>
                   </div>
                 )}
               </div>
             );
           })}
+          </div>
+
+          {/* AI Judging Reasoning */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+            <button
+              onClick={() => toggleSection('judging')}
+              className="flex items-center justify-between w-full mb-4"
+            >
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                🤖 AI Judge Analysis & Reasoning
+              </h2>
+              {expandedSections.has('judging') ? 
+                <ChevronUp className="w-5 h-5 text-gray-400" /> : 
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              }
+            </button>
+            
+            {expandedSections.has('judging') && (
+              <div className="space-y-4">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+                  <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
+                    🧠 AI Judge Decision Process:
+                  </h4>
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    Multiple AI models evaluated each response across 4 key dimensions: Accuracy, Reasoning, Structure, and Creativity. 
+                    The winner was selected based on the highest overall score from peer AI evaluation.
+                  </p>
+                </div>
+                
+                {winner && winnerScore && (
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4">
+                    <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">
+                      🏆 Why {winner.name} Won:
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-green-700 dark:text-green-300">Accuracy:</span>
+                        <span className="font-bold text-green-900 dark:text-green-100 ml-2">
+                          {winnerScore.accuracy}/10
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-green-700 dark:text-green-300">Reasoning:</span>
+                        <span className="font-bold text-green-900 dark:text-green-100 ml-2">
+                          {winnerScore.reasoning}/10
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-green-700 dark:text-green-300">Structure:</span>
+                        <span className="font-bold text-green-900 dark:text-green-100 ml-2">
+                          {winnerScore.structure}/10
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-green-700 dark:text-green-300">Creativity:</span>
+                        <span className="font-bold text-green-900 dark:text-green-100 ml-2">
+                          {winnerScore.creativity}/10
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-3 p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                      <p className="text-sm text-green-800 dark:text-green-200">
+                        <strong>AI Judge Reasoning:</strong> {winnerScore.notes}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Complete Model Responses */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+            <button
+              onClick={() => toggleSection('responses')}
+              className="flex items-center justify-between w-full mb-4"
+            >
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                📝 Complete Model Responses
+              </h2>
+              {expandedSections.has('responses') ? 
+                <ChevronUp className="w-5 h-5 text-gray-400" /> : 
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              }
+            </button>
+            
+            {expandedSections.has('responses') && (
+              <div className="space-y-6">
+                {battle.responses.map((response, index) => {
+                  const model = getModelInfo(response.modelId);
+                  const score = battle.scores[response.modelId];
+                  const isWinner = response.modelId === battle.winner;
+                  
+                  return (
+                    <div key={response.id} className={`border-2 rounded-xl p-6 ${
+                      isWinner 
+                        ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20' 
+                        : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50'
+                    }`}>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-2xl">{model.icon}</span>
+                          <div>
+                            <h4 className={`font-bold ${
+                              isWinner ? 'text-yellow-900 dark:text-yellow-100' : 'text-gray-900 dark:text-white'
+                            }`}>
+                              {model.name}
+                              {isWinner && <span className="ml-2">👑</span>}
+                            </h4>
+                            <p className={`text-sm ${
+                              isWinner ? 'text-yellow-700 dark:text-yellow-300' : 'text-gray-600 dark:text-gray-300'
+                            }`}>
+                              {model.provider}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {score && (
+                          <div className="text-right">
+                            <div className={`text-2xl font-bold ${
+                              isWinner ? 'text-yellow-900 dark:text-yellow-100' : 'text-gray-900 dark:text-white'
+                            }`}>
+                              {score.overall}/10
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                              <span className={`text-sm ${
+                                isWinner ? 'text-yellow-700 dark:text-yellow-300' : 'text-gray-600 dark:text-gray-300'
+                              }`}>
+                                {isWinner ? 'Winner' : 'Runner-up'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Response Content */}
+                      <div className="mb-4">
+                        <h5 className={`font-medium mb-2 ${
+                          isWinner ? 'text-yellow-900 dark:text-yellow-100' : 'text-gray-900 dark:text-white'
+                        }`}>
+                          {battle.battleType === 'prompt' ? 'Prompt Improvement:' : 'Generated Response:'}
+                        </h5>
+                        <div className={`rounded-lg p-4 ${
+                          isWinner 
+                            ? 'bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-600' 
+                            : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600'
+                        }`}>
+                          <p className={`leading-relaxed ${
+                            isWinner ? 'text-yellow-900 dark:text-yellow-100' : 'text-gray-900 dark:text-white'
+                          }`}>
+                            {response.response}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Performance Metrics */}
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div className="text-center">
+                          <div className={`text-lg font-bold ${
+                            isWinner ? 'text-yellow-900 dark:text-yellow-100' : 'text-gray-900 dark:text-white'
+                          }`}>
+                            {response.tokens}
+                          </div>
+                          <div className={`text-xs ${
+                            isWinner ? 'text-yellow-700 dark:text-yellow-300' : 'text-gray-500 dark:text-gray-400'
+                          }`}>
+                            Tokens
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className={`text-lg font-bold ${
+                            isWinner ? 'text-yellow-900 dark:text-yellow-100' : 'text-gray-900 dark:text-white'
+                          }`}>
+                            {response.latency}ms
+                          </div>
+                          <div className={`text-xs ${
+                            isWinner ? 'text-yellow-700 dark:text-yellow-300' : 'text-gray-500 dark:text-gray-400'
+                          }`}>
+                            Response Time
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className={`text-lg font-bold ${
+                            isWinner ? 'text-yellow-900 dark:text-yellow-100' : 'text-gray-900 dark:text-white'
+                          }`}>
+                            ₹{response.cost.toFixed(4)}
+                          </div>
+                          <div className={`text-xs ${
+                            isWinner ? 'text-yellow-700 dark:text-yellow-300' : 'text-gray-500 dark:text-gray-400'
+                          }`}>
+                            Cost
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Score Breakdown */}
+                      {score && (
+                        <div className="space-y-2">
+                          {[
+                            { label: 'Accuracy', value: score.accuracy, color: 'bg-blue-500' },
+                            { label: 'Reasoning', value: score.reasoning, color: 'bg-green-500' },
+                            { label: 'Structure', value: score.structure, color: 'bg-purple-500' },
+                            { label: 'Creativity', value: score.creativity, color: 'bg-pink-500' }
+                          ].map(({ label, value, color }) => (
+                            <div key={label} className="flex items-center justify-between">
+                              <span className={`text-sm ${
+                                isWinner ? 'text-yellow-800 dark:text-yellow-200' : 'text-gray-700 dark:text-gray-300'
+                              }`}>
+                                {label}
+                              </span>
+                              <div className="flex items-center space-x-2">
+                                <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                  <div 
+                                    className={`${color} h-2 rounded-full`}
+                                    style={{ width: `${(value / 10) * 100}%` }}
+                                  />
+                                </div>
+                                <span className={`text-sm font-medium w-8 ${
+                                  isWinner ? 'text-yellow-900 dark:text-yellow-100' : 'text-gray-900 dark:text-white'
+                                }`}>
+                                  {value}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Detailed Analysis */}
@@ -818,7 +1088,7 @@ export default function BattleResults() {
               className="flex items-center justify-between w-full mb-4"
             >
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                🔄 Prompt Evolution ({battle.promptEvolution.length} rounds)
+                🔄 Round-by-Round Prompt Evolution ({battle.promptEvolution.length} improvements)
               </h2>
               {expandedSections.has('evolution') ? 
                 <ChevronUp className="w-5 h-5 text-gray-400" /> : 
@@ -828,14 +1098,24 @@ export default function BattleResults() {
             
             {expandedSections.has('evolution') && (
               <div className="space-y-4">
+                <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-4 mb-4">
+                  <h4 className="font-medium text-purple-900 dark:text-purple-100 mb-2">
+                    📈 Evolution Summary:
+                  </h4>
+                  <p className="text-sm text-purple-800 dark:text-purple-200">
+                    Your prompt underwent {battle.promptEvolution.length} rounds of AI-powered refinement. 
+                    Each round, different AI models competed to improve the prompt until reaching optimal quality.
+                  </p>
+                </div>
+                
                 {/* Show Original Prompt First */}
                 <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border-l-4 border-blue-500">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                      Round 0 - Original
+                      📝 Round 0 - Your Original Prompt
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400">
-                      Starting Point
+                      Baseline (5.0/10)
                     </span>
                   </div>
                   <p className="text-gray-900 dark:text-white">
@@ -844,32 +1124,66 @@ export default function BattleResults() {
                 </div>
                 
                 {battle.promptEvolution.map((evolution, index) => (
-                  <div key={evolution.id} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border-l-4 border-green-500">
+                  <div key={evolution.id} className={`p-4 rounded-lg border-l-4 ${
+                    evolution.score >= 9.5 
+                      ? 'bg-green-50 dark:bg-green-900/20 border-green-500' 
+                      : evolution.score >= 8.0
+                      ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500'
+                      : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-500'
+                  }`}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                        Round {evolution.round} - {getModelInfo(evolution.modelId).name}
+                        🤖 Round {evolution.round} - {getModelInfo(evolution.modelId).name}
+                        {evolution.score >= 9.5 && <span className="ml-2">🎯 PERFECT!</span>}
+                        {evolution.score >= 8.0 && evolution.score < 9.5 && <span className="ml-2">✅ GREAT</span>}
                       </span>
                       <div className="flex items-center space-x-2">
+                        <div className={`px-2 py-1 rounded-full text-xs font-bold ${
+                          evolution.score >= 9.5 
+                            ? 'bg-green-600 text-white' 
+                            : evolution.score >= 8.0
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-yellow-600 text-white'
+                        }`}>
+                          QUALITY: {evolution.score}/10
+                        </div>
                         <Star className="w-4 h-4 text-yellow-500 fill-current" />
                         <span className="text-sm font-bold text-gray-900 dark:text-white">
                           {evolution.score}/10
                         </span>
                       </div>
                     </div>
+                    
+                    <div className="mb-3">
+                      <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                        IMPROVED PROMPT:
+                      </h5>
                     <p className="text-gray-900 dark:text-white mb-3">
                       "{evolution.prompt}"
                     </p>
+                    </div>
+                    
                     {evolution.improvements && evolution.improvements.length > 0 && (
                       <div className="mt-2">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">Improvements:</span>
+                        <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                          🔧 AI IMPROVEMENTS MADE:
+                        </h5>
                         <ul className="text-xs text-gray-600 dark:text-gray-300 mt-1 space-y-1">
                           {evolution.improvements.map((improvement, i) => (
                             <li key={i} className="flex items-start space-x-1">
-                              <span className="text-green-500 mt-0.5">•</span>
+                              <span className="text-green-500 mt-0.5">✓</span>
                               <span>{improvement}</span>
                             </li>
                           ))}
                         </ul>
+                      </div>
+                    )}
+                    
+                    {evolution.score >= 9.5 && (
+                      <div className="mt-3 p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                        <p className="text-xs text-green-800 dark:text-green-200 font-medium">
+                          🎯 CONSENSUS ACHIEVED: All AI models agreed this prompt reached perfect quality!
+                        </p>
                       </div>
                     )}
                   </div>
