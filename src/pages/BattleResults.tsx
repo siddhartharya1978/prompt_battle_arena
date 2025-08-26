@@ -226,6 +226,7 @@ export default function BattleResults() {
               Retrieving battle data and analysis
             </p>
           </div>
+          </div>
         </div>
       </div>
     );
