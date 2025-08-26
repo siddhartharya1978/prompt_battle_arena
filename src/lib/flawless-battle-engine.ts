@@ -1415,10 +1415,10 @@ CONFIDENCE:
     
     // Calculate scores from evaluations
     const modelScores: Record<string, number[]> = {};
-    result.evaluations.forEach((eval: any) => {
-      if (!modelScores[eval.targetId]) modelScores[eval.targetId] = [];
-      const avgScore = Object.values(eval.scores).reduce((sum: number, score: any) => sum + score, 0) / Object.keys(eval.scores).length;
-      modelScores[eval.targetId].push(avgScore);
+    result.evaluations.forEach((evaluation: any) => {
+      if (!modelScores[evaluation.targetId]) modelScores[evaluation.targetId] = [];
+      const avgScore = Object.values(evaluation.scores).reduce((sum: number, score: any) => sum + score, 0) / Object.keys(evaluation.scores).length;
+      modelScores[evaluation.targetId].push(avgScore);
     });
 
     Object.entries(modelScores).forEach(([modelId, scoreArray]) => {
