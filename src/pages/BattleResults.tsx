@@ -38,7 +38,7 @@ import toast from 'react-hot-toast';
 
 export default function BattleResults() {
   const { id } = useParams<{ id: string }>();
-  const { getBattle } = useBattle();
+  const { getBattle, battles } = useBattle();
   const navigate = useNavigate();
   const [battle, setBattle] = useState<Battle | null>(null);
   const [loading, setLoading] = useState(true);

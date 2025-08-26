@@ -188,7 +188,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('📝 [AuthContext] Updating profile for:', user.email);
       
-      const updatedProfile = await updateProfile(user.id, updates);
+      // Handle both camelCase and snake_case for compatibility
+      const dbUpdates: any = {};
+      if (updates.name !== undefined) dbUpdates.name = updates.name;
+      if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
+      if (updates.avatar_url !== undefined) dbUpdates.avatar_url = updates.avatar_url;
+      if (updates.plan !== undefined) dbUpdates.plan = updates.plan;
+      if (updates.battlesUsed !== undefined) dbUpdates.battles_used = updates.battlesUsed;
+      if (updates.lastResetAt !== undefined) dbUpdates.last_reset_at = updates.lastResetAt;
+      
+      const updatedProfile = await updateProfile(user.id, dbUpdates);
       setUser(updatedProfile);
       
       console.log('✅ [AuthContext] Profile updated successfully');

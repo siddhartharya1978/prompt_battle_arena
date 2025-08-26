@@ -101,12 +101,12 @@ export default function Settings() {
           localStorage.setItem('demo_session', JSON.stringify(updatedUser));
           await updateUserProfile({
             name: profileData.name.trim(),
-            avatarUrl: avatarUrl
+            avatar_url: avatarUrl
           });
         } else {
           // Update profile in database
-          await updateUserProfile({
-            name: updatedProfile.name,
+          await updateProfile(user.id, {
+            name: profileData.name.trim(),
             avatarUrl: avatarUrl
           });
         }

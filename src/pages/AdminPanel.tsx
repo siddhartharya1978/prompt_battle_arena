@@ -34,7 +34,7 @@ export default function AdminPanel() {
   const [comprehensiveResults, setComprehensiveResults] = useState<any[]>([]);
   const [runningComprehensive, setRunningComprehensive] = useState(false);
 
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
 
   // Load real users from Supabase

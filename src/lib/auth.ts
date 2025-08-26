@@ -128,6 +128,7 @@ export const updateProfile = async (userId: string, updates: Partial<Profile>) =
   const dbUpdates: any = {};
   if (updates.name !== undefined) dbUpdates.name = updates.name;
   if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
+  if (updates.avatar_url !== undefined) dbUpdates.avatar_url = updates.avatar_url;
   if (updates.plan !== undefined) dbUpdates.plan = updates.plan;
   if (updates.battlesUsed !== undefined) dbUpdates.battles_used = updates.battlesUsed;
   if (updates.lastResetAt !== undefined) dbUpdates.last_reset_at = updates.lastResetAt;
