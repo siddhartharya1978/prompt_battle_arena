@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import { useEffect } from 'react';
 import { Battle, Model } from '../types';
 import Navigation from '../components/Navigation';
