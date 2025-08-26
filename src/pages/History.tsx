@@ -25,6 +25,8 @@ import {
 
 export default function History() {
   const { battles, models } = useBattle();
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'running'>('all');
   const [filterMode, setFilterMode] = useState<'all' | 'auto' | 'manual'>('all');
@@ -32,6 +34,23 @@ export default function History() {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const battlesPerPage = 10;
+
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        setHistoryLoading(true);
+        setLoadError(null);
+        // History loads automatically through BattleContext
+        await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UX
+      } catch (error) {
+        setLoadError(error instanceof Error ? error.message : 'Failed to load history');
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+
+    loadHistory();
+  }, []);
 
   const getModelInfo = (modelId: string) => {
     return models.find(m => m.id === modelId) || { name: modelId, icon: '🤖' };

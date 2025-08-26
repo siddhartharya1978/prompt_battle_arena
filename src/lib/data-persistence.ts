@@ -104,7 +104,7 @@ export class DataPersistenceManager {
     try {
       // Always save to localStorage first (immediate backup)
       console.log(`🔄 [DataPersistence] STEP 1: Saving to localStorage backup...`);
-      this.saveBattleToLocalStorage(battle);
+      await this.saveBattleToLocalStorage(battle);
       console.log(`✅ [DataPersistence] STEP 1 SUCCESS: Battle ${battle.id} saved to localStorage backup`);
 
       // Attempt database save with retries for ALL users
@@ -231,6 +231,32 @@ export class DataPersistenceManager {
       console.error(`💥 [DataPersistence] CRITICAL FAILURE: Battle ${battle.id} save completely failed`);
       return { success: false, battleId: battle.id };
     }
+  }
+
+  private async saveBattleToLocalStorage(battle: Battle): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        const demoCache = JSON.parse(localStorage.getItem('demo_battles') || '[]');
+        
+        // Remove any existing battle with same ID
+        const filteredCache = demoCache.filter((b: Battle) => b.id !== battle.id);
+        
+        // Add new battle at the beginning
+        filteredCache.unshift(battle);
+        
+        // Keep only last 100 battles
+        if (filteredCache.length > 100) {
+          filteredCache.splice(100);
+        }
+        
+        localStorage.setItem('demo_battles', JSON.stringify(filteredCache));
+        console.log(`💾 [DataPersistence] LOCAL: Battle ${battle.id} saved to localStorage successfully`);
+        resolve();
+      } catch (error) {
+        console.error(`💥 [DataPersistence] CRITICAL: Failed to save battle ${battle.id} to localStorage:`, error);
+        reject(error);
+      }
+    });
   }
 
   async updateProfile(userId: string, updates: Partial<Profile>): Promise<{success: boolean, profile?: Profile}> {

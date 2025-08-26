@@ -41,7 +41,9 @@ export default function Navigation() {
   }
 
   const handleLogout = () => {
+    toast.loading('Signing out...', { id: 'logout' });
     logout();
+    toast.success('Signed out successfully', { id: 'logout' });
     navigate('/');
   };
 

@@ -425,5 +425,3 @@ BE CRITICAL AND DEMANDING.`;
     return model?.name || modelId;
   }
 }
-
-export const flawlessBattleEngine = FlawlessBattleEngine.getInstance();

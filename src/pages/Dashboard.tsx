@@ -31,6 +31,8 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { battles, models, refreshBattles } = useBattle();
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [stats, setStats] = useState({
     totalBattles: 0,
     winRate: 0,
@@ -46,15 +48,28 @@ export default function Dashboard() {
   useEffect(() => {
     console.log('Dashboard: Component mounted, user:', user?.id);
     
+    const loadDashboard = async () => {
+      try {
+        setDashboardLoading(true);
+        setRefreshError(null);
+        
     // Load system health
-    systemMonitor.getSystemHealth().then(setSystemHealth);
+        const health = await systemMonitor.getSystemHealth();
+        setSystemHealth(health);
     
-    if (refreshBattles) {
-      console.log('Dashboard: Calling refreshBattles');
-      refreshBattles().catch(error => {
-        console.error('Error refreshing battles:', error);
-      });
-    }
+        if (refreshBattles) {
+          console.log('Dashboard: Calling refreshBattles');
+          await refreshBattles();
+        }
+      } catch (error) {
+        console.error('Dashboard loading error:', error);
+        setRefreshError(error instanceof Error ? error.message : 'Failed to load dashboard');
+      } finally {
+        setDashboardLoading(false);
+      }
+    };
+
+    loadDashboard();
   }, [refreshBattles]);
 
   useEffect(() => {

@@ -83,6 +83,10 @@ export const signOut = async () => {
   console.log('🚪 [Auth] Signing out from Supabase...');
   
   try {
+    // Clear local state first for immediate UX response
+    localStorage.removeItem('demo_battles');
+    localStorage.removeItem('pba_theme');
+    
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error('❌ [Auth] Supabase signOut error:', error);
@@ -93,7 +97,8 @@ export const signOut = async () => {
     console.error('❌ [Auth] Critical signOut failure:', error);
     // Force clear session even if API call fails
     await supabase.auth.signOut({ scope: 'local' });
-    throw error;
+    // Don't throw error - user should still be logged out locally
+    console.log('✅ [Auth] Local logout completed despite API error');
   }
 };
 

@@ -68,6 +68,7 @@ export default function Settings() {
       }
       
       setUploading(true);
+      toast.loading('Saving profile...', { id: 'profile-save' });
       try {
         let avatarUrl = profileData.avatar_url;
         
@@ -124,11 +125,11 @@ export default function Settings() {
           });
         }
         
-        toast.success('Profile updated successfully!');
+        toast.success('Profile updated successfully!', { id: 'profile-save' });
         setAvatarFile(null);
       } catch (error) {
         console.error('Profile update error:', error);
-        toast.error('Failed to update profile');
+        toast.error('Failed to update profile', { id: 'profile-save' });
       } finally {
         setUploading(false);
       }

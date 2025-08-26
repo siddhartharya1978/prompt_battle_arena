@@ -1,7 +1,6 @@
 // Ultra-resilient battle system with comprehensive error handling
 import { BattleData, Battle, BattleResponse, BattleScore } from '../types';
-import { flawlessBattleEngine } from './flawless-battle-engine';
-import type { FlawlessBattleConfig } from './flawless-battle-engine';
+import { FlawlessBattleEngine } from './flawless-battle-engine';
 import { BattleProgressTracker, ProgressCallback } from './battle-progress';
 import { AVAILABLE_MODELS } from './models';
 
@@ -15,7 +14,7 @@ export class ResilientBattleEngine {
   async createBattle(battleData: BattleData): Promise<Battle> {
     try {
       // Use the new flawless battle engine
-      const config: FlawlessBattleConfig = {
+      const config = {
         prompt: battleData.prompt,
         category: battleData.prompt_category,
         battleType: battleData.battle_type,
@@ -25,7 +24,8 @@ export class ResilientBattleEngine {
         qualityThreshold: 9.5
       };
 
-      const result = await flawlessBattleEngine.runFlawlessBattle(
+      const battleEngine = FlawlessBattleEngine.getInstance();
+      const result = await battleEngine.runFlawlessBattle(
         config,
         (phase, progress, details) => {
           this.progressTracker.updatePhase(phase, details, progress, details);
