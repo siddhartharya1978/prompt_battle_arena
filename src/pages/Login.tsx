@@ -50,7 +50,7 @@ export default function Login() {
       let errorMessage = 'Something went wrong';
       
       if (error.message?.includes('Invalid login credentials') || error.message?.includes('invalid_credentials')) {
-        errorMessage = 'Invalid email or password. If using demo accounts, your Supabase project may not be connected. Try the demo accounts below or check your Supabase setup in the top-right corner.';
+        errorMessage = 'Invalid login credentials. The demo accounts may not exist in your Supabase project yet. Please either: 1) Create a new account using "Sign up", or 2) Ensure your Supabase project is properly connected (button in top-right corner).';
       } else if (error.message?.includes('Email not confirmed')) {
         errorMessage = 'Please check your email and click the confirmation link.';
       } else if (error.message?.includes('User already registered')) {
