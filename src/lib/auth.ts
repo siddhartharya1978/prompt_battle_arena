@@ -76,6 +76,49 @@ export const signIn = async (email: string, password: string) => {
   });
 
   if (error) throw error;
+  
+  // Check if user has a profile, create one if missing
+  if (data.user) {
+    try {
+      const { data: existingProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .maybeSingle();
+      
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('Error checking profile:', profileError);
+      }
+      
+      // Create profile if it doesn't exist
+      if (!existingProfile) {
+        console.log('Creating missing profile for existing user:', data.user.email);
+        const profileData = {
+          id: data.user.id,
+          email: data.user.email!,
+          name: data.user.user_metadata?.name || data.user.email!.split('@')[0],
+          avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
+          plan: 'free' as const,
+          role: data.user.email === 'admin@pba.com' ? 'admin' as const : 'user' as const,
+          battles_used: 0,
+          battles_limit: data.user.email === 'admin@pba.com' ? 999 : 3,
+          last_reset_at: new Date().toISOString().split('T')[0],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        const { error: insertError } = await supabase.from('profiles').insert(profileData);
+        if (insertError) {
+          console.error('Error creating profile during signin:', insertError);
+          // Don't throw error - user can still sign in
+        }
+      }
+    } catch (profileError) {
+      console.error('Profile check/creation failed during signin:', profileError);
+      // Don't throw error - user can still sign in
+    }
+  }
+  
   return data;
 };
 
