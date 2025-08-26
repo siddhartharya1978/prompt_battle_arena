@@ -61,6 +61,7 @@ export class DataPersistenceManager {
         return data;
       }, options);
 
+      console.log(`✅ [DataPersistence] SUCCESS: Battle usage incremented for user ${userId} to ${result.battles_used}`);
       return { success: true, newUsage: result.battles_used };
 
 
@@ -71,10 +72,12 @@ export class DataPersistenceManager {
         // Fallback to localStorage tracking
         const fallbackKey = `user_${userId}_battles_used`;
         localStorage.setItem(fallbackKey, optimisticUsage.toString());
-        console.warn(`[DataPersistence] Supabase: Failed to increment battle usage for user ${userId}. Falling back to localStorage. Error: ${error.message}`);
+        console.error(`❌ [DataPersistence] FAILED: Battle usage increment for user ${userId} failed. Error: ${error.message}`);
+        console.log(`🔄 [DataPersistence] FALLBACK: Using localStorage for user ${userId} battle usage tracking`);
         return { success: true, newUsage: optimisticUsage };
       }
 
+      console.error(`💥 [DataPersistence] CRITICAL: Battle usage increment completely failed for user ${userId}. Error: ${error.message}`);
       return { success: false, newUsage: currentUsage };
     }
   }
@@ -177,10 +180,11 @@ export class DataPersistenceManager {
             })));
 
           if (evolutionError) throw evolutionError;
-          console.log(`[DataPersistence] Supabase: Battle ${battle.id} and related records saved successfully.`);
+          console.log(`✅ [DataPersistence] SUCCESS: Battle ${battle.id} and all related records saved to Supabase successfully.`);
         }
       }, options);
 
+      console.log(`✅ [DataPersistence] SUCCESS: Battle ${battle.id} fully persisted to Supabase`);
       return { success: true, battleId: battle.id };
 
 
@@ -189,10 +193,11 @@ export class DataPersistenceManager {
       
       if (options.fallbackToLocal) {
         // Already saved to localStorage, so we're good
-        console.log('Battle saved to localStorage as fallback');
-        console.warn(`[DataPersistence] Supabase: Failed to save battle ${battle.id}. Falling back to localStorage. Error: ${error.message}`);
+        console.error(`❌ [DataPersistence] FAILED: Battle ${battle.id} Supabase save failed. Error: ${error.message}`);
+        console.log(`🔄 [DataPersistence] FALLBACK: Battle ${battle.id} saved to localStorage successfully`);
       }
 
+      console.error(`💥 [DataPersistence] CRITICAL: Battle ${battle.id} save completely failed. Error: ${error.message}`);
       return { success: false, battleId: battle.id };
     }
   }
@@ -236,6 +241,7 @@ export class DataPersistenceManager {
         return data;
       }, options);
 
+      console.log(`✅ [DataPersistence] SUCCESS: Profile updated for user ${userId}`);
       return { success: true, profile: result };
 
 
@@ -249,10 +255,12 @@ export class DataPersistenceManager {
           updates,
           timestamp: new Date().toISOString()
         })); // This is a pending update, not the actual profile
-        console.log('Profile updates saved to localStorage as fallback');
+        console.error(`❌ [DataPersistence] FAILED: Profile update for user ${userId} failed. Error: ${error.message}`);
+        console.log(`🔄 [DataPersistence] FALLBACK: Profile updates saved to localStorage for user ${userId}`);
         return { success: true };
       }
 
+      console.error(`💥 [DataPersistence] CRITICAL: Profile update completely failed for user ${userId}. Error: ${error.message}`);
       return { success: false };
     }
   }
@@ -303,9 +311,9 @@ export class DataPersistenceManager {
       }
       
       localStorage.setItem('demo_battles', JSON.stringify(filteredCache));
-      console.log(`[DataPersistence] Battle ${battle.id} saved to localStorage.`);
+      console.log(`💾 [DataPersistence] LOCAL: Battle ${battle.id} saved to localStorage successfully`);
     } catch (error) {
-      console.error('Failed to save battle to localStorage:', error);
+      console.error(`💥 [DataPersistence] CRITICAL: Failed to save battle ${battle.id} to localStorage:`, error);
       // Even localStorage can fail (quota exceeded), but we continue
     }
   }

@@ -31,7 +31,8 @@ import {
   ChevronUp,
   Copy,
   CheckCircle,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -261,22 +262,108 @@ export default function BattleResults() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <Navigation />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-2xl p-8">
-            <AlertTriangle className="w-16 h-16 text-red-600 dark:text-red-400 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              Battle Failed
-            </h2>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Unfortunately, this battle could not be completed due to an API error.
-              Please try again later or check your API configuration.
-            </p>
-            <Link
-              to="/battle/new"
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Try a New Battle
-            </Link>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center space-x-4">
+                <Link
+                  to="/history"
+                  className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </Link>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    Battle Failed
+                  </h1>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    API Error - No Synthetic Data Generated
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Failed Battle Details */}
+            <div className="p-6">
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl p-6 mb-6">
+                <div className="flex items-start space-x-3">
+                  <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400 mt-1 flex-shrink-0" />
+                  <div>
+                    <h3 className="text-lg font-bold text-red-900 dark:text-red-100 mb-2">
+                      Groq API Failure - ALL REAL Policy
+                    </h3>
+                    <p className="text-red-700 dark:text-red-300 mb-4">
+                      This battle could not be completed due to Groq API issues. Following our "ALL REAL" policy, 
+                      no synthetic or mock data was generated. The battle has been honestly recorded as failed.
+                    </p>
+                    {battle.plateauReason && (
+                      <div className="bg-red-100 dark:bg-red-900/30 rounded-lg p-3">
+                        <p className="text-sm text-red-800 dark:text-red-200 font-mono">
+                          <strong>Error Details:</strong> {battle.plateauReason}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Battle Configuration */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 mb-6">
+                <h4 className="font-medium text-gray-900 dark:text-white mb-3">Battle Configuration</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-600 dark:text-gray-300">Type:</span>
+                    <p className="font-medium text-gray-900 dark:text-white capitalize">
+                      {battle.battleType} Battle
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600 dark:text-gray-300">Mode:</span>
+                    <p className="font-medium text-gray-900 dark:text-white capitalize">
+                      {battle.battleMode} Mode
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600 dark:text-gray-300">Models:</span>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {battle.models.join(', ')}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600 dark:text-gray-300">Category:</span>
+                    <p className="font-medium text-gray-900 dark:text-white capitalize">
+                      {battle.promptCategory}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Original Prompt */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 mb-6">
+                <h4 className="font-medium text-gray-900 dark:text-white mb-2">Original Prompt</h4>
+                <p className="text-gray-900 dark:text-white">
+                  "{battle.prompt}"
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link
+                  to="/battle/new"
+                  className="flex-1 inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try New Battle
+                </Link>
+                <Link
+                  to="/history"
+                  className="flex-1 inline-flex items-center justify-center px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View History
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </div>

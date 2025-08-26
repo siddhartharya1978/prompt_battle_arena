@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Check for demo credentials
       if (email.trim().toLowerCase() === 'demo@example.com' && password === 'demo123') {
         const demoUser = {
-          id: crypto.randomUUID(), // Assign a real UUID for demo users
+          id: crypto.randomUUID(),
           email: 'demo@example.com',
           name: 'Demo User',
           avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (email.trim().toLowerCase() === 'admin@pba.com' && password === 'admin123') { // Assign a real UUID for admin demo users
+      if (email.trim().toLowerCase() === 'admin@pba.com' && password === 'admin123') {
         const adminUser = {
           id: crypto.randomUUID(),
           email: 'admin@pba.com',

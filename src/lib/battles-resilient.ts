@@ -48,21 +48,15 @@ export class ResilientBattleEngine {
   }
 
   private generateFallbackBattle(battleData: BattleData, battleId: string, errorMessage: string): Battle {
-    // When a battle fails due to API issues, we record it as a failed battle
-    // No synthetic responses or scores are generated.
-    // The battle status will be 'failed', winner will be null, and responses/scores will be empty.
+    // ALL REAL FAILURE - No synthetic data, honest failure state
     console.error(`[ResilientBattleEngine] Generating failed battle record for ${battleId}. Error: ${errorMessage}`);
     
-    const winner = null; // No winner if battle failed
-    const responses: BattleResponse[] = []; // No responses if battle failed
-    const scores: Record<string, BattleScore> = {}; // No scores if battle failed
-
     const battle: Battle = {
       id: battleId,
       userId: 'current-user-id',
       battleType: battleData.battle_type,
       prompt: battleData.prompt,
-      finalPrompt: battleData.battle_type === 'prompt' ? battleData.prompt + ' (refined)' : null,
+      finalPrompt: null,
       promptCategory: battleData.prompt_category,
       models: battleData.models,
       mode: battleData.mode,
@@ -71,13 +65,14 @@ export class ResilientBattleEngine {
       maxTokens: battleData.max_tokens,
       temperature: battleData.temperature,
       status: 'failed', // Mark as failed
-      winner,
-      totalCost: 0.005,
+      winner: null,
+      totalCost: 0,
       autoSelectionReason: battleData.auto_selection_reason,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      responses,
-      scores
+      responses: [],
+      scores: {},
+      plateauReason: `API Failure: ${errorMessage}`
     };
 
     this.storeBattleInCache(battle);

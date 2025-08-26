@@ -662,6 +662,42 @@ export class FlawlessBattleEngine {
     }
   }
 
+  // LLM-POWERED META-POSTPROCESSOR - Ensures clean, complete outputs
+  private async postProcessLLMOutput(
+    rawOutput: string,
+    expectedType: 'prompt' | 'critique' | 'score',
+    context: string = ''
+  ): Promise<string> {
+    try {
+      const cleaningPrompt = `Extract ONLY the clean, final ${expectedType} from this text. Remove any conversational filler, incomplete sentences, or extraneous reasoning.
+
+RAW OUTPUT:
+"${rawOutput}"
+
+CONTEXT: ${context}
+
+CRITICAL INSTRUCTIONS:
+- Extract ONLY the ${expectedType} content
+- Remove any "Here's my..." or "I think..." prefixes
+- Remove any incomplete sentences or cut-off text
+- Return ONLY the clean, complete ${expectedType}
+- No explanations, no quotes, no formatting
+
+CLEAN OUTPUT:`;
+
+      const result = await this.groqClient.callGroqAPI('llama-3.1-8b-instant', cleaningPrompt, 200, 0.1);
+      const cleaned = result.response.trim()
+        .replace(/^["']|["']$/g, '')
+        .replace(/^\[|\]$/g, '')
+        .trim();
+      
+      return cleaned.length > 10 ? cleaned : rawOutput;
+    } catch (error) {
+      console.warn('Meta-postprocessor failed, using original:', error);
+      return rawOutput;
+    }
+  }
+
   // PARALLEL IMPROVEMENT GENERATION
   private async generateParallelImprovements(
     models: string[],
@@ -690,24 +726,27 @@ CURRENT PROMPT TO IMPROVE:
 
 CATEGORY: ${category}
 ROUND: ${round}
+COMPETITION LEVEL: GENIUS - BE BRUTAL AND CRITICAL
 
-CRITICAL REQUIREMENTS:
-1. Analyze the current prompt's weaknesses with precision
-2. Generate a dramatically improved version that addresses ALL weaknesses
-3. Ensure your improvement is measurably better across ALL dimensions
+CRITICAL INSTRUCTIONS:
+1. BE BRUTAL - Identify EVERY weakness with surgical precision
+2. Generate a dramatically improved version that addresses ALL weaknesses  
+3. Your improvement must be measurably better across ALL dimensions
+4. DO NOT be polite - be objective and rigorous
+5. Only reward REAL, measurable improvements
 
-RESPOND IN THIS EXACT FORMAT (CRITICAL - FOLLOW EXACTLY):
+RESPOND IN THIS EXACT FORMAT:
 
-THINKING:
-[Your detailed analysis of weaknesses and improvement strategy - be thorough]
+STRATEGIC_ANALYSIS:
+[Your BRUTAL analysis of weaknesses and strategic approach - be specific and critical]
 
 IMPROVED_PROMPT:
-[Your significantly improved prompt - ONLY the prompt text, no quotes or explanations]
+[Your significantly improved prompt - ONLY the prompt text]
 
-CONFIDENCE:
+CONFIDENCE_LEVEL:
 [Rate your confidence this is better: 1-10]
 
-This is a high-stakes competition - make your improvement revolutionary!`;
+This is a high-stakes competition - make your improvement revolutionary or admit if no improvement is possible!`;
 
     // Process models in parallel with individual error handling
     const promises = models.map(async (modelId) => {
@@ -724,7 +763,16 @@ This is a high-stakes competition - make your improvement revolutionary!`;
         if (result.fallbackUsed) fallbacksUsed++;
 
         // ROBUST PARSING WITH MULTIPLE STRATEGIES
-        const parsed = this.parseImprovementResponse(result.response, currentPrompt, category);
+        let parsed = this.parseImprovementResponse(result.response, currentPrompt, category);
+        
+        // Apply meta-postprocessor for clean output
+        if (parsed.improvedPrompt) {
+          parsed.improvedPrompt = await this.postProcessLLMOutput(
+            parsed.improvedPrompt,
+            'prompt',
+            `Improving prompt for ${category} category`
+          );
+        }
         
         results.push({
           modelId,
@@ -881,17 +929,24 @@ RESPONSE TO EVALUATE:
 
 CATEGORY: ${category}
 
-Evaluate across these 5 dimensions (1-10 scale):
+BE BRUTAL AND CRITICAL - Evaluate across these 5 dimensions (1-10 scale):
 - TECHNICAL_ACCURACY: Factual correctness and domain expertise
 - CREATIVE_EXCELLENCE: Innovation, engagement, and originality  
 - STRUCTURAL_CLARITY: Organization, flow, and logical structure
 - COMPLETENESS: Thoroughness and comprehensive coverage
 - PRACTICAL_VALUE: Actionability and real-world utility
 
+CRITICAL INSTRUCTIONS:
+- BE STRICT and UNFORGIVING in your scoring
+- Only give high scores (8+) for truly exceptional responses
+- Identify specific weaknesses and failures
+- Do NOT be polite or generous - be objective and rigorous
+- If a response is mediocre, score it as mediocre (5-6)
+
 RESPOND IN THIS EXACT FORMAT:
 
-EXPERT_CRITIQUE:
-[Your detailed professional assessment in 2-3 sentences]
+EXPERT_EVALUATION:
+[Your BRUTAL, detailed professional assessment - be critical and specific]
 
 TECHNICAL_ACCURACY: [1-10]
 CREATIVE_EXCELLENCE: [1-10]
@@ -899,7 +954,7 @@ STRUCTURAL_CLARITY: [1-10]
 COMPLETENESS: [1-10]
 PRACTICAL_VALUE: [1-10]
 
-Be rigorous and honest in your evaluation.`;
+Be BRUTAL, rigorous and brutally honest. No politeness - only harsh truth.`;
 
           const result = await this.makeUltraResilientAPICall(
             judgeModel,

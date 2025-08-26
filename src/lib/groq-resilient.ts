@@ -118,7 +118,9 @@ export class ResilientGroqClient {
 
     // Strategy 4: Generate synthetic response
     progressCallback?.(`Generating synthetic response...`);
-    throw new Error(`Failed to get a response from Groq API after multiple attempts and fallbacks. Last error: ${lastError?.message || 'Unknown error'}`);
+    
+    // NO SYNTHETIC RESPONSES - FAIL HONESTLY
+    throw new Error(`ALL REAL GROQ API ATTEMPTS FAILED: ${lastError?.message || 'Unknown error'}. No synthetic fallbacks - this is a genuine API failure.`);
   } // End of callGroqAPI
 
   private async makeDirectAPICall(
