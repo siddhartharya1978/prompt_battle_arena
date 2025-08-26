@@ -42,6 +42,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (error) {
           console.error('❌ [AuthContext] Session error:', error);
+          // Clear invalid session data to prevent repeated failed attempts
+          await supabase.auth.signOut();
           if (mounted) {
             setUser(null);
             setLoading(false);
