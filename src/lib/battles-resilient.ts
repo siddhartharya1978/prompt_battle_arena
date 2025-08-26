@@ -19,7 +19,7 @@ export class ResilientBattleEngine {
         category: battleData.prompt_category,
         battleType: battleData.battle_type,
         models: battleData.models.slice(0, 2), // Limit to 2 models
-        userId: 'current-user-id',
+        userId: battleData.user_id,
         maxRounds: battleData.battle_type === 'prompt' ? 6 : 1,
         qualityThreshold: 9.5
       };
@@ -59,7 +59,7 @@ export class ResilientBattleEngine {
     
     const battle: Battle = {
       id: battleId,
-      userId: battleData.user_id || 'unknown-user',
+      userId: battleData.user_id,
       battleType: battleData.battle_type,
       prompt: battleData.prompt,
       finalPrompt: null,

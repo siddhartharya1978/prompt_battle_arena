@@ -94,6 +94,7 @@ export interface BattleData {
   max_tokens: number;
   temperature: number;
   auto_selection_reason?: string;
+  user_id: string;
 }
 
 // Database transformation utilities

@@ -161,7 +161,8 @@ export default function NewBattle() {
         rounds: battleType === 'prompt' ? 10 : rounds,
         max_tokens: maxTokens,
         temperature,
-        auto_selection_reason: battleMode === 'auto' ? finalReason : undefined
+        auto_selection_reason: battleMode === 'auto' ? finalReason : undefined,
+        user_id: user.id
       };
 
       const battle = await createBattle(battleData);
