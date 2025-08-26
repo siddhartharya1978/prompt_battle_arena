@@ -93,7 +93,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       console.log('👤 [BattleContext] User ID:', battleData.user_id);
       
       // Create battle with proper configuration
-      const battle = await this.createBattleWithProperFlow(battleData, battleId, progressCallback);
+      const battle = await createBattleWithProperFlow(battleData, battleId, progressCallback);
       
       console.log('✅ [BattleContext] BATTLE CREATION SUCCESS');
       
