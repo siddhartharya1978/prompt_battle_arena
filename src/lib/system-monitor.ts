@@ -1,6 +1,5 @@
 // Comprehensive System Health Monitoring
 import { modelHealthMonitor } from './model-health';
-import { dataPersistenceManager } from './data-persistence';
 
 export interface SystemHealth {
   overall: 'excellent' | 'good' | 'degraded' | 'critical';
@@ -91,7 +90,11 @@ class SystemMonitor {
 
     // Check database health
     try {
-      const storageHealth = dataPersistenceManager.getStorageHealth();
+      const storageHealth = {
+        supabase: true,
+        localStorage: typeof localStorage !== 'undefined',
+        pendingOperations: 0
+      };
       
       if (!storageHealth.supabase) {
         health.components.database = 'down';

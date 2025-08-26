@@ -115,11 +115,11 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       
       // Try to save to Supabase, fallback to localStorage
       try {
-        await this.saveBattleToSupabase(battle);
+        await saveBattleToSupabase(battle);
         console.log('✅ [BattleContext] Battle saved to Supabase');
       } catch (error) {
         console.warn('⚠️ [BattleContext] Supabase save failed, using localStorage:', error);
-        this.storeBattleInCache(battle);
+        storeBattleInCache(battle);
       }
       
       setBattleProgress(null);
@@ -154,7 +154,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  private async saveBattleToSupabase(battle: Battle) {
+  const saveBattleToSupabase = async (battle: Battle) => {
     // Save main battle record
     const { error: battleError } = await supabase
       .from('battles')
@@ -222,9 +222,9 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
         console.warn('Failed to save scores:', scoresError);
       }
     }
-  }
+  };
 
-  private storeBattleInCache(battle: Battle) {
+  const storeBattleInCache = (battle: Battle) => {
     try {
       const demoCache = JSON.parse(localStorage.getItem('demo_battles') || '[]');
       demoCache.unshift(battle);
@@ -235,7 +235,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error storing battle in cache:', error);
     }
-  }
+  };
 
   const getBattle = (battleId: string): Battle | null => {
     return battles.find(b => b.id === battleId) || null;
