@@ -340,7 +340,10 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
         auto_selection_reason: battle.autoSelectionReason
       }, { onConflict: 'id' });
 
-    if (battleError) throw battleError;
+    if (battleError) {
+      console.error('❌ [BattleContext] Battle insert failed:', battleError);
+      throw battleError;
+    }
     console.log('✅ [BattleContext] Battle record saved');
 
     // Save responses
