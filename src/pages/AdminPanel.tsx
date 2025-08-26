@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useBattle } from '../contexts/BattleContext';
 import { Profile } from '../types';
-import { bulletproofSupabase } from '../lib/supabase-bulletproof';
+import { supabase } from '../lib/supabase';
 import { runComprehensiveE2ETests } from '../lib/comprehensive-tests';
 import Navigation from '../components/Navigation';
 import {
@@ -40,12 +40,7 @@ export default function AdminPanel() {
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        const client = bulletproofSupabase.getClient();
-        if (!client) {
-          throw new Error('Supabase not initialized');
-        }
-        
-        const { data, error } = await client
+        const { data, error } = await supabase
           .from('profiles')
           .select('*')
           .order('created_at', { ascending: false });

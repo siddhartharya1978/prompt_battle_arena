@@ -18,7 +18,6 @@ import {
   Upload
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { bulletproofSupabase } from '../lib/supabase-bulletproof';
 
 export default function Settings() {
   const { user, logout, updateUserProfile } = useAuth();
@@ -106,19 +105,9 @@ export default function Settings() {
           });
         } else {
           // Update profile in database
-          const updatedProfile = await bulletproofSupabase.updateProfile(user.id, {
-            name: profileData.name.trim(),
-            avatarUrl: avatarUrl
-          });
-          
-          if (!updatedProfile) {
-            throw new Error('Profile update failed');
-          }
-          
-          // Update the auth context with new profile data
           await updateUserProfile({
             name: updatedProfile.name,
-            avatarUrl: updatedProfile.avatarUrl
+            avatarUrl: avatarUrl
           });
         }
         
