@@ -1296,10 +1296,10 @@ CONFIDENCE:
     // Find model with highest average score
     const modelScores: Record<string, number[]> = {};
     
-    evaluations.forEach((eval: any) => {
-      if (!modelScores[eval.targetId]) modelScores[eval.targetId] = [];
-      const avgScore = Object.values(eval.scores).reduce((sum: number, score: any) => sum + score, 0) / Object.keys(eval.scores).length;
-      modelScores[eval.targetId].push(avgScore);
+    evaluations.forEach((evaluation: any) => {
+      if (!modelScores[evaluation.targetId]) modelScores[evaluation.targetId] = [];
+      const avgScore = Object.values(evaluation.scores).reduce((sum, score) => sum + score, 0) / Object.keys(evaluation.scores).length;
+      modelScores[evaluation.targetId].push(avgScore);
     });
 
     let winner = '';
