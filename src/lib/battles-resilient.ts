@@ -1,6 +1,7 @@
 // Ultra-resilient battle system with comprehensive error handling
 import { BattleData, Battle, BattleResponse, BattleScore } from '../types';
-import { flawlessBattleEngine, FlawlessBattleConfig } from './flawless-battle-engine';
+import { flawlessBattleEngine } from './flawless-battle-engine';
+import type { FlawlessBattleConfig } from './flawless-battle-engine';
 import { BattleProgressTracker, ProgressCallback } from './battle-progress';
 import { AVAILABLE_MODELS } from './models';
 
