@@ -30,6 +30,9 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
+    // Clear any existing errors
+    toast.dismiss();
 
     try {
       if (isSignUp) {
@@ -47,21 +50,20 @@ export default function Login() {
         navigate('/dashboard');
       }
     } catch (error: any) {
-      let errorMessage = 'Something went wrong';
+      console.error('🚨 [Login] Authentication error:', error);
+      
+      let errorMessage = 'Authentication failed';
       
       if (error.message?.includes('Invalid login credentials') || error.message?.includes('invalid_credentials')) {
-        errorMessage = 'Invalid login credentials. The demo accounts may not exist in your Supabase project yet. Please either: 1) Create a new account using "Sign up", or 2) Ensure your Supabase project is properly connected (button in top-right corner).';
+        errorMessage = 'Invalid email or password. Please check your credentials and try again.';
       } else if (error.message?.includes('Email not confirmed')) {
         errorMessage = 'Please check your email and click the confirmation link.';
       } else if (error.message?.includes('User already registered')) {
         errorMessage = 'An account with this email already exists. Try signing in instead.';
+      } else if (error.message?.includes('Too many requests')) {
+        errorMessage = 'Too many login attempts. Please wait a few minutes and try again.';
       } else if (error.message) {
         errorMessage = error.message;
-      }
-      
-      // If Supabase auth fails, provide helpful guidance
-      if (error.message?.includes('supabase') || error.message?.includes('fetch')) {
-        errorMessage = 'Unable to connect to authentication service. Please check if Supabase is connected (button in top-right) or try the demo accounts below.';
       }
       
       toast.error(errorMessage);
