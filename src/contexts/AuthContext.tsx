@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { getProfile, updateProfile } from '../lib/auth';
 import { Profile } from '../types';
 
 interface AuthContextType {
@@ -22,88 +24,61 @@ export function useAuth() {
   return context;
 }
 
-// Demo users for offline mode
-const DEMO_USERS = {
-  'demo@example.com': {
-    id: 'demo-user-id',
-    email: 'demo@example.com',
-    name: 'Demo User',
-    avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
-    plan: 'free' as const,
-    role: 'user' as const,
-    battlesUsed: 1,
-    battlesLimit: 3,
-    lastResetAt: new Date().toISOString().split('T')[0],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    password: 'demo123'
-  },
-  'admin@pba.com': {
-    id: 'admin-user-id',
-    email: 'admin@pba.com',
-    name: 'Admin User',
-    avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
-    plan: 'premium' as const,
-    role: 'admin' as const,
-    battlesUsed: 5,
-    battlesLimit: 999,
-    lastResetAt: new Date().toISOString().split('T')[0],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    password: 'admin123'
-  }
-};
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
 
-  // Initialize auth - check localStorage for demo session
   useEffect(() => {
-    const initAuth = () => {
+    // Get initial session
+    const getInitialSession = async () => {
       try {
-        console.log('🔍 [Auth] Checking for demo session...');
+        const { data: { session } } = await supabase.auth.getSession();
         
-        const demoSession = localStorage.getItem('demo_session');
-        if (demoSession) {
-          const userData = JSON.parse(demoSession);
-          console.log('✅ [Auth] Found demo session for:', userData.email);
-          setUser(userData);
-        } else {
-          console.log('📝 [Auth] No demo session found');
+        if (session?.user) {
+          const profile = await getProfile(session.user.id);
+          if (profile) {
+            setUser(profile);
+          }
         }
       } catch (error) {
-        console.error('❌ [Auth] Init error:', error);
+        console.error('Error getting initial session:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    initAuth();
+    getInitialSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        const profile = await getProfile(session.user.id);
+        if (profile) {
+          setUser(profile);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
     setAuthLoading(true);
     try {
-      console.log('🔐 [Auth] Demo login attempt for:', email);
+      const { signIn } = await import('../lib/auth');
+      const { user: authUser } = await signIn(email, password);
       
-      const demoUser = DEMO_USERS[email as keyof typeof DEMO_USERS];
-      
-      if (!demoUser || demoUser.password !== password) {
-        throw new Error('Invalid login credentials');
+      if (authUser) {
+        const profile = await getProfile(authUser.id);
+        if (profile) {
+          setUser(profile);
+        }
       }
-
-      // Create user profile without password
-      const { password: _, ...userProfile } = demoUser;
-      
-      // Store in localStorage
-      localStorage.setItem('demo_session', JSON.stringify(userProfile));
-      setUser(userProfile);
-      
-      console.log('✅ [Auth] Demo login successful');
     } catch (error) {
-      console.error('❌ [Auth] Login failed:', error);
+      console.error('Login error:', error);
       throw error;
     } finally {
       setAuthLoading(false);
@@ -113,29 +88,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (email: string, password: string, name: string) => {
     setAuthLoading(true);
     try {
-      console.log('📝 [Auth] Demo registration for:', email);
-      
-      // Create new demo user
-      const newUser: Profile = {
-        id: `user_${Date.now()}`,
-        email: email.trim(),
-        name: name.trim(),
-        avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
-        plan: 'free',
-        role: 'user',
-        battlesUsed: 0,
-        battlesLimit: 3,
-        lastResetAt: new Date().toISOString().split('T')[0],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      localStorage.setItem('demo_session', JSON.stringify(newUser));
-      setUser(newUser);
-      
-      console.log('✅ [Auth] Demo registration successful');
+      const { signUp } = await import('../lib/auth');
+      await signUp(email, password, name);
     } catch (error) {
-      console.error('❌ [Auth] Registration failed:', error);
+      console.error('Registration error:', error);
       throw error;
     } finally {
       setAuthLoading(false);
@@ -145,11 +101,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setAuthLoading(true);
     try {
-      localStorage.removeItem('demo_session');
+      const { signOut } = await import('../lib/auth');
+      await signOut();
       setUser(null);
-      console.log('✅ [Auth] Demo logout successful');
     } catch (error) {
-      console.error('❌ [Auth] Logout failed:', error);
+      console.error('Logout error:', error);
       setUser(null);
     } finally {
       setAuthLoading(false);
@@ -160,11 +116,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
 
     try {
-      const updatedUser = { ...user, ...updates, updatedAt: new Date().toISOString() };
-      localStorage.setItem('demo_session', JSON.stringify(updatedUser));
-      setUser(updatedUser);
+      const updatedProfile = await updateProfile(user.id, updates);
+      setUser(updatedProfile);
     } catch (error) {
-      console.error('❌ [Auth] Profile update failed:', error);
+      console.error('Profile update error:', error);
       throw error;
     }
   };
@@ -173,17 +128,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
 
     try {
-      const newUsage = Math.min(user.battlesUsed + 1, user.battlesLimit);
-      const updatedUser = {
-        ...user,
-        battlesUsed: newUsage,
-        updatedAt: new Date().toISOString()
-      };
+      const today = new Date().toISOString().split('T')[0];
+      let newUsage = user.battlesUsed;
       
-      localStorage.setItem('demo_session', JSON.stringify(updatedUser));
-      setUser(updatedUser);
+      // Reset usage if it's a new day
+      if (user.lastResetAt !== today) {
+        newUsage = 1;
+      } else {
+        newUsage = Math.min(user.battlesUsed + 1, user.battlesLimit);
+      }
+
+      const updatedProfile = await updateProfile(user.id, {
+        battlesUsed: newUsage,
+        lastResetAt: today
+      });
+      
+      setUser(updatedProfile);
     } catch (error) {
-      console.error('❌ [Auth] Error incrementing usage:', error);
+      console.error('Error incrementing usage:', error);
     }
   };
 
