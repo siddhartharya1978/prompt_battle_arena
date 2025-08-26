@@ -96,12 +96,6 @@ export const signOut = async () => {
     throw error;
   }
 };
-  if (error) {
-    console.error('❌ [Auth] Supabase signOut error:', error);
-    throw error;
-  }
-  console.log('✅ [Auth] Supabase signOut successful');
-};
 
 export const getProfile = async (userId: string): Promise<Profile | null> => {
   if (!userId) return null;
