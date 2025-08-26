@@ -45,9 +45,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (session?.user && mounted) {
           console.log('✅ [Auth] Found Supabase session for user:', session.user.email);
-          const result = await bulletproofSupabase.signIn(session.user.email!, 'session-restore');
-          if (result.profile) {
-            setUser(result.profile);
+          // Directly fetch profile for existing session - no re-authentication needed
+          const profile = await bulletproofSupabase.getProfile(session.user.id);
+          if (profile) {
+            setUser(profile);
+            console.log('✅ [Auth] Profile loaded for existing session');
+          } else {
+            console.log('📝 [Auth] No profile found, user needs to complete setup');
+            setUser(null);
           }
         } else {
           console.log('📝 [Auth] No active Supabase session found');
@@ -85,12 +90,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (event === 'SIGNED_IN' && session?.user) {
         setAuthLoading(true);
         try {
-          const result = await bulletproofSupabase.signIn(session.user.email!, 'auto-signin');
-          if (result.profile) {
-            setUser(result.profile);
+          // For auth state changes, just fetch the profile - don't re-authenticate
+          const profile = await bulletproofSupabase.getProfile(session.user.id);
+          if (profile) {
+            setUser(profile);
+            console.log('✅ [Auth] Profile loaded from auth state change');
+          } else {
+            console.log('📝 [Auth] No profile found during auth state change');
+            setUser(null);
           }
         } catch (error) {
-          console.error('❌ [Auth] Auto sign-in failed:', error);
+          console.error('❌ [Auth] Profile fetch failed during auth state change:', error);
           setUser(null);
         }
         setAuthLoading(false);
