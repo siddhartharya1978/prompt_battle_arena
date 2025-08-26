@@ -829,4 +829,81 @@ export default function BattleResults() {
             {expandedSections.has('evolution') && (
               <div className="space-y-4">
                 {/* Show Original Prompt First */}
-                <div className="
+                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border-l-4 border-blue-500">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                      Round 0 - Original
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Starting Point
+                    </span>
+                  </div>
+                  <p className="text-gray-900 dark:text-white">
+                    "{battle.prompt}"
+                  </p>
+                </div>
+                
+                {battle.promptEvolution.map((evolution, index) => (
+                  <div key={evolution.id} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border-l-4 border-green-500">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        Round {evolution.round} - {getModelInfo(evolution.modelId).name}
+                      </span>
+                      <div className="flex items-center space-x-2">
+                        <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                        <span className="text-sm font-bold text-gray-900 dark:text-white">
+                          {evolution.score}/10
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-gray-900 dark:text-white mb-3">
+                      "{evolution.prompt}"
+                    </p>
+                    {evolution.improvements && evolution.improvements.length > 0 && (
+                      <div className="mt-2">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Improvements:</span>
+                        <ul className="text-xs text-gray-600 dark:text-gray-300 mt-1 space-y-1">
+                          {evolution.improvements.map((improvement, i) => (
+                            <li key={i} className="flex items-start space-x-1">
+                              <span className="text-green-500 mt-0.5">•</span>
+                              <span>{improvement}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Link
+              to="/battle/new"
+              className="flex-1 inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Start New Battle
+            </Link>
+            <Link
+              to="/history"
+              className="flex-1 inline-flex items-center justify-center px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              View All Battles
+            </Link>
+          </div>
+        </div>
+
+        {/* Feedback Widget */}
+        <div className="mt-8">
+          <FeedbackWidget battleId={battle.id} />
+        </div>
+      </div>
+    </div>
+  );
+}
