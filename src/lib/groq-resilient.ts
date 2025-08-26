@@ -387,3 +387,6 @@ export class ResilientGroqClient {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
+
+// Export singleton instance for easy importing
+export const resilientGroqClient = ResilientGroqClient.getInstance();
