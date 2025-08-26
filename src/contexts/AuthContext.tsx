@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { Profile } from '../types';
+import toast from 'react-hot-toast';
 
 interface AuthContextType {
   user: Profile | null;
@@ -29,34 +29,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
 
-  // Initialize auth state
+  // Initialize auth - check for existing session
   useEffect(() => {
     let mounted = true;
 
-    const initializeAuth = async () => {
+    const initAuth = async () => {
       try {
-        console.log('🔍 [Auth] Initializing authentication...');
+        console.log('🔍 [Auth] Checking for existing session...');
         
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
         
+        if (error) {
+          console.error('❌ [Auth] Session check failed:', error);
+          if (mounted) setLoading(false);
+          return;
+        }
+
         if (session?.user && mounted) {
           console.log('✅ [Auth] Found session for:', session.user.email);
-          await loadUserProfile(session.user.id);
+          await loadProfile(session.user.id, session.user.email || '');
         } else {
-          console.log('📝 [Auth] No active session found');
+          console.log('📝 [Auth] No session found');
         }
       } catch (error) {
-        console.error('❌ [Auth] Initialization error:', error);
+        console.error('❌ [Auth] Init error:', error);
       } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        if (mounted) setLoading(false);
       }
     };
 
-    const loadUserProfile = async (userId: string) => {
+    const loadProfile = async (userId: string, email: string) => {
       try {
-        console.log('👤 [Auth] Loading profile for user:', userId);
+        console.log('👤 [Auth] Loading profile for:', userId);
         
         const { data, error } = await supabase
           .from('profiles')
@@ -64,15 +68,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq('id', userId)
           .single();
 
+        if (error && error.code === 'PGRST116') {
+          // Profile doesn't exist, create it
+          console.log('📝 [Auth] Creating new profile...');
+          await createProfile(userId, email);
+          return;
+        }
+
         if (error) {
-          if (error.code === 'PGRST116') {
-            console.log('📝 [Auth] No profile found, creating one...');
-            await createUserProfile(userId);
-          } else {
-            throw error;
-          }
-        } else if (data && mounted) {
-          console.log('✅ [Auth] Profile loaded successfully');
+          console.error('❌ [Auth] Profile load error:', error);
+          return;
+        }
+
+        if (data && mounted) {
           setUser({
             id: data.id,
             email: data.email,
@@ -86,32 +94,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             createdAt: data.created_at,
             updatedAt: data.updated_at
           });
+          console.log('✅ [Auth] Profile loaded');
         }
       } catch (error) {
         console.error('❌ [Auth] Profile loading failed:', error);
-        if (mounted) {
-          setUser(null);
-        }
       }
     };
 
-    const createUserProfile = async (userId: string) => {
+    const createProfile = async (userId: string, email: string) => {
       try {
-        const { data: authUser } = await supabase.auth.getUser();
-        if (!authUser.user) throw new Error('No auth user found');
-
         const profileData = {
           id: userId,
-          email: authUser.user.email!,
-          name: authUser.user.user_metadata?.name || authUser.user.email!.split('@')[0],
+          email: email,
+          name: email.split('@')[0],
           avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
           plan: 'free',
-          role: authUser.user.email === 'admin@pba.com' ? 'admin' : 'user',
+          role: email === 'admin@pba.com' ? 'admin' : 'user',
           battles_used: 0,
-          battles_limit: authUser.user.email === 'admin@pba.com' ? 999 : 3,
-          last_reset_at: new Date().toISOString().split('T')[0],
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          battles_limit: email === 'admin@pba.com' ? 999 : 3,
+          last_reset_at: new Date().toISOString().split('T')[0]
         };
 
         const { data, error } = await supabase
@@ -120,7 +121,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ [Auth] Profile creation failed:', error);
+          return;
+        }
 
         if (mounted) {
           setUser({
@@ -136,18 +140,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             createdAt: data.created_at,
             updatedAt: data.updated_at
           });
+          console.log('✅ [Auth] Profile created');
         }
-
-        console.log('✅ [Auth] Profile created successfully');
       } catch (error) {
-        console.error('❌ [Auth] Profile creation failed:', error);
-        if (mounted) {
-          setUser(null);
-        }
+        console.error('❌ [Auth] Profile creation error:', error);
       }
     };
 
-    initializeAuth();
+    initAuth();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -156,7 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('🔄 [Auth] Auth state changed:', event);
 
       if (event === 'SIGNED_IN' && session?.user) {
-        await loadUserProfile(session.user.id);
+        await loadProfile(session.user.id, session.user.email || '');
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
       }
@@ -171,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setAuthLoading(true);
     try {
-      console.log('🔐 [Auth] Attempting login for:', email);
+      console.log('🔐 [Auth] Login attempt for:', email);
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
@@ -180,10 +180,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         throw new Error(error.message);
-      }
-
-      if (!data.user) {
-        throw new Error('No user returned from authentication');
       }
 
       console.log('✅ [Auth] Login successful');
@@ -199,7 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (email: string, password: string, name: string) => {
     setAuthLoading(true);
     try {
-      console.log('📝 [Auth] Attempting registration for:', email);
+      console.log('📝 [Auth] Registration for:', email);
       
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
@@ -207,7 +203,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         options: {
           data: {
             name: name.trim(),
-            full_name: name.trim(),
           }
         }
       });
@@ -217,7 +212,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       console.log('✅ [Auth] Registration successful');
-      // Profile will be created via onAuthStateChange
     } catch (error) {
       console.error('❌ [Auth] Registration failed:', error);
       throw error;
@@ -229,27 +223,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setAuthLoading(true);
     try {
-      console.log('🚪 [Auth] Logging out...');
-      
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('❌ [Auth] Logout error:', error);
       }
-      
       setUser(null);
       console.log('✅ [Auth] Logout successful');
     } catch (error) {
       console.error('❌ [Auth] Logout failed:', error);
-      setUser(null); // Clear user anyway
+      setUser(null);
     } finally {
       setAuthLoading(false);
     }
   };
 
   const updateUserProfile = async (updates: Partial<Profile>) => {
-    if (!user) {
-      throw new Error('No user logged in');
-    }
+    if (!user) return;
 
     try {
       const dbUpdates: any = {};
@@ -282,8 +271,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         createdAt: data.created_at,
         updatedAt: data.updated_at
       });
-
-      console.log('✅ [Auth] Profile updated successfully');
     } catch (error) {
       console.error('❌ [Auth] Profile update failed:', error);
       throw error;
@@ -314,26 +301,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         battlesUsed: newUsage,
         updatedAt: new Date().toISOString()
       } : null);
-
-      console.log('✅ [Auth] Battle usage incremented');
     } catch (error) {
       console.error('❌ [Auth] Error incrementing usage:', error);
     }
   };
 
-  const value = {
-    user,
-    loading,
-    authLoading,
-    login,
-    register,
-    logout,
-    updateUserProfile,
-    incrementBattleUsage,
-  };
-
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      authLoading,
+      login,
+      register,
+      logout,
+      updateUserProfile,
+      incrementBattleUsage,
+    }}>
       {children}
     </AuthContext.Provider>
   );
