@@ -316,9 +316,6 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
 
   // SAVE BATTLE TO SUPABASE
   const saveBattleToSupabase = async (battle: Battle) => {
-    console.log('💾 [BattleContext] Saving battle to Supabase:', battle.id);
-  }
-  const saveBattleToSupabase = async (battle: Battle) => {
     // Save main battle record
     const { error: battleError } = await supabase
       .from('battles')
