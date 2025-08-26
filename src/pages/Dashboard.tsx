@@ -72,7 +72,7 @@ export default function Dashboard() {
     };
 
     loadDashboard();
-  }, [refreshBattles]);
+  }, [user?.id]);
 
   useEffect(() => {
     console.log('Dashboard: Battles updated, count:', battles.length);
@@ -107,7 +107,7 @@ export default function Dashboard() {
         favoriteModel
       });
     }
-  }, [battles, models]);
+  }, [battles]);
 
   const recentBattles = (battles || []).slice(0, 5);
 
