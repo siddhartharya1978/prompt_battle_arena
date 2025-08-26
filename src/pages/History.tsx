@@ -1,5 +1,8 @@
-import { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useBattle } from '../contexts/BattleContext';
 import { Battle, Model } from '../types';
+import { AVAILABLE_MODELS } from '../lib/models';
 import Navigation from '../components/Navigation';
 import FeedbackWidget from '../components/FeedbackWidget';
 import { 
@@ -51,7 +54,7 @@ export default function History() {
   }, []);
 
   const getModelInfo = (modelId: string) => {
-    return models.find(m => m.id === modelId) || { name: modelId, icon: '🤖' };
+    return AVAILABLE_MODELS.find(m => m.id === modelId) || { name: modelId, icon: '🤖' };
   };
 
   const categories = [
