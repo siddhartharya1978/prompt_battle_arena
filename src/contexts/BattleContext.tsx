@@ -6,6 +6,7 @@ import { Battle, BattleData, Model, transformBattleFromDB } from '../types';
 import { BattleProgress } from '../lib/battle-progress';
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
+import { v4 as uuidv4 } from 'uuid';
 
 interface BattleContextType {
   battles: Battle[];
