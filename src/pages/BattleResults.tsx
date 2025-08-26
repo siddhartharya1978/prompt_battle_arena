@@ -296,6 +296,7 @@ export default function BattleResults() {
                       This battle could not be completed due to external Groq API issues. In accordance with our 
                       strict "ALL REAL" policy, no synthetic, mock, or fake data was generated. The battle has been 
                       honestly recorded as failed. You can retry immediately as the issue is likely temporary.
+                    </p>
                     {battle.plateauReason && (
                       <div className="bg-red-100 dark:bg-red-900/30 rounded-lg p-3">
                         <p className="text-sm text-red-800 dark:text-red-200 font-mono">
