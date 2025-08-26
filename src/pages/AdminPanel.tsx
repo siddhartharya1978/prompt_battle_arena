@@ -6,7 +6,7 @@ import { Profile } from '../types';
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import { runDatabaseTests, displayTestResults } from '../lib/test-database';
 import { runComprehensiveE2ETests } from '../lib/comprehensive-tests';
-import { Navigation } from '../components/Navigation';
+import Navigation from '../components/Navigation';
 import {
   Users, 
   BarChart3, 
