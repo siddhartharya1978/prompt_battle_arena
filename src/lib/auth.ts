@@ -3,15 +3,15 @@ import { Profile, transformProfileFromDB } from '../types';
 
 export const signUp = async (email: string, password: string, name: string) => {
   // Validate inputs
-  if (!email?.trim()) {
+  if (!email || !email.trim()) {
     throw new Error('Email is required');
   }
   
-  if (!password?.trim()) {
+  if (!password || !password.trim()) {
     throw new Error('Password is required');
   }
   
-  if (!name?.trim()) {
+  if (!name || !name.trim()) {
     throw new Error('Name is required');
   }
   
@@ -62,11 +62,11 @@ export const signUp = async (email: string, password: string, name: string) => {
 
 export const signIn = async (email: string, password: string) => {
   // Validate inputs
-  if (!email?.trim()) {
+  if (!email || !email.trim()) {
     throw new Error('Email is required');
   }
   
-  if (!password?.trim()) {
+  if (!password || !password.trim()) {
     throw new Error('Password is required');
   }
   

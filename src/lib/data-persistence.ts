@@ -85,6 +85,10 @@ export class DataPersistenceManager {
   }
 
   async saveBattle(battle: Battle): Promise<{success: boolean, battleId: string}> {
+    if (!battle || !battle.id) {
+      throw new Error('Invalid battle data provided');
+    }
+    
     console.log(`💾 [DataPersistence] ===== STARTING BATTLE SAVE =====`);
     console.log(`💾 [DataPersistence] Battle ID: ${battle.id}`);
     console.log(`💾 [DataPersistence] User ID: ${battle.userId}`);

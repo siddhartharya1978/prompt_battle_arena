@@ -92,6 +92,10 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   };
 
   const createBattle = async (battleData: BattleData): Promise<Battle> => {
+    if (!battleData || !battleData.prompt || !battleData.models) {
+      throw new Error('Invalid battle configuration provided');
+    }
+    
     const progressCallback = (progress: BattleProgress) => {
       setBattleProgress(progress);
     };
