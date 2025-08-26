@@ -1,10 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
-import { bulletproofSupabase } from '../lib/supabase-bulletproof';
-import { signUp, signIn, signOut, getProfile, updateProfile } from '../lib/auth';
-import { Profile, transformProfileFromDB } from '../types';
-import toast from 'react-hot-toast';
-import { dataPersistenceManager } from '../lib/data-persistence';
+import { supabase } from '../lib/supabase';
+import { Profile } from '../types';
 
 interface AuthContextType {
   user: Profile | null;
@@ -31,134 +28,137 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
-  const [sessionChecked, setSessionChecked] = useState(false);
 
+  // Initialize auth state
   useEffect(() => {
     let mounted = true;
-    
-    const checkSession = async () => {
-      if (!mounted) return;
-      
+
+    const initializeAuth = async () => {
       try {
-        console.log('🔍 [Auth] Checking existing session...');
-        const client = bulletproofSupabase.getClient();
-        if (!client) {
-          console.log('📝 [Auth] Supabase not initialized');
-          if (mounted) {
-            setUser(null);
-            setLoading(false);
-          }
-          return;
-        }
+        console.log('🔍 [Auth] Initializing authentication...');
         
-        const { data: sessionData } = await client.auth.getSession();
-        const session = sessionData.session;
+        const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user && mounted) {
-          console.log('✅ [Auth] Found Supabase session for user:', session.user.email);
-          
-          try {
-            const profile = await bulletproofSupabase.getProfile(session.user.id);
-            if (profile && mounted) {
-              setUser(profile);
-              console.log('✅ [Auth] Profile loaded for existing session');
-            } else if (mounted) {
-              console.log('📝 [Auth] No profile found, creating one...');
-              
-              // Create profile for existing auth user
-              const newProfile = await bulletproofSupabase.updateProfile(session.user.id, {
-                name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-                avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'
-              });
-              
-              if (newProfile && mounted) {
-                setUser(newProfile);
-                console.log('✅ [Auth] Profile created for existing user');
-              } else if (mounted) {
-                setUser(null);
-              }
-            }
-          } catch (profileError) {
-            console.error('❌ [Auth] Profile handling failed:', profileError);
-            if (mounted) {
-              setUser(null);
-            }
-          }
+          console.log('✅ [Auth] Found session for:', session.user.email);
+          await loadUserProfile(session.user.id);
         } else {
-          console.log('📝 [Auth] No active Supabase session found');
-          if (mounted) {
-            setUser(null);
-          }
+          console.log('📝 [Auth] No active session found');
         }
       } catch (error) {
-        console.error('❌ [Auth] Session check error:', error);
-        if (mounted) {
-          setUser(null);
-        }
+        console.error('❌ [Auth] Initialization error:', error);
       } finally {
         if (mounted) {
           setLoading(false);
-          setSessionChecked(true);
         }
       }
     };
 
-    checkSession();
+    const loadUserProfile = async (userId: string) => {
+      try {
+        console.log('👤 [Auth] Loading profile for user:', userId);
+        
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
 
-    // Listen for auth changes with proper cleanup
-    const client = bulletproofSupabase.getClient();
-    if (!client) {
-      setLoading(false);
-      return;
-    }
-    
-    const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
-      
-      console.log('🔄 [Auth] Auth state changed:', event, session?.user?.email || 'no user');
-      
-      if (event === 'SIGNED_IN' && session?.user) {
-        try {
-          const profile = await bulletproofSupabase.getProfile(session.user.id);
-          if (profile && mounted) {
-            setUser(profile);
-            console.log('✅ [Auth] Profile loaded from auth state change');
-          } else if (mounted) {
-            console.log('📝 [Auth] No profile found during auth state change');
-            
-            // Create profile for new auth user
-            try {
-              const newProfile = await bulletproofSupabase.updateProfile(session.user.id, {
-                name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-                avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'
-              });
-              
-              if (newProfile && mounted) {
-                setUser(newProfile);
-                console.log('✅ [Auth] Profile created during auth state change');
-              } else if (mounted) {
-                setUser(null);
-              }
-            } catch (createError) {
-              console.error('❌ [Auth] Failed to create profile during auth state change:', createError);
-              if (mounted) {
-                setUser(null);
-              }
-            }
+        if (error) {
+          if (error.code === 'PGRST116') {
+            console.log('📝 [Auth] No profile found, creating one...');
+            await createUserProfile(userId);
+          } else {
+            throw error;
           }
-        } catch (error) {
-          console.error('❌ [Auth] Profile fetch failed during auth state change:', error);
-          if (mounted) {
-            setUser(null);
-          }
+        } else if (data && mounted) {
+          console.log('✅ [Auth] Profile loaded successfully');
+          setUser({
+            id: data.id,
+            email: data.email,
+            name: data.name,
+            avatarUrl: data.avatar_url,
+            plan: data.plan,
+            role: data.role,
+            battlesUsed: data.battles_used || 0,
+            battlesLimit: data.battles_limit || 3,
+            lastResetAt: data.last_reset_at,
+            createdAt: data.created_at,
+            updatedAt: data.updated_at
+          });
         }
-      } else if (event === 'SIGNED_OUT') {
-        console.log('🚪 [Auth] User signed out, clearing state');
+      } catch (error) {
+        console.error('❌ [Auth] Profile loading failed:', error);
         if (mounted) {
           setUser(null);
         }
-      } else if (event === 'TOKEN_REFRESHED') {
-        console.log('🔄 [Auth] Token refreshed');
+      }
+    };
+
+    const createUserProfile = async (userId: string) => {
+      try {
+        const { data: authUser } = await supabase.auth.getUser();
+        if (!authUser.user) throw new Error('No auth user found');
+
+        const profileData = {
+          id: userId,
+          email: authUser.user.email!,
+          name: authUser.user.user_metadata?.name || authUser.user.email!.split('@')[0],
+          avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
+          plan: 'free',
+          role: authUser.user.email === 'admin@pba.com' ? 'admin' : 'user',
+          battles_used: 0,
+          battles_limit: authUser.user.email === 'admin@pba.com' ? 999 : 3,
+          last_reset_at: new Date().toISOString().split('T')[0],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        const { data, error } = await supabase
+          .from('profiles')
+          .insert(profileData)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        if (mounted) {
+          setUser({
+            id: data.id,
+            email: data.email,
+            name: data.name,
+            avatarUrl: data.avatar_url,
+            plan: data.plan,
+            role: data.role,
+            battlesUsed: data.battles_used || 0,
+            battlesLimit: data.battles_limit || 3,
+            lastResetAt: data.last_reset_at,
+            createdAt: data.created_at,
+            updatedAt: data.updated_at
+          });
+        }
+
+        console.log('✅ [Auth] Profile created successfully');
+      } catch (error) {
+        console.error('❌ [Auth] Profile creation failed:', error);
+        if (mounted) {
+          setUser(null);
+        }
+      }
+    };
+
+    initializeAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
+      console.log('🔄 [Auth] Auth state changed:', event);
+
+      if (event === 'SIGNED_IN' && session?.user) {
+        await loadUserProfile(session.user.id);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
       }
     });
 
@@ -168,20 +168,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-
   const login = async (email: string, password: string) => {
     setAuthLoading(true);
     try {
       console.log('🔐 [Auth] Attempting login for:', email);
       
-      const result = await signIn(email.trim(), password);
-      if (result.user && result.profile) {
-        console.log('✅ [Auth] Login successful for:', result.user.email);
-        setUser(result.profile);
-      } else {
-        throw new Error('Login failed - no user returned');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password.trim()
+      });
+
+      if (error) {
+        throw new Error(error.message);
       }
-    } catch (error: any) {
+
+      if (!data.user) {
+        throw new Error('No user returned from authentication');
+      }
+
+      console.log('✅ [Auth] Login successful');
+      // Profile will be loaded via onAuthStateChange
+    } catch (error) {
       console.error('❌ [Auth] Login failed:', error);
       throw error;
     } finally {
@@ -193,14 +200,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthLoading(true);
     try {
       console.log('📝 [Auth] Attempting registration for:', email);
-      const { user: authUser } = await signUp(email, password, name);
-      if (authUser) {
-        console.log('✅ [Auth] Registration successful for:', authUser.email);
-        // Profile will be loaded via onAuthStateChange
-      } else {
-        throw new Error('Registration failed - no user returned');
+      
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: password.trim(),
+        options: {
+          data: {
+            name: name.trim(),
+            full_name: name.trim(),
+          }
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
       }
-    } catch (error: any) {
+
+      console.log('✅ [Auth] Registration successful');
+      // Profile will be created via onAuthStateChange
+    } catch (error) {
       console.error('❌ [Auth] Registration failed:', error);
       throw error;
     } finally {
@@ -209,53 +227,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    console.log('🚪 [Auth] Logging out user:', user?.email);
     setAuthLoading(true);
-    
     try {
-      // Step 1: Clear user state immediately for responsive UX
-      console.log('🔄 [Auth] STEP 1: Clearing user state for immediate UX response');
-      setUser(null);
+      console.log('🚪 [Auth] Logging out...');
       
-      // Step 2: Sign out from Supabase
-      console.log('🔄 [Auth] STEP 2: Signing out from Supabase auth service');
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error('❌ [Auth] Supabase signOut error:', error);
-        // Continue with cleanup even if Supabase fails
-      } else {
-        console.log('✅ [Auth] Supabase signOut successful');
+        console.error('❌ [Auth] Logout error:', error);
       }
       
-      // Step 3: Clear ALL cached data thoroughly
-      console.log('🔄 [Auth] STEP 3: Clearing all cached data');
-      try {
-        localStorage.removeItem('demo_battles');
-        localStorage.removeItem('pba_theme');
-        
-        // Clear any pending operations
-        Object.keys(localStorage).forEach(key => {
-          if (key.includes('_profile_updates') || 
-              key.includes('_battles_used') || 
-              key.includes('checkpoint_') ||
-              key.includes('pba_') ||
-              key.includes('user_') ||
-              key.includes('demo_')) {
-            localStorage.removeItem(key);
-          }
-        });
-        console.log('✅ [Auth] All cached data cleared successfully');
-      } catch (storageError) {
-        console.error('❌ [Auth] Error clearing localStorage:', storageError);
-        // Continue - this is not critical
-      }
-      
-      console.log('🎉 [Auth] LOGOUT COMPLETED SUCCESSFULLY - User fully signed out');
-    } catch (error) {
-      console.error('❌ [Auth] Logout error:', error);
-      // Even if logout fails, clear local state
       setUser(null);
-      toast.error('Logout encountered issues but you have been signed out locally');
+      console.log('✅ [Auth] Logout successful');
+    } catch (error) {
+      console.error('❌ [Auth] Logout failed:', error);
+      setUser(null); // Clear user anyway
     } finally {
       setAuthLoading(false);
     }
@@ -266,54 +251,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('No user logged in');
     }
 
-    console.log('👤 [Auth] Updating profile for user:', user.id);
-    
-    // Optimistic update
-    const optimisticUser = { ...user, ...updates, updatedAt: new Date().toISOString() };
-    setUser(optimisticUser);
-    
     try {
-      const updatedProfile = await bulletproofSupabase.updateProfile(user.id, updates);
-      if (!updatedProfile) {
-        throw new Error('Profile update returned null');
-      }
-      setUser(updatedProfile);
+      const dbUpdates: any = {};
+      if (updates.name !== undefined) dbUpdates.name = updates.name;
+      if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
+      if (updates.plan !== undefined) dbUpdates.plan = updates.plan;
+      if (updates.battlesUsed !== undefined) dbUpdates.battles_used = updates.battlesUsed;
+      
+      dbUpdates.updated_at = new Date().toISOString();
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(dbUpdates)
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setUser({
+        id: data.id,
+        email: data.email,
+        name: data.name,
+        avatarUrl: data.avatar_url,
+        plan: data.plan,
+        role: data.role,
+        battlesUsed: data.battles_used || 0,
+        battlesLimit: data.battles_limit || 3,
+        lastResetAt: data.last_reset_at,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      });
+
       console.log('✅ [Auth] Profile updated successfully');
     } catch (error) {
       console.error('❌ [Auth] Profile update failed:', error);
-      // Revert optimistic update
-      setUser(user);
       throw error;
     }
   };
 
   const incrementBattleUsage = async () => {
-    if (!user) {
-      console.warn('⚠️ [Auth] No user logged in for battle usage increment');
-      return;
-    }
+    if (!user) return;
 
-    console.log('📊 [Auth] Incrementing battle usage for user:', user.id);
-    
     try {
-      const result = await dataPersistenceManager.incrementBattleUsage(
-        user.id, 
-        user.battlesUsed, 
-        user.battlesLimit
-      );
+      const newUsage = Math.min(user.battlesUsed + 1, user.battlesLimit);
       
-      if (result.success) {
-        setUser(prev => prev ? {
-          ...prev,
-          battlesUsed: result.newUsage,
-          updatedAt: new Date().toISOString()
-        } : null);
-        console.log('✅ [Auth] Battle usage incremented to:', result.newUsage);
-      } else {
-        console.warn('⚠️ [Auth] Battle usage increment failed, but continuing with battle');
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          battles_used: newUsage,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error('❌ [Auth] Usage increment failed:', error);
+        return;
       }
+
+      setUser(prev => prev ? {
+        ...prev,
+        battlesUsed: newUsage,
+        updatedAt: new Date().toISOString()
+      } : null);
+
+      console.log('✅ [Auth] Battle usage incremented');
     } catch (error) {
-      console.error('❌ [Auth] Error incrementing battle usage:', error);
+      console.error('❌ [Auth] Error incrementing usage:', error);
     }
   };
 
