@@ -40,6 +40,7 @@ export class DataPersistenceManager {
         demoUser.battlesUsed = optimisticUsage;
         demoUser.updatedAt = new Date().toISOString();
         localStorage.setItem('demo_session', JSON.stringify(demoUser));
+        console.log(`[DataPersistence] Demo user battle usage incremented to ${optimisticUsage} (localStorage)`);
         return { success: true, newUsage: optimisticUsage };
       }
 
@@ -56,10 +57,12 @@ export class DataPersistenceManager {
           .single();
 
         if (error) throw error;
+        console.log(`[DataPersistence] Supabase: Battle usage for user ${userId} incremented to ${data.battles_used}`);
         return data;
       }, options);
 
       return { success: true, newUsage: result.battles_used };
+
 
     } catch (error) {
       console.error('Failed to increment battle usage:', error);
@@ -68,7 +71,7 @@ export class DataPersistenceManager {
         // Fallback to localStorage tracking
         const fallbackKey = `user_${userId}_battles_used`;
         localStorage.setItem(fallbackKey, optimisticUsage.toString());
-        console.log('Using localStorage fallback for battle usage tracking');
+        console.warn(`[DataPersistence] Supabase: Failed to increment battle usage for user ${userId}. Falling back to localStorage. Error: ${error.message}`);
         return { success: true, newUsage: optimisticUsage };
       }
 
@@ -88,6 +91,7 @@ export class DataPersistenceManager {
       // Always save to localStorage first (immediate backup)
       this.saveBattleToLocalStorage(battle);
 
+      // If it's a demo user, we're done after localStorage save
       // Check if demo user
       const demoSession = localStorage.getItem('demo_session');
       if (demoSession) {
@@ -173,10 +177,12 @@ export class DataPersistenceManager {
             })));
 
           if (evolutionError) throw evolutionError;
+          console.log(`[DataPersistence] Supabase: Battle ${battle.id} and related records saved successfully.`);
         }
       }, options);
 
       return { success: true, battleId: battle.id };
+
 
     } catch (error) {
       console.error('Failed to save battle to database:', error);
@@ -184,7 +190,7 @@ export class DataPersistenceManager {
       if (options.fallbackToLocal) {
         // Already saved to localStorage, so we're good
         console.log('Battle saved to localStorage as fallback');
-        return { success: true, battleId: battle.id };
+        console.warn(`[DataPersistence] Supabase: Failed to save battle ${battle.id}. Falling back to localStorage. Error: ${error.message}`);
       }
 
       return { success: false, battleId: battle.id };
@@ -207,6 +213,7 @@ export class DataPersistenceManager {
         const updatedUser = { ...demoUser, ...updates, updatedAt: new Date().toISOString() };
         localStorage.setItem('demo_session', JSON.stringify(updatedUser));
         return { success: true, profile: updatedUser };
+        console.log(`[DataPersistence] Demo user profile updated (localStorage) for user ${userId}`);
       }
 
       // Real user - attempt database update with retries
@@ -225,10 +232,12 @@ export class DataPersistenceManager {
           .single();
 
         if (error) throw error;
+        console.log(`[DataPersistence] Supabase: Profile for user ${userId} updated successfully.`);
         return data;
       }, options);
 
       return { success: true, profile: result };
+
 
     } catch (error) {
       console.error('Failed to update profile:', error);
@@ -239,7 +248,7 @@ export class DataPersistenceManager {
         localStorage.setItem(fallbackKey, JSON.stringify({
           updates,
           timestamp: new Date().toISOString()
-        }));
+        })); // This is a pending update, not the actual profile
         console.log('Profile updates saved to localStorage as fallback');
         return { success: true };
       }
@@ -269,6 +278,7 @@ export class DataPersistenceManager {
         
         // Wait before retry with exponential backoff
         const delay = retryDelay * Math.pow(2, attempt);
+        console.warn(`[DataPersistence] Retrying operation (attempt ${attempt + 1}/${maxRetries}) after ${delay}ms. Error: ${lastError.message}`);
         console.log(`Retrying operation in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -293,7 +303,7 @@ export class DataPersistenceManager {
       }
       
       localStorage.setItem('demo_battles', JSON.stringify(filteredCache));
-      console.log(`Battle ${battle.id} saved to localStorage`);
+      console.log(`[DataPersistence] Battle ${battle.id} saved to localStorage.`);
     } catch (error) {
       console.error('Failed to save battle to localStorage:', error);
       // Even localStorage can fail (quota exceeded), but we continue
@@ -314,7 +324,7 @@ export class DataPersistenceManager {
           if (pendingUpdate.updates && userId) {
             await this.updateProfile(userId, pendingUpdate.updates);
             localStorage.removeItem(key);
-            console.log(`Synced pending profile update for user ${userId}`);
+            console.log(`[DataPersistence] Synced pending profile update for user ${userId}.`);
           }
         } catch (error) {
           console.error('Failed to sync profile update:', error);
@@ -332,7 +342,7 @@ export class DataPersistenceManager {
           if (usage > 0 && userId) {
             await this.incrementBattleUsage(userId, usage - 1, 999); // Sync the increment
             localStorage.removeItem(key);
-            console.log(`Synced pending usage update for user ${userId}`);
+            console.log(`[DataPersistence] Synced pending usage update for user ${userId}.`);
           }
         } catch (error) {
           console.error('Failed to sync usage update:', error);

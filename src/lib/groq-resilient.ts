@@ -51,12 +51,6 @@ export class ResilientGroqClient {
     let lastError: Error;
     let totalAttempts = 0;
 
-    // Strategy 0: Check if we should skip API calls entirely in webcontainer
-    if (this.isWebContainerEnvironment()) {
-      progressCallback?.(`WebContainer detected - using synthetic responses for demo`);
-      return this.generateSyntheticResponse(model, prompt, 1);
-    }
-
     // Strategy 1: Direct API call with intelligent retry
     for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
       totalAttempts++;
@@ -116,8 +110,7 @@ export class ResilientGroqClient {
       return { ...fallbackResult, attempts: totalAttempts, fallbackUsed: fallbackResult.fallbackUsed };
     }
 
-    // Strategy 3: Simplified prompt fallback
-    progressCallback?.(`Trying simplified prompt...`);
+    // Strategy 3: Simplified prompt fallback (if all else fails)
     const simplifiedResult = await this.trySimplifiedPrompt(model, prompt, maxTokens, temperature, progressCallback);
     if (simplifiedResult) {
       return { ...simplifiedResult, attempts: totalAttempts, fallbackUsed: 'simplified-prompt' };
@@ -125,8 +118,8 @@ export class ResilientGroqClient {
 
     // Strategy 4: Generate synthetic response
     progressCallback?.(`Generating synthetic response...`);
-    return this.generateSyntheticResponse(model, prompt, totalAttempts);
-  }
+    throw new Error(`Failed to get a response from Groq API after multiple attempts and fallbacks. Last error: ${lastError?.message || 'Unknown error'}`);
+  } // End of callGroqAPI
 
   private async makeDirectAPICall(
     model: string,
@@ -325,56 +318,6 @@ export class ResilientGroqClient {
       return sentences[0].trim() + ".";
     }
     return prompt.substring(0, 100) + "...";
-  }
-
-  private generateSyntheticResponse(model: string, prompt: string, attempts: number): GroqCallResult {
-    console.log(`🔄 Generating synthetic response for ${model} after ${attempts} attempts`);
-    
-    // Generate a reasonable synthetic response based on the prompt
-    const promptLower = prompt.toLowerCase();
-    let syntheticResponse = '';
-
-    if (promptLower.includes('improve') || promptLower.includes('refine') || promptLower.includes('thinking')) {
-      syntheticResponse = `THINKING:\nI need to analyze this prompt for clarity, specificity, and effectiveness. The current version could benefit from more detailed instructions and clearer structure.\n\nIMPROVED_PROMPT:\n${prompt.trim()} Please provide a detailed, well-structured response with specific examples and clear explanations.`;
-    } else if (promptLower.includes('explain') || promptLower.includes('describe')) {
-      syntheticResponse = `This is a comprehensive explanation that addresses your question with clear, structured information. The response covers the key concepts, provides relevant examples, and maintains an appropriate level of detail for the intended audience.`;
-    } else if (promptLower.includes('score') || promptLower.includes('rate')) {
-      syntheticResponse = `THINKING:\nI'm evaluating this prompt based on clarity, structure, and effectiveness criteria.\n\nSCORE: 7.5\nFEEDBACK: Good prompt with room for improvement in specificity and structure.`;
-    } else if (promptLower.includes('create') || promptLower.includes('write')) {
-      syntheticResponse = `Here's a well-crafted response that fulfills your creative request. The content is original, engaging, and tailored to your specific requirements while maintaining high quality and relevance.`;
-    } else {
-      syntheticResponse = `This is a thoughtful response to your prompt. The answer addresses your question directly, provides useful information, and maintains clarity throughout. The response is structured to be both informative and actionable.`;
-    }
-
-    // Add model-specific touches
-    const modelInfo = this.getModelPersonality(model);
-    syntheticResponse += ` ${modelInfo.signature}`;
-
-    return {
-      response: syntheticResponse,
-      tokens: Math.floor(syntheticResponse.length / 4), // Rough token estimate
-      cost: calculateGroqCost(model, Math.floor(syntheticResponse.length / 4)),
-      latency: 1500 + Math.random() * 1000, // Realistic latency
-      attempts,
-      fallbackUsed: 'synthetic'
-    };
-  }
-
-  private getModelPersonality(model: string): { signature: string } {
-    const personalities: Record<string, string> = {
-      'llama-3.1-8b-instant': 'This response prioritizes speed and efficiency while maintaining quality.',
-      'llama-3.3-70b-versatile': 'This response demonstrates deep reasoning and comprehensive analysis.',
-      'deepseek-r1-distill-llama-70b': 'This response emphasizes technical accuracy and mathematical precision.',
-      'meta-llama/llama-guard-4-12b': 'This response includes safety considerations and content moderation.',
-      'qwen/qwen3-32b': 'This response incorporates multilingual awareness and cultural context.'
-    };
-
-    return { signature: personalities[model] || 'This response maintains high quality standards.' };
-  }
-
-  private isWebContainerEnvironment(): boolean {
-    // Always try real API calls first - no synthetic shortcuts
-    return false;
   }
 
   private isRateLimitError(error: any): boolean {

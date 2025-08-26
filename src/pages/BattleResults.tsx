@@ -256,6 +256,33 @@ export default function BattleResults() {
     );
   }
 
+  if (battle.status === 'failed') {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <Navigation />
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-2xl p-8">
+            <AlertTriangle className="w-16 h-16 text-red-600 dark:text-red-400 mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+              Battle Failed
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              Unfortunately, this battle could not be completed due to an API error.
+              Please try again later or check your API configuration.
+            </p>
+            <Link
+              to="/battle/new"
+              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Try a New Battle
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const winner = battle.winner ? getModelInfo(battle.winner) : null;
   const winnerScore = battle.winner && battle.scores ? battle.scores[battle.winner] : null;
   const loser = battle.models.find(m => m !== battle.winner);

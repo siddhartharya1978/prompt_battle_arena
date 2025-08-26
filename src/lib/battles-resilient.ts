@@ -48,40 +48,14 @@ export class ResilientBattleEngine {
   }
 
   private generateFallbackBattle(battleData: BattleData, battleId: string, errorMessage: string): Battle {
-    const responses: BattleResponse[] = [];
-    const scores: Record<string, BattleScore> = {};
-
-    // Generate synthetic responses for all models
-    battleData.models.forEach(modelId => {
-      const modelInfo = AVAILABLE_MODELS.find(m => m.id === modelId);
-      const modelName = modelInfo?.name || modelId;
-      
-      const syntheticResponse = `This is a high-quality response from ${modelName} addressing your ${battleData.prompt_category} prompt. The response demonstrates comprehensive understanding and provides valuable insights tailored to your specific requirements.`;
-      
-      responses.push({
-        id: `response_${Date.now()}_${modelId}`,
-        battleId,
-        modelId,
-        response: syntheticResponse,
-        latency: 1200,
-        tokens: Math.floor(syntheticResponse.length / 4),
-        cost: 0.002,
-        createdAt: new Date().toISOString()
-      });
-
-      scores[modelId] = {
-        accuracy: 7.0 + Math.random() * 1.0,
-        reasoning: 7.0 + Math.random() * 1.0,
-        structure: 7.0 + Math.random() * 1.0,
-        creativity: 7.0 + Math.random() * 1.0,
-        overall: 7.0 + Math.random() * 1.0,
-        notes: `Fallback response due to API issues: ${errorMessage}`
-      };
-    });
-
-    const winner = Object.entries(scores).reduce((best, [modelId, score]) => 
-      score.overall > best.score ? { modelId, score: score.overall } : best
-    , { modelId: battleData.models[0], score: 0 }).modelId;
+    // When a battle fails due to API issues, we record it as a failed battle
+    // No synthetic responses or scores are generated.
+    // The battle status will be 'failed', winner will be null, and responses/scores will be empty.
+    console.error(`[ResilientBattleEngine] Generating failed battle record for ${battleId}. Error: ${errorMessage}`);
+    
+    const winner = null; // No winner if battle failed
+    const responses: BattleResponse[] = []; // No responses if battle failed
+    const scores: Record<string, BattleScore> = {}; // No scores if battle failed
 
     const battle: Battle = {
       id: battleId,
@@ -96,7 +70,7 @@ export class ResilientBattleEngine {
       rounds: 1,
       maxTokens: battleData.max_tokens,
       temperature: battleData.temperature,
-      status: 'completed',
+      status: 'failed', // Mark as failed
       winner,
       totalCost: 0.005,
       autoSelectionReason: battleData.auto_selection_reason,
