@@ -321,7 +321,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
     // Save main battle record
     const { error: battleError } = await supabase
       .from('battles')
-      .insert({
+      .upsert({
         id: battle.id,
         user_id: battle.userId,
         battle_type: battle.battleType,
@@ -338,7 +338,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
         winner: battle.winner,
         total_cost: battle.totalCost,
         auto_selection_reason: battle.autoSelectionReason
-      });
+      }, { onConflict: 'id' });
 
     if (battleError) throw battleError;
     console.log('✅ [BattleContext] Battle record saved');
