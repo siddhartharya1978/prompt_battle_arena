@@ -80,8 +80,13 @@ export const signIn = async (email: string, password: string) => {
 };
 
 export const signOut = async () => {
+  console.log('🚪 [Auth] Signing out from Supabase...');
   const { error } = await supabase.auth.signOut();
-  if (error) throw error;
+  if (error) {
+    console.error('❌ [Auth] Supabase signOut error:', error);
+    throw error;
+  }
+  console.log('✅ [Auth] Supabase signOut successful');
 };
 
 export const getProfile = async (userId: string): Promise<Profile | null> => {

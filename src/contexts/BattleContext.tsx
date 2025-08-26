@@ -32,30 +32,14 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   const refreshBattles = async () => {
     if (!user) return;
     
-    // Skip Supabase for demo users - they use localStorage only
-    if (user.id === 'demo-user-id' || user.id === 'admin-user-id') {
-      try {
-        setLoading(true);
-        const localBattles = await getUserBattles();
-        setBattles(localBattles || []);
-        console.log(`📱 Demo user: Loaded ${localBattles?.length || 0} battles from localStorage`);
-      } catch (error) {
-        console.error('Error loading demo battles from localStorage:', error);
-        setBattles([]);
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
-    
     try {
       setLoading(true);
+      console.log('🔍 [BattleContext] Loading battles for user:', user.id);
       
       // Try to load from Supabase first, then fallback to localStorage
       let userBattles: Battle[] = [];
       
       try {
-        console.log('🔍 Loading battles from Supabase for user:', user.id);
         const { data, error } = await supabase
           .from('battles')
           .select(`
@@ -68,30 +52,31 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
           .order('created_at', { ascending: false });
         
         if (error) {
-          console.error('❌ Supabase battles query failed:', error);
+          console.error('❌ [BattleContext] Supabase battles query failed:', error);
           throw error;
         }
         
         if (data && data.length > 0) {
-          console.log(`✅ Loaded ${data.length} battles from Supabase`);
+          console.log(`✅ [BattleContext] Loaded ${data.length} battles from Supabase`);
           userBattles = data.map(transformBattleFromDB);
         } else {
-          console.log('📝 No battles found in Supabase, checking localStorage');
+          console.log('📝 [BattleContext] No battles found in Supabase, checking localStorage');
         }
       } catch (supabaseError) {
-        console.error('Supabase query failed, using localStorage:', supabaseError);
+        console.error('❌ [BattleContext] Supabase query failed, using localStorage:', supabaseError);
       }
       
       // Fallback to localStorage if Supabase fails or no data
       if (userBattles.length === 0) {
         const localBattles = await getUserBattles();
         userBattles = localBattles || [];
-        console.log(`📱 Loaded ${userBattles.length} battles from localStorage`);
+        console.log(`📱 [BattleContext] Loaded ${userBattles.length} battles from localStorage`);
       }
       
       setBattles(userBattles || []);
     } catch (error) {
-      console.error('Error refreshing battles:', error);
+      console.error('❌ [BattleContext] Error refreshing battles:', error);
+      setBattles([]);
     } finally {
       setLoading(false);
     }

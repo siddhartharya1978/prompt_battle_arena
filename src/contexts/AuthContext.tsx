@@ -37,20 +37,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const checkSession = async () => {
       setAuthLoading(true);
       try {
+        console.log('🔍 [Auth] Checking existing session...');
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
+          console.log('✅ [Auth] Found Supabase session for user:', session.user.email);
           await loadUserProfile(session.user);
         } else {
-          // Check for demo session
-          const demoSession = localStorage.getItem('demo_session');
-          if (demoSession) {
-            const demoUser = JSON.parse(demoSession);
-            setUser(demoUser);
-          }
+          console.log('📝 [Auth] No active Supabase session found');
+          setUser(null);
         }
       } catch (error) {
-        console.error('Session check error:', error);
+        console.error('❌ [Auth] Session check error:', error);
+        setUser(null);
       } finally {
         setLoading(false);
         setAuthLoading(false);
@@ -61,12 +60,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔄 [Auth] Auth state changed:', event, session?.user?.email || 'no user');
       setAuthLoading(true);
       if (event === 'SIGNED_IN' && session?.user) {
         await loadUserProfile(session.user);
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
-        localStorage.removeItem('demo_session');
       }
       setAuthLoading(false);
     });
@@ -76,67 +75,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadUserProfile = async (authUser: User) => {
     try {
+      console.log('👤 [Auth] Loading profile for user:', authUser.id);
       const profile = await getProfile(authUser.id);
       if (profile) {
-        const transformedProfile = transformProfileFromDB(profile);
-        setUser(transformedProfile);
+        setUser(profile);
+        console.log('✅ [Auth] Profile loaded successfully:', profile.email);
+      } else {
+        console.warn('⚠️ [Auth] No profile found for user:', authUser.id);
+        setUser(null);
       }
     } catch (error) {
-      console.error('Error loading profile:', error);
+      console.error('❌ [Auth] Error loading profile:', error);
       toast.error('Failed to load user profile');
+      setUser(null);
     }
   };
 
   const login = async (email: string, password: string) => {
     setAuthLoading(true);
     try {
-      // Check for demo credentials
-      if (email.trim().toLowerCase() === 'demo@example.com' && password === 'demo123') {
-        const demoUser = {
-          id: crypto.randomUUID(),
-          email: 'demo@example.com',
-          name: 'Demo User',
-          avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
-          plan: 'free' as const,
-          role: 'user' as const,
-          battlesUsed: 0,
-          battlesLimit: 3,
-          lastResetAt: new Date().toISOString().split('T')[0],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        localStorage.setItem('demo_session', JSON.stringify(demoUser));
-        setUser(demoUser);
-        return;
-      }
 
-      if (email.trim().toLowerCase() === 'admin@pba.com' && password === 'admin123') {
-        const adminUser = {
-          id: crypto.randomUUID(),
-          email: 'admin@pba.com',
-          name: 'Admin User',
-          avatarUrl: 'https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
-          plan: 'premium' as const,
-          role: 'admin' as const,
-          battlesUsed: 0,
-          battlesLimit: 999,
-          lastResetAt: new Date().toISOString().split('T')[0],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        localStorage.setItem('demo_session', JSON.stringify(adminUser));
-        setUser(adminUser);
-        return;
-      }
-
-      // Real authentication
+      console.log('🔐 [Auth] Attempting login for:', email);
+      
+      // Use real Supabase authentication for ALL users (including demo accounts)
       try {
         const { user: authUser } = await signIn(email.trim(), password);
         if (authUser) {
+          console.log('✅ [Auth] Supabase login successful for:', authUser.email);
           await loadUserProfile(authUser);
+        } else {
+          console.warn('⚠️ [Auth] Login returned no user');
+          throw new Error('Login failed - no user returned');
         }
       } catch (supabaseError) {
-        throw new Error(`Supabase authentication failed:\n\n${supabaseError.message}`);
+        console.error('❌ [Auth] Supabase authentication failed:', supabaseError);
+        throw new Error(`Authentication failed: ${supabaseError.message}`);
       }
     } finally {
       setAuthLoading(false);
@@ -146,9 +119,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (email: string, password: string, name: string) => {
     setAuthLoading(true);
     try {
+      console.log('📝 [Auth] Attempting registration for:', email);
       const { user: authUser } = await signUp(email, password, name);
       if (authUser) {
+        console.log('✅ [Auth] Registration successful for:', authUser.email);
         await loadUserProfile(authUser);
+      } else {
+        console.warn('⚠️ [Auth] Registration returned no user');
+        throw new Error('Registration failed - no user returned');
       }
     } finally {
       setAuthLoading(false);
@@ -156,11 +134,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    console.log('🚪 [Auth] Logging out user:', user?.email);
     setAuthLoading(true);
     try {
-      await signOut();
+      // Clear user state immediately for responsive UI
       setUser(null);
-      localStorage.removeItem('demo_session');
+      
+      // Sign out from Supabase
+      await signOut();
+      
+      // Clear any cached data
+      localStorage.removeItem('demo_battles');
+      
+      // Clear any pending operations
+      Object.keys(localStorage).forEach(key => {
+        if (key.includes('_profile_updates') || key.includes('_battles_used') || key.includes('checkpoint_')) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      console.log('✅ [Auth] Logout completed successfully');
     } finally {
       setAuthLoading(false);
     }
@@ -169,35 +162,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateUserProfile = async (updates: Partial<Profile>) => {
     if (!user) return;
 
+    console.log('👤 [Auth] Updating profile for user:', user.id);
+    
     try {
-      // Handle demo users
-      const demoSession = localStorage.getItem('demo_session');
-      if (demoSession) {
-        const updatedUser = {
-          ...user,
-          name: updates.name !== undefined ? updates.name : user.name,
-          avatarUrl: updates.avatarUrl !== undefined ? updates.avatarUrl : user.avatarUrl,
-          plan: updates.plan !== undefined ? updates.plan : user.plan,
-          role: updates.role !== undefined ? updates.role : user.role,
-          battlesUsed: updates.battlesUsed !== undefined ? updates.battlesUsed : user.battlesUsed,
-          battlesLimit: updates.battlesLimit !== undefined ? updates.battlesLimit : user.battlesLimit,
-          updatedAt: new Date().toISOString()
-        };
-        localStorage.setItem('demo_session', JSON.stringify(updatedUser));
-        setUser(updatedUser);
-        return;
-      }
-
-      // Real user update
+      // Use Supabase for ALL users
       const dbUpdates: any = {};
       if (updates.name !== undefined) dbUpdates.name = updates.name;
       if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
       
-      const updatedProfile = await updateProfile(user.id, dbUpdates);
-      const transformedProfile = transformProfileFromDB(updatedProfile);
-      setUser(transformedProfile);
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(dbUpdates)
+        .eq('id', user.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      const updatedProfile = transformProfileFromDB(data);
+      setUser(updatedProfile);
+      console.log('✅ [Auth] Profile updated successfully');
     } catch (error) {
-      console.error('Error updating profile:', error);
+      console.error('❌ [Auth] Profile update failed:', error);
       // Revert optimistic update
       setUser(user);
       throw error;
@@ -207,6 +193,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const incrementBattleUsage = async () => {
     if (!user) return;
 
+    console.log('📊 [Auth] Incrementing battle usage for user:', user.id);
+    
     try {
       // Use resilient data persistence manager
       const result = await dataPersistenceManager.incrementBattleUsage(
@@ -222,12 +210,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           battlesUsed: result.newUsage,
           updatedAt: new Date().toISOString()
         } : null);
+        console.log('✅ [Auth] Battle usage incremented to:', result.newUsage);
       } else {
-        console.warn('Battle usage increment failed, but continuing with battle');
+        console.warn('⚠️ [Auth] Battle usage increment failed, but continuing with battle');
         // Don't block the user - just log the issue
       }
     } catch (error) {
-      console.error('Error incrementing battle usage:', error);
+      console.error('❌ [Auth] Error incrementing battle usage:', error);
       // Don't throw - we don't want to block battle creation for usage tracking issues
     }
   };

@@ -95,20 +95,23 @@ export default function Login() {
         {!isSignUp && (
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6">
             <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">Demo Accounts:</h3>
+            <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">
+              These are real Supabase accounts with actual authentication:
+            </p>
             <div className="space-y-2">
               <button
                 type="button"
                 onClick={() => fillDemoCredentials('user')}
                 className="w-full text-left text-xs text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 p-2 rounded bg-white dark:bg-blue-800/30 hover:bg-blue-100 dark:hover:bg-blue-800/50 transition-colors"
               >
-                <strong>Demo User:</strong> demo@example.com / demo123
+                <strong>Demo User (Real Supabase Auth):</strong> demo@example.com / demo123
               </button>
               <button
                 type="button"
                 onClick={() => fillDemoCredentials('admin')}
                 className="w-full text-left text-xs text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 p-2 rounded bg-white dark:bg-blue-800/30 hover:bg-blue-100 dark:hover:bg-blue-800/50 transition-colors"
               >
-                <strong>Demo Admin:</strong> admin@pba.com / admin123
+                <strong>Demo Admin (Real Supabase Auth):</strong> admin@pba.com / admin123
               </button>
             </div>
           </div>
