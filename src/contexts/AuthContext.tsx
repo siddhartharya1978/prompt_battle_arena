@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { bulletproofSupabase } from '../lib/supabase-bulletproof';
 import { getProfile, updateProfile } from '../lib/auth';
 import { Profile } from '../types';
 
@@ -38,20 +38,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('🔐 [AuthContext] Initializing authentication...');
         
         // Get initial session
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const session = await bulletproofSupabase.getSession();
         
-        if (error) {
-          console.error('❌ [AuthContext] Session error:', error);
-          // Clear invalid session data to prevent repeated failed attempts
-          await supabase.auth.signOut();
-          if (mounted) {
-            setUser(null);
-            setLoading(false);
-            setAuthInitialized(true);
+        if (session?.user && mounted) {
+          console.log('✅ [Auth] Found Supabase session for user:', session.user.email);
+          const result = await bulletproofSupabase.signIn(session.user.email!, 'session-restore');
+          if (result.profile) {
+            setUser(result.profile);
           }
-          return;
         }
-
         if (session?.user && mounted) {
           console.log('✅ [AuthContext] Found existing session for:', session.user.email);
           
@@ -86,7 +81,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initializeAuth();
 
     // Listen for auth changes - PREVENT INFINITE LOOPS
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const client = bulletproofSupabase.getClient();
+    if (!client) {
+      setLoading(false);
+      return;
+    }
+    
+    const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
       if (!mounted || !authInitialized) return;
       
       console.log('🔄 [AuthContext] Auth state change:', event, session?.user?.email);
@@ -101,7 +102,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(profile);
           }
         } else if (event === 'SIGNED_OUT') {
-          console.log('👋 [AuthContext] User signed out');
+        try {
+          const result = await bulletproofSupabase.signIn(session.user.email!, 'auto-signin');
+          if (result.profile) {
+            setUser(result.profile);
+          }
+        } catch (error) {
+          console.error('❌ [Auth] Auto sign-in failed:', error);
+          setUser(null);
+        }
           if (mounted) setUser(null);
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           console.log('🔄 [AuthContext] Token refreshed for:', session.user.email);
@@ -121,22 +130,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setAuthLoading(true);
     try {
-      console.log('🔐 [AuthContext] Attempting login for:', email);
-      
-      const { signIn } = await import('../lib/auth');
-      const { user: authUser } = await signIn(email, password);
-      
-      if (authUser) {
-        console.log('✅ [AuthContext] Login successful for:', authUser.email);
-        
-        const profile = await getProfile(authUser.id);
-        if (profile) {
-          console.log('✅ [AuthContext] Profile loaded:', profile.email);
-          setUser(profile);
-        } else {
-          console.error('❌ [AuthContext] No profile found for user:', authUser.id);
-          throw new Error('Profile not found. Please contact support.');
-        }
+      const result = await bulletproofSupabase.signIn(email, password);
+      if (result.profile) {
+        setUser(result.profile);
       }
     } catch (error) {
       console.error('❌ [AuthContext] Login failed:', error);
@@ -149,14 +145,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (email: string, password: string, name: string) => {
     setAuthLoading(true);
     try {
-      console.log('📝 [AuthContext] Attempting registration for:', email);
-      
-      const { signUp } = await import('../lib/auth');
-      const result = await signUp(email, password, name);
-      
-      console.log('✅ [AuthContext] Registration successful for:', email);
-      
-      // Don't automatically set user - wait for email confirmation
+      const result = await bulletproofSupabase.signUp(email, password, name);
+      if (result.profile) {
+        setUser(result.profile);
+      }
     } catch (error) {
       console.error('❌ [AuthContext] Registration failed:', error);
       throw error;
@@ -168,66 +160,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setAuthLoading(true);
     try {
-      console.log('👋 [AuthContext] Logging out user:', user?.email);
-      
-      const { signOut } = await import('../lib/auth');
-      await signOut();
+      await bulletproofSupabase.signOut();
       setUser(null);
-      
-      console.log('✅ [AuthContext] Logout successful');
     } catch (error) {
-      console.error('❌ [AuthContext] Logout error:', error);
-      // Force logout even if API fails
-      setUser(null);
+      console.error('❌ [AuthContext] Logout failed:', error);
+      throw error;
     } finally {
       setAuthLoading(false);
     }
   };
 
   const updateUserProfile = async (updates: Partial<Profile>) => {
-    if (!user) return;
-
+    if (!user) throw new Error('No user logged in');
+    
     try {
-      console.log('📝 [AuthContext] Updating profile for:', user.email);
-      
-      // Handle both camelCase and snake_case for compatibility
-      const dbUpdates: any = {};
-      if (updates.name !== undefined) dbUpdates.name = updates.name;
-      if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
-      if (updates.avatar_url !== undefined) dbUpdates.avatar_url = updates.avatar_url;
-      if (updates.plan !== undefined) dbUpdates.plan = updates.plan;
-      if (updates.battlesUsed !== undefined) dbUpdates.battles_used = updates.battlesUsed;
-      if (updates.lastResetAt !== undefined) dbUpdates.last_reset_at = updates.lastResetAt;
-      
-      const updatedProfile = await updateProfile(user.id, dbUpdates);
+      const updatedProfile = await bulletproofSupabase.updateProfile(user.id, updates);
+      if (!updatedProfile) {
+        throw new Error('Profile update returned null');
+      }
       setUser(updatedProfile);
-      
-      console.log('✅ [AuthContext] Profile updated successfully');
     } catch (error) {
-      console.error('❌ [AuthContext] Profile update error:', error);
+      console.error('❌ [AuthContext] Profile update failed:', error);
       throw error;
     }
   };
 
   const incrementBattleUsage = async () => {
     if (!user) return;
-
+    
     try {
-      const today = new Date().toISOString().split('T')[0];
-      let newUsage = user.battlesUsed;
+      const newUsage = (user.battle_usage || 0) + 1;
+      const updates = { battle_usage: newUsage };
       
-      // Reset usage if it's a new day
-      if (user.lastResetAt !== today) {
-        newUsage = 1;
-      } else {
-        newUsage = Math.min(user.battlesUsed + 1, user.battlesLimit);
+      const updatedProfile = await bulletproofSupabase.updateProfile(user.id, updates);
+      if (!updatedProfile) {
+        throw new Error('Profile update returned null');
       }
-
-      const updatedProfile = await updateProfile(user.id, {
-        battlesUsed: newUsage,
-        lastResetAt: today
-      });
-      
       setUser(updatedProfile);
       console.log('✅ [AuthContext] Battle usage incremented:', newUsage);
     } catch (error) {
