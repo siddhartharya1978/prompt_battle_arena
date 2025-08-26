@@ -76,7 +76,7 @@ export default function BattleResults() {
     };
 
     loadBattle();
-  }, [id, getBattle, navigate]);
+  }, [id, getBattle, navigate, battles]);
 
   const getDemoBattle = (): Battle => {
     return {

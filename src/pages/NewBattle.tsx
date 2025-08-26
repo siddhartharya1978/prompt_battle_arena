@@ -165,7 +165,15 @@ export default function NewBattle() {
         user_id: user.id
       };
 
+      console.log('🚀 [NewBattle] Creating battle with data:', {
+        battleType,
+        promptLength: prompt.length,
+        models: finalModels,
+        userId: user.id
+      });
       const battle = await createBattle(battleData);
+      
+      console.log('✅ [NewBattle] Battle created successfully:', battle.id);
       
       // Increment usage after successful battle
       await incrementBattleUsage();
@@ -175,7 +183,17 @@ export default function NewBattle() {
       
     } catch (error) {
       console.error('Battle creation error:', error);
-      toast.error(`Battle failed: ${error.message}`);
+      
+      // Enhanced error handling
+      if (error.message.includes('Failed to fetch')) {
+        toast.error('🌐 Network error: Please check your internet connection and try again.');
+      } else if (error.message.includes('Supabase')) {
+        toast.error('💾 Database error: Battle data could not be saved. Please try again.');
+      } else if (error.message.includes('Groq') || error.message.includes('API')) {
+        toast.error('🤖 AI API error: The AI models are temporarily unavailable. Please try again in a moment.');
+      } else {
+        toast.error(`❌ Battle failed: ${error.message}`);
+      }
     } finally {
       setIsCreating(false);
     }

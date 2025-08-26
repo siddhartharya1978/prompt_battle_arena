@@ -6,7 +6,6 @@ import { Battle, BattleData, Model, transformBattleFromDB } from '../types';
 import { BattleProgress } from '../lib/battle-progress';
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
-import { v4 as uuidv4 } from 'uuid';
 
 interface BattleContextType {
   battles: Battle[];
@@ -80,25 +79,30 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Invalid battle configuration provided');
     }
     
+    // Generate proper UUID for battle
+    const battleId = `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
     const progressCallback = (progress: BattleProgress) => {
       setBattleProgress(progress);
     };
     
     try {
       console.log('🚀 [BattleContext] STARTING BATTLE CREATION');
+      console.log('🆔 [BattleContext] Battle ID:', battleId);
+      console.log('👤 [BattleContext] User ID:', battleData.user_id);
       
-      const battleEngine = new ResilientBattleEngine(progressCallback);
-      const battle = await battleEngine.createBattle(battleData);
+      // Create battle with proper configuration
+      const battle = await this.createBattleWithProperFlow(battleData, battleId, progressCallback);
       
       console.log('✅ [BattleContext] BATTLE CREATION SUCCESS');
       
       // Try to save to Supabase first, then localStorage
       try {
-        await saveBattleToSupabase(battle);
+        await this.saveBattleToSupabase(battle);
         console.log('✅ [BattleContext] Battle saved to Supabase');
       } catch (supabaseError) {
         console.error('❌ [BattleContext] Supabase save failed, using localStorage:', supabaseError);
-        storeBattleInCache(battle);
+        this.storeBattleInCache(battle);
         console.log('✅ [BattleContext] Battle saved to localStorage');
       }
       
@@ -123,6 +127,10 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   };
 
   const saveBattleToSupabase = async (battle: Battle) => {
+  // SAVE BATTLE TO SUPABASE
+  const saveBattleToSupabase = async (battle: Battle) => {
+    console.log('💾 [BattleContext] Saving battle to Supabase:', battle.id);
+    
     // Save main battle record
     const { error: battleError } = await supabase
       .from('battles')
@@ -146,9 +154,13 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       });
 
     if (battleError) throw battleError;
+      console.error('❌ [BattleContext] Battle insert failed:', battleError);
+    }
+    console.log('✅ [BattleContext] Battle record saved');
 
     // Save responses
     if (battle.responses && battle.responses.length > 0) {
+      console.log('💾 [BattleContext] Saving responses:', battle.responses.length);
       const { error: responsesError } = await supabase
         .from('battle_responses')
         .insert(
@@ -163,11 +175,16 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
           }))
         );
 
-      if (responsesError) throw responsesError;
+      if (responsesError) {
+        console.error('❌ [BattleContext] Responses insert failed:', responsesError);
+        throw responsesError;
+      }
+      console.log('✅ [BattleContext] Responses saved');
     }
 
     // Save scores
     if (battle.scores && Object.keys(battle.scores).length > 0) {
+      console.log('💾 [BattleContext] Saving scores:', Object.keys(battle.scores).length);
       const scoreEntries = Object.entries(battle.scores).map(([modelId, score]) => ({
         id: `score_${Date.now()}_${modelId}`,
         battle_id: battle.id,
@@ -184,11 +201,16 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
         .from('battle_scores')
         .insert(scoreEntries);
 
-      if (scoresError) throw scoresError;
+      if (scoresError) {
+        console.error('❌ [BattleContext] Scores insert failed:', scoresError);
+        throw scoresError;
+      }
+      console.log('✅ [BattleContext] Scores saved');
     }
 
     // Save prompt evolution
     if (battle.promptEvolution && battle.promptEvolution.length > 0) {
+      console.log('💾 [BattleContext] Saving prompt evolution:', battle.promptEvolution.length);
       const { error: evolutionError } = await supabase
         .from('prompt_evolution')
         .insert(
@@ -203,10 +225,17 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
           }))
         );
 
-      if (evolutionError) throw evolutionError;
+      if (evolutionError) {
+        console.error('❌ [BattleContext] Evolution insert failed:', evolutionError);
+        throw evolutionError;
+      }
+      console.log('✅ [BattleContext] Prompt evolution saved');
     }
+    
+    console.log('🎉 [BattleContext] Battle completely saved to Supabase');
   };
 
+  // STORE BATTLE IN CACHE
   const storeBattleInCache = (battle: Battle) => {
     try {
       const demoCache = JSON.parse(localStorage.getItem('demo_battles') || '[]');
@@ -215,6 +244,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
         demoCache.splice(50);
       }
       localStorage.setItem('demo_battles', JSON.stringify(demoCache));
+      console.log('✅ [BattleContext] Battle cached locally');
     } catch (error) {
       console.error('Error storing battle in cache:', error);
     }
