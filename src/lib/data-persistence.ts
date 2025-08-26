@@ -22,6 +22,8 @@ export class DataPersistenceManager {
   }
 
   async incrementBattleUsage(userId: string, currentUsage: number, limit: number): Promise<{success: boolean, newUsage: number}> {
+    console.log(`📊 [DataPersistence] STARTING: Battle usage increment for user ${userId} from ${currentUsage} to ${Math.min(currentUsage + 1, limit)}`);
+    
     const options: PersistenceOptions = {
       maxRetries: 3,
       retryDelay: 1000,
@@ -33,18 +35,7 @@ export class DataPersistenceManager {
     const optimisticUsage = Math.min(currentUsage + 1, limit);
     
     try {
-      // Check if demo user
-      const demoSession = localStorage.getItem('demo_session');
-      if (demoSession) {
-        const demoUser = JSON.parse(demoSession);
-        demoUser.battlesUsed = optimisticUsage;
-        demoUser.updatedAt = new Date().toISOString();
-        localStorage.setItem('demo_session', JSON.stringify(demoUser));
-        console.log(`[DataPersistence] Demo user battle usage incremented to ${optimisticUsage} (localStorage)`);
-        return { success: true, newUsage: optimisticUsage };
-      }
-
-      // Real user - attempt database update with retries
+      // Attempt database update with retries for ALL users
       const result = await this.retryOperation(async () => {
         const { data, error } = await supabase
           .from('profiles')
@@ -57,7 +48,7 @@ export class DataPersistenceManager {
           .single();
 
         if (error) throw error;
-        console.log(`[DataPersistence] Supabase: Battle usage for user ${userId} incremented to ${data.battles_used}`);
+        console.log(`✅ [DataPersistence] SUPABASE SUCCESS: Battle usage for user ${userId} incremented to ${data.battles_used}`);
         return data;
       }, options);
 
@@ -66,13 +57,12 @@ export class DataPersistenceManager {
 
 
     } catch (error) {
-      console.error('Failed to increment battle usage:', error);
+      console.error(`❌ [DataPersistence] FAILED: Battle usage increment for user ${userId} failed. Error: ${error.message}`);
       
       if (options.fallbackToLocal) {
         // Fallback to localStorage tracking
         const fallbackKey = `user_${userId}_battles_used`;
         localStorage.setItem(fallbackKey, optimisticUsage.toString());
-        console.error(`❌ [DataPersistence] FAILED: Battle usage increment for user ${userId} failed. Error: ${error.message}`);
         console.log(`🔄 [DataPersistence] FALLBACK: Using localStorage for user ${userId} battle usage tracking`);
         return { success: true, newUsage: optimisticUsage };
       }
@@ -83,6 +73,8 @@ export class DataPersistenceManager {
   }
 
   async saveBattle(battle: Battle): Promise<{success: boolean, battleId: string}> {
+    console.log(`💾 [DataPersistence] STARTING: Save battle ${battle.id} for user ${battle.userId}`);
+    
     const options: PersistenceOptions = {
       maxRetries: 3,
       retryDelay: 2000,
@@ -93,16 +85,12 @@ export class DataPersistenceManager {
     try {
       // Always save to localStorage first (immediate backup)
       this.saveBattleToLocalStorage(battle);
+      console.log(`📱 [DataPersistence] LOCAL SUCCESS: Battle ${battle.id} saved to localStorage`);
 
-      // If it's a demo user, we're done after localStorage save
-      // Check if demo user
-      const demoSession = localStorage.getItem('demo_session');
-      if (demoSession) {
-        return { success: true, battleId: battle.id };
-      }
-
-      // Real user - attempt database save with retries
+      // Attempt database save with retries for ALL users
       await this.retryOperation(async () => {
+        console.log(`🔄 [DataPersistence] ATTEMPTING: Supabase save for battle ${battle.id}`);
+        
         // Save main battle record
         const { error: battleError } = await supabase
           .from('battles')
@@ -125,10 +113,15 @@ export class DataPersistenceManager {
             auto_selection_reason: battle.autoSelectionReason
           });
 
-        if (battleError) throw battleError;
+        if (battleError) {
+          console.error(`❌ [DataPersistence] SUPABASE BATTLE INSERT FAILED: ${battleError.message}`);
+          throw battleError;
+        }
+        console.log(`✅ [DataPersistence] SUPABASE SUCCESS: Battle ${battle.id} main record saved`);
 
         // Save responses
         if (battle.responses.length > 0) {
+          console.log(`🔄 [DataPersistence] ATTEMPTING: Save ${battle.responses.length} responses for battle ${battle.id}`);
           const { error: responsesError } = await supabase
             .from('battle_responses')
             .insert(battle.responses.map(r => ({
@@ -141,7 +134,11 @@ export class DataPersistenceManager {
               cost: r.cost
             })));
 
-          if (responsesError) throw responsesError;
+          if (responsesError) {
+            console.error(`❌ [DataPersistence] SUPABASE RESPONSES INSERT FAILED: ${responsesError.message}`);
+            throw responsesError;
+          }
+          console.log(`✅ [DataPersistence] SUPABASE SUCCESS: ${battle.responses.length} responses saved for battle ${battle.id}`);
         }
 
         // Save scores
@@ -158,15 +155,21 @@ export class DataPersistenceManager {
         }));
 
         if (scoreEntries.length > 0) {
+          console.log(`🔄 [DataPersistence] ATTEMPTING: Save ${scoreEntries.length} scores for battle ${battle.id}`);
           const { error: scoresError } = await supabase
             .from('battle_scores')
             .insert(scoreEntries);
 
-          if (scoresError) throw scoresError;
+          if (scoresError) {
+            console.error(`❌ [DataPersistence] SUPABASE SCORES INSERT FAILED: ${scoresError.message}`);
+            throw scoresError;
+          }
+          console.log(`✅ [DataPersistence] SUPABASE SUCCESS: ${scoreEntries.length} scores saved for battle ${battle.id}`);
         }
 
         // Save prompt evolution if exists
         if (battle.promptEvolution && battle.promptEvolution.length > 0) {
+          console.log(`🔄 [DataPersistence] ATTEMPTING: Save ${battle.promptEvolution.length} prompt evolution records for battle ${battle.id}`);
           const { error: evolutionError } = await supabase
             .from('prompt_evolution')
             .insert(battle.promptEvolution.map(p => ({
@@ -179,9 +182,14 @@ export class DataPersistenceManager {
               score: p.score
             })));
 
-          if (evolutionError) throw evolutionError;
-          console.log(`✅ [DataPersistence] SUCCESS: Battle ${battle.id} and all related records saved to Supabase successfully.`);
+          if (evolutionError) {
+            console.error(`❌ [DataPersistence] SUPABASE EVOLUTION INSERT FAILED: ${evolutionError.message}`);
+            throw evolutionError;
+          }
+          console.log(`✅ [DataPersistence] SUPABASE SUCCESS: ${battle.promptEvolution.length} evolution records saved for battle ${battle.id}`);
         }
+        
+        console.log(`🎉 [DataPersistence] COMPLETE SUCCESS: Battle ${battle.id} and ALL related records saved to Supabase`);
       }, options);
 
       console.log(`✅ [DataPersistence] SUCCESS: Battle ${battle.id} fully persisted to Supabase`);
@@ -189,12 +197,11 @@ export class DataPersistenceManager {
 
 
     } catch (error) {
-      console.error('Failed to save battle to database:', error);
+      console.error(`❌ [DataPersistence] FAILED: Battle ${battle.id} Supabase save failed. Error: ${error.message}`);
       
       if (options.fallbackToLocal) {
-        // Already saved to localStorage, so we're good
-        console.error(`❌ [DataPersistence] FAILED: Battle ${battle.id} Supabase save failed. Error: ${error.message}`);
         console.log(`🔄 [DataPersistence] FALLBACK: Battle ${battle.id} saved to localStorage successfully`);
+        return { success: true, battleId: battle.id }; // localStorage save succeeded
       }
 
       console.error(`💥 [DataPersistence] CRITICAL: Battle ${battle.id} save completely failed. Error: ${error.message}`);

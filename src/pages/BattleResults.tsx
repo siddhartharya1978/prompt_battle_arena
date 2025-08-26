@@ -277,7 +277,7 @@ export default function BattleResults() {
                     Battle Failed
                   </h1>
                   <p className="text-gray-600 dark:text-gray-300">
-                    API Error - No Synthetic Data Generated
+                    Groq API Error - ALL REAL Policy Enforced
                   </p>
                 </div>
               </div>
@@ -290,11 +290,12 @@ export default function BattleResults() {
                   <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400 mt-1 flex-shrink-0" />
                   <div>
                     <h3 className="text-lg font-bold text-red-900 dark:text-red-100 mb-2">
-                      Groq API Failure - ALL REAL Policy
+                      Groq API Failure - Honest Error Reporting
                     </h3>
                     <p className="text-red-700 dark:text-red-300 mb-4">
-                      This battle could not be completed due to Groq API issues. Following our "ALL REAL" policy, 
-                      no synthetic or mock data was generated. The battle has been honestly recorded as failed.
+                      This battle could not be completed due to external Groq API issues. In accordance with our 
+                      "ALL REAL" policy, no synthetic or mock data was generated. The battle has been honestly 
+                      recorded as failed, and you can retry when the API is stable.
                     </p>
                     {battle.plateauReason && (
                       <div className="bg-red-100 dark:bg-red-900/30 rounded-lg p-3">
@@ -303,6 +304,15 @@ export default function BattleResults() {
                         </p>
                       </div>
                     )}
+                    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                      <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">What This Means:</h4>
+                      <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                        <li>• The Groq API experienced technical difficulties</li>
+                        <li>• No fake or synthetic data was generated</li>
+                        <li>• Your battle attempt was recorded honestly as failed</li>
+                        <li>• You can retry immediately - the issue is likely temporary</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -48,8 +48,10 @@ export class ResilientBattleEngine {
   }
 
   private generateFallbackBattle(battleData: BattleData, battleId: string, errorMessage: string): Battle {
-    // ALL REAL FAILURE - No synthetic data, honest failure state
+    // ALL REAL POLICY - HONEST FAILURE STATE WITH NO SYNTHETIC DATA
     console.error(`[ResilientBattleEngine] Generating failed battle record for ${battleId}. Error: ${errorMessage}`);
+    console.error(`[ResilientBattleEngine] Battle type: ${battleData.battle_type}, Models: ${battleData.models.join(', ')}`);
+    console.error(`[ResilientBattleEngine] This is an honest API failure - no synthetic data will be generated`);
     
     const battle: Battle = {
       id: battleId,
@@ -64,17 +66,18 @@ export class ResilientBattleEngine {
       rounds: 1,
       maxTokens: battleData.max_tokens,
       temperature: battleData.temperature,
-      status: 'failed', // Mark as failed
+      status: 'failed', // HONEST FAILURE STATUS
       winner: null,
       totalCost: 0,
       autoSelectionReason: battleData.auto_selection_reason,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      responses: [],
-      scores: {},
-      plateauReason: `API Failure: ${errorMessage}`
+      responses: [], // NO SYNTHETIC RESPONSES
+      scores: {}, // NO SYNTHETIC SCORES
+      plateauReason: `Groq API Failure: ${errorMessage}. This battle could not be completed due to external API issues. No synthetic data was generated in accordance with ALL REAL policy.`
     };
 
+    console.log(`💾 [ResilientBattleEngine] Created honest failure battle record for ${battleId}`);
     this.storeBattleInCache(battle);
     return battle;
   }

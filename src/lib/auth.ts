@@ -81,7 +81,21 @@ export const signIn = async (email: string, password: string) => {
 
 export const signOut = async () => {
   console.log('🚪 [Auth] Signing out from Supabase...');
-  const { error } = await supabase.auth.signOut();
+  
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('❌ [Auth] Supabase signOut error:', error);
+      throw error;
+    }
+    console.log('✅ [Auth] Supabase signOut successful');
+  } catch (error) {
+    console.error('❌ [Auth] Critical signOut failure:', error);
+    // Force clear session even if API call fails
+    await supabase.auth.signOut({ scope: 'local' });
+    throw error;
+  }
+};
   if (error) {
     console.error('❌ [Auth] Supabase signOut error:', error);
     throw error;

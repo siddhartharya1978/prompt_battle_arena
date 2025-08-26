@@ -30,47 +30,73 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(false);
 
   useEffect(() => {
-    // Check for existing session
+    let mounted = true;
+    
     const checkSession = async () => {
-      setAuthLoading(true);
+      if (!mounted) return;
+      
       try {
         console.log('🔍 [Auth] Checking existing session...');
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
         
-        if (session?.user) {
+        if (error) {
+          console.error('❌ [Auth] Session check error:', error);
+          if (mounted) {
+            setUser(null);
+            setLoading(false);
+          }
+          return;
+        }
+        
+        if (session?.user && mounted) {
           console.log('✅ [Auth] Found Supabase session for user:', session.user.email);
           await loadUserProfile(session.user);
         } else {
           console.log('📝 [Auth] No active Supabase session found');
-          setUser(null);
+          if (mounted) {
+            setUser(null);
+          }
         }
       } catch (error) {
         console.error('❌ [Auth] Session check error:', error);
-        setUser(null);
+        if (mounted) {
+          setUser(null);
+        }
       } finally {
-        setLoading(false);
-        setAuthLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
     checkSession();
 
-    // Listen for auth changes
+    // Listen for auth changes with proper cleanup
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      
       console.log('🔄 [Auth] Auth state changed:', event, session?.user?.email || 'no user');
-      setAuthLoading(true);
+      
       if (event === 'SIGNED_IN' && session?.user) {
+        setAuthLoading(true);
         await loadUserProfile(session.user);
+        setAuthLoading(false);
       } else if (event === 'SIGNED_OUT') {
+        console.log('🚪 [Auth] User signed out, clearing state');
         setUser(null);
+        setAuthLoading(false);
+      } else if (event === 'TOKEN_REFRESHED') {
+        console.log('🔄 [Auth] Token refreshed');
       }
-      setAuthLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const loadUserProfile = async (authUser: User) => {
@@ -94,23 +120,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setAuthLoading(true);
     try {
-
       console.log('🔐 [Auth] Attempting login for:', email);
       
-      // Use real Supabase authentication for ALL users (including demo accounts)
-      try {
-        const { user: authUser } = await signIn(email.trim(), password);
-        if (authUser) {
-          console.log('✅ [Auth] Supabase login successful for:', authUser.email);
-          await loadUserProfile(authUser);
-        } else {
-          console.warn('⚠️ [Auth] Login returned no user');
-          throw new Error('Login failed - no user returned');
-        }
-      } catch (supabaseError) {
-        console.error('❌ [Auth] Supabase authentication failed:', supabaseError);
-        throw new Error(`Authentication failed: ${supabaseError.message}`);
+      const { user: authUser } = await signIn(email.trim(), password);
+      if (authUser) {
+        console.log('✅ [Auth] Supabase login successful for:', authUser.email);
+        // Profile will be loaded via onAuthStateChange
+      } else {
+        throw new Error('Login failed - no user returned');
       }
+    } catch (error: any) {
+      console.error('❌ [Auth] Login failed:', error);
+      throw error;
     } finally {
       setAuthLoading(false);
     }
@@ -123,11 +144,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { user: authUser } = await signUp(email, password, name);
       if (authUser) {
         console.log('✅ [Auth] Registration successful for:', authUser.email);
-        await loadUserProfile(authUser);
+        // Profile will be loaded via onAuthStateChange
       } else {
-        console.warn('⚠️ [Auth] Registration returned no user');
         throw new Error('Registration failed - no user returned');
       }
+    } catch (error: any) {
+      console.error('❌ [Auth] Registration failed:', error);
+      throw error;
     } finally {
       setAuthLoading(false);
     }
@@ -136,36 +159,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     console.log('🚪 [Auth] Logging out user:', user?.email);
     setAuthLoading(true);
+    
     try {
       // Clear user state immediately for responsive UI
       setUser(null);
       
-      // Sign out from Supabase
+      // Sign out from Supabase - this will trigger onAuthStateChange
       await signOut();
       
-      // Clear any cached data
+      // Clear all cached data
       localStorage.removeItem('demo_battles');
       
       // Clear any pending operations
       Object.keys(localStorage).forEach(key => {
-        if (key.includes('_profile_updates') || key.includes('_battles_used') || key.includes('checkpoint_')) {
+        if (key.includes('_profile_updates') || 
+            key.includes('_battles_used') || 
+            key.includes('checkpoint_') ||
+            key.includes('pba_')) {
           localStorage.removeItem(key);
         }
       });
       
       console.log('✅ [Auth] Logout completed successfully');
+    } catch (error) {
+      console.error('❌ [Auth] Logout error:', error);
+      // Even if logout fails, clear local state
+      setUser(null);
     } finally {
       setAuthLoading(false);
     }
   };
 
   const updateUserProfile = async (updates: Partial<Profile>) => {
-    if (!user) return;
+    if (!user) {
+      throw new Error('No user logged in');
+    }
 
     console.log('👤 [Auth] Updating profile for user:', user.id);
     
+    // Optimistic update
+    const optimisticUser = { ...user, ...updates, updatedAt: new Date().toISOString() };
+    setUser(optimisticUser);
+    
     try {
-      // Use Supabase for ALL users
       const dbUpdates: any = {};
       if (updates.name !== undefined) dbUpdates.name = updates.name;
       if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
@@ -191,12 +227,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const incrementBattleUsage = async () => {
-    if (!user) return;
+    if (!user) {
+      console.warn('⚠️ [Auth] No user logged in for battle usage increment');
+      return;
+    }
 
     console.log('📊 [Auth] Incrementing battle usage for user:', user.id);
     
     try {
-      // Use resilient data persistence manager
       const result = await dataPersistenceManager.incrementBattleUsage(
         user.id, 
         user.battlesUsed, 
@@ -204,7 +242,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
       
       if (result.success) {
-        // Optimistic update to UI
         setUser(prev => prev ? {
           ...prev,
           battlesUsed: result.newUsage,
@@ -213,11 +250,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('✅ [Auth] Battle usage incremented to:', result.newUsage);
       } else {
         console.warn('⚠️ [Auth] Battle usage increment failed, but continuing with battle');
-        // Don't block the user - just log the issue
       }
     } catch (error) {
       console.error('❌ [Auth] Error incrementing battle usage:', error);
-      // Don't throw - we don't want to block battle creation for usage tracking issues
     }
   };
 

@@ -119,8 +119,13 @@ export class ResilientGroqClient {
     // Strategy 4: Generate synthetic response
     progressCallback?.(`Generating synthetic response...`);
     
-    // NO SYNTHETIC RESPONSES - FAIL HONESTLY
-    throw new Error(`ALL REAL GROQ API ATTEMPTS FAILED: ${lastError?.message || 'Unknown error'}. No synthetic fallbacks - this is a genuine API failure.`);
+    // ALL REAL POLICY - NO SYNTHETIC RESPONSES
+    console.error(`💥 [ResilientGroqClient] ALL REAL GROQ API ATTEMPTS EXHAUSTED for model ${originalModel}`);
+    console.error(`💥 [ResilientGroqClient] Original error: ${lastError?.message}`);
+    console.error(`💥 [ResilientGroqClient] Total attempts: ${totalAttempts}`);
+    console.error(`💥 [ResilientGroqClient] Fallback models tried: ${fallbackModels.join(', ')}`);
+    
+    throw new Error(`ALL REAL GROQ API ATTEMPTS FAILED: ${lastError?.message || 'Unknown error'}. No synthetic fallbacks - this is a genuine API failure that must be handled at the battle level.`);
   } // End of callGroqAPI
 
   private async makeDirectAPICall(
@@ -247,7 +252,7 @@ export class ResilientGroqClient {
     temperature: number,
     progressCallback?: (status: string) => void
   ): Promise<GroqCallResult | null> {
-    // More comprehensive fallback model list
+    // Comprehensive fallback model list - ALL REAL GROQ MODELS
     const fallbackModels = [
       'llama-3.1-8b-instant',
       'llama-3.3-70b-versatile', 
@@ -255,9 +260,12 @@ export class ResilientGroqClient {
       'qwen/qwen3-32b'
     ].filter(m => m !== originalModel);
 
+    console.log(`🔄 [ResilientGroqClient] Trying ${fallbackModels.length} fallback models for failed ${originalModel}`);
     for (const fallbackModel of fallbackModels) {
       try {
         progressCallback?.(`Trying fallback model: ${fallbackModel}...`);
+        console.log(`🔄 [ResilientGroqClient] Attempting fallback model: ${fallbackModel}`);
+        
         // Use more conservative settings for fallback calls
         const result = await this.makeDirectAPICall(
           fallbackModel, 
@@ -265,13 +273,17 @@ export class ResilientGroqClient {
           Math.min(maxTokens, 300), // Reduce tokens for stability
           Math.min(temperature, 0.5) // Lower temperature for stability
         );
+        
+        console.log(`✅ [ResilientGroqClient] Fallback model ${fallbackModel} succeeded!`);
         return { ...result, fallbackUsed: fallbackModel };
       } catch (error) {
+        console.error(`❌ [ResilientGroqClient] Fallback model ${fallbackModel} failed: ${error.message}`);
         progressCallback?.(`Fallback ${fallbackModel} failed: ${error.message}`);
         continue;
       }
     }
 
+    console.error(`💥 [ResilientGroqClient] ALL ${fallbackModels.length} fallback models failed`);
     return null;
   }
 
@@ -282,29 +294,37 @@ export class ResilientGroqClient {
     temperature: number,
     progressCallback?: (status: string) => void
   ): Promise<GroqCallResult | null> {
-    // Create multiple simplified versions
+    console.log(`🔄 [ResilientGroqClient] Trying simplified prompts for model ${model}`);
+    
+    // Create multiple simplified versions - ALL REAL CONTENT
     const simplifications = [
       // Strategy 1: Truncate long prompts
       originalPrompt.length > 300 ? originalPrompt.substring(0, 300) + "..." : originalPrompt,
       // Strategy 2: Extract core request
       this.extractCoreRequest(originalPrompt),
       // Strategy 3: Ultra-simple version
-      "Please provide a helpful response to this request."
+      `Please provide a helpful response about: ${this.extractKeywords(originalPrompt)}`
     ];
 
     for (let i = 0; i < simplifications.length; i++) {
       try {
         progressCallback?.(`Trying simplified prompt strategy ${i + 1}...`);
+        console.log(`🔄 [ResilientGroqClient] Simplified strategy ${i + 1}: "${simplifications[i].substring(0, 100)}..."`);
+        
         const result = await this.makeDirectAPICall(
           model, 
           simplifications[i], 
           Math.min(maxTokens, 150), // Very conservative token limit
           0.3 // Low temperature for stability
         );
+        
+        console.log(`✅ [ResilientGroqClient] Simplified strategy ${i + 1} succeeded!`);
         return result;
       } catch (error) {
+        console.error(`❌ [ResilientGroqClient] Simplified strategy ${i + 1} failed: ${error.message}`);
         progressCallback?.(`Simplified strategy ${i + 1} failed: ${error.message}`);
         if (i === simplifications.length - 1) {
+          console.error(`💥 [ResilientGroqClient] ALL simplified prompt strategies failed`);
           return null;
         }
       }
@@ -322,6 +342,16 @@ export class ResilientGroqClient {
     return prompt.substring(0, 100) + "...";
   }
 
+  private extractKeywords(prompt: string): string {
+    // Extract key terms from prompt for ultra-simple fallback
+    const words = prompt.toLowerCase().split(/\s+/);
+    const keywords = words.filter(word => 
+      word.length > 4 && 
+      !['please', 'provide', 'explain', 'describe', 'create', 'write'].includes(word)
+    ).slice(0, 3);
+    
+    return keywords.length > 0 ? keywords.join(', ') : 'the requested topic';
+  }
   private isRateLimitError(error: any): boolean {
     const message = error?.message?.toLowerCase() || '';
     return message.includes('rate limit') || 
