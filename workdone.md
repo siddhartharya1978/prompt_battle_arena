@@ -474,7 +474,7 @@ I have learned from the previous error and will not claim 100% certainty again w
 - ✅ Proper authentication integration
 
 #### 👑 **ADMIN USER SETUP**
-- ✅ **Primary Admin**: siddhartharya.ai@gmail.com
+- ✅ **Primary Admin**: siddhartharya.ai@gmail.com / admin123
   - Full admin privileges
   - Access to admin panel
   - Can view all user data
