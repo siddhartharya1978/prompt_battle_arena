@@ -425,3 +425,6 @@ BE CRITICAL AND DEMANDING.`;
     return model?.name || modelId;
   }
 }
+
+// Export singleton instance for use in other modules
+export const flawlessBattleEngine = FlawlessBattleEngine.getInstance();
