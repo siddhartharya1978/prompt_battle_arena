@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useBattle } from '../contexts/BattleContext';
 import { Battle, Model } from '../types';
