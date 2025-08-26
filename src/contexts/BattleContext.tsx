@@ -206,7 +206,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
           const result = await callGroqAPI(modelId, battle.prompt, battle.maxTokens, battle.temperature);
           
           responses.push({
-            id: `response_${Date.now()}_${modelId}`,
+            id: uuidv4(),
             battleId: battle.id,
             modelId,
             response: result.response,
@@ -221,7 +221,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
           console.error(`Model ${modelId} failed:`, error);
           // Add fallback response
           responses.push({
-            id: `response_${Date.now()}_${modelId}`,
+            id: uuidv4(),
             battleId: battle.id,
             modelId,
             response: `Fallback response from ${modelId}: This model encountered an API error but would normally provide a comprehensive response to your prompt about ${battle.promptCategory}.`,
