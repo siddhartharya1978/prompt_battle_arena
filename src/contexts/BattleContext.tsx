@@ -92,8 +92,77 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       console.log('🆔 [BattleContext] Battle ID:', battleId);
       console.log('👤 [BattleContext] User ID:', battleData.user_id);
       
-      // Create battle with proper configuration
-      const battle = await createBattleWithProperFlow(battleData, battleId, progressCallback);
+      // Step 1: Create initial battle record
+      const initialBattle: Battle = {
+        id: battleId,
+        userId: battleData.user_id,
+        battleType: battleData.battle_type,
+        prompt: battleData.prompt,
+        finalPrompt: null,
+        promptCategory: battleData.prompt_category,
+        models: battleData.models,
+        mode: battleData.mode,
+        battleMode: battleData.battle_mode,
+        rounds: battleData.rounds,
+        maxTokens: battleData.max_tokens,
+        temperature: battleData.temperature,
+        status: 'running',
+        winner: null,
+        totalCost: 0,
+        autoSelectionReason: battleData.auto_selection_reason,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        responses: [],
+        scores: {}
+      };
+
+      // Step 2: Save initial battle to ensure it exists
+      try {
+        await saveBattleToSupabase(initialBattle);
+        console.log('✅ [BattleContext] Initial battle record saved');
+      } catch (error) {
+        console.error('❌ [BattleContext] Failed to save initial battle:', error);
+        storeBattleInCache(initialBattle);
+        console.log('✅ [BattleContext] Initial battle cached locally');
+      }
+
+      // Step 3: Execute battle using flawless engine
+      const { flawlessBattleEngine } = await import('../lib/flawless-battle-engine');
+      
+      const config = {
+        prompt: battleData.prompt,
+        category: battleData.prompt_category,
+        battleType: battleData.battle_type,
+        models: battleData.models,
+        userId: battleData.user_id,
+        battleId: battleId,
+        maxRounds: battleData.rounds,
+        qualityThreshold: 8.5
+      };
+
+      const result = await flawlessBattleEngine.runFlawlessBattle(config, 
+        (phase, progress, details) => {
+          progressCallback({
+            phase,
+            step: details,
+            progress,
+            details,
+            modelStatus: {},
+            modelProgress: {},
+            errors: [],
+            warnings: [],
+            successMessages: [],
+            phaseStartTime: Date.now(),
+            totalStartTime: Date.now()
+          });
+        }
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || 'Battle execution failed');
+      }
+
+      const battle = result.battle;
       
       console.log('✅ [BattleContext] BATTLE CREATION SUCCESS');
       
