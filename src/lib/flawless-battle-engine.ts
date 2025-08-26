@@ -4,6 +4,7 @@
 import { BattleData, Battle, BattleResponse, BattleScore } from '../types';
 import { AVAILABLE_MODELS } from './models';
 import { resilientGroqClient } from './groq-resilient';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface FlawlessBattleConfig {
   prompt: string;
@@ -86,7 +87,7 @@ BE BRUTAL - remove all formatting, headers, explanations. Return ONLY the core c
     config: FlawlessBattleConfig,
     progressCallback?: (phase: string, progress: number, details: string) => void
   ): Promise<FlawlessBattleResult> {
-    const battleId = `battle_${Date.now()}`;
+    const battleId = uuidv4();
     
     try {
       progressCallback?.('Initializing Battle', 10, 'Setting up battle configuration...');
