@@ -26,16 +26,18 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('🚨 [ErrorBoundary] CRITICAL ERROR CAUGHT:', error, errorInfo);
     
     // Show user-friendly error message
-    if (error.message.includes('rate limit')) {
-      toast.error('API rate limit reached. Please wait a moment and try again.', { duration: 5000 });
+    if (error.message.includes('rate limit') || error.message.includes('429')) {
+      toast.error('🚫 API rate limit reached. Please wait 30 seconds and try again.', { duration: 6000 });
     } else if (error.message.includes('timeout') || error.message.includes('aborted')) {
-      toast.error('Request timed out. The system will retry automatically.', { duration: 4000 });
+      toast.error('⏱️ Request timed out. The API is slow - please try again.', { duration: 5000 });
     } else if (error.message.includes('fetch') || error.message.includes('network')) {
-      toast.error('Network issue detected. Please check your connection.', { duration: 4000 });
-    } else if (error.message.includes('flawless-battle-engine')) {
-      toast.error('Battle system error. Please try again or contact support.', { duration: 5000 });
+      toast.error('🌐 Network issue detected. Please check your internet connection.', { duration: 5000 });
+    } else if (error.message.includes('flawless-battle-engine') || error.message.includes('Cannot resolve module')) {
+      toast.error('🔧 System error detected. Please refresh the page and try again.', { duration: 6000 });
+    } else if (error.message.includes('Supabase') || error.message.includes('database')) {
+      toast.error('💾 Database connection issue. Your data is safe - please try again.', { duration: 5000 });
     } else {
-      toast.error('An unexpected error occurred. Our team has been notified.', { duration: 4000 });
+      toast.error('❗ Unexpected error occurred. Please refresh the page and try again.', { duration: 5000 });
     }
     
     // Log to external service in production

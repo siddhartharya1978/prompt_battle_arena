@@ -119,12 +119,12 @@ export class ResilientGroqClient {
     // Strategy 4: Generate synthetic response
     progressCallback?.(`Generating synthetic response...`);
     
-    // ALL REAL POLICY - NO SYNTHETIC RESPONSES
-    console.error(`💥 [ResilientGroqClient] ALL REAL GROQ API ATTEMPTS EXHAUSTED for model ${model}`);
-    console.error(`💥 [ResilientGroqClient] Original error: ${lastError?.message}`);
-    console.error(`💥 [ResilientGroqClient] Total attempts: ${totalAttempts}`);
+    // HONEST FAILURE - NO SYNTHETIC RESPONSES
+    console.error(`💥 [ResilientGroqClient] ALL GROQ API ATTEMPTS FAILED for model ${model}`);
+    console.error(`💥 [ResilientGroqClient] Error: ${lastError?.message}`);
+    console.error(`💥 [ResilientGroqClient] Attempts: ${totalAttempts}`);
     
-    throw new Error(`ALL REAL GROQ API ATTEMPTS FAILED: ${lastError?.message || 'Unknown error'}. No synthetic fallbacks - this is a genuine API failure that must be handled at the battle level.`);
+    throw new Error(`Groq API completely unavailable: ${lastError?.message || 'Unknown error'}. All fallback strategies exhausted.`);
   } // End of callGroqAPI
 
   private async makeDirectAPICall(
@@ -387,6 +387,3 @@ export class ResilientGroqClient {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
-
-// Export singleton instance
-export const resilientGroqClient = ResilientGroqClient.getInstance();

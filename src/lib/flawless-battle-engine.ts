@@ -1,5 +1,5 @@
-// FLAWLESS BATTLE ENGINE - Production-Ready Implementation
-// Implements bulletproof battle logic with comprehensive error handling
+// FLAWLESS BATTLE ENGINE - UX-Perfect Implementation
+// Guarantees smooth user experience with comprehensive error handling
 
 import { BattleData, Battle, BattleResponse, BattleScore } from '../types';
 import { AVAILABLE_MODELS } from './models';
@@ -29,6 +29,57 @@ export class FlawlessBattleEngine {
       FlawlessBattleEngine.instance = new FlawlessBattleEngine();
     }
     return FlawlessBattleEngine.instance;
+  }
+
+  // LLM-POWERED META-POSTPROCESSOR for perfect output extraction
+  private async postProcessLLMOutput(
+    rawOutput: string,
+    expectedFormat: 'prompt' | 'critique' | 'score',
+    context: string
+  ): Promise<string> {
+    try {
+      const postProcessPrompt = `EXTRACT AND CLEAN this LLM output. Return ONLY the requested content, nothing else.
+
+RAW OUTPUT:
+"${rawOutput}"
+
+EXPECTED FORMAT: ${expectedFormat}
+CONTEXT: ${context}
+
+INSTRUCTIONS:
+- If format is "prompt": Extract ONLY the improved prompt text, no explanations
+- If format is "critique": Extract ONLY the critique text, no scores or headers  
+- If format is "score": Extract ONLY the numerical score (1-10)
+
+BE BRUTAL - remove all formatting, headers, explanations. Return ONLY the core content:`;
+
+      const result = await resilientGroqClient.callGroqAPI(
+        'llama-3.1-8b-instant', // Fast model for postprocessing
+        postProcessPrompt,
+        200,
+        0.1
+      );
+
+      return result.response.trim();
+    } catch (error) {
+      console.warn('Meta-postprocessor failed, using fallback parsing');
+      return this.fallbackParsing(rawOutput, expectedFormat);
+    }
+  }
+
+  private fallbackParsing(rawOutput: string, expectedFormat: string): string {
+    if (expectedFormat === 'score') {
+      const scoreMatch = rawOutput.match(/(\d+(?:\.\d+)?)/);
+      return scoreMatch ? scoreMatch[1] : '7.0';
+    }
+    
+    if (expectedFormat === 'prompt') {
+      // Find the longest meaningful line
+      const lines = rawOutput.split('\n').filter(line => line.trim().length > 20);
+      return lines.length > 0 ? lines[0].trim() : rawOutput.trim();
+    }
+    
+    return rawOutput.trim();
   }
 
   async runFlawlessBattle(
@@ -87,7 +138,7 @@ export class FlawlessBattleEngine {
     const responses: BattleResponse[] = [];
     let totalCost = 0;
 
-    // Generate responses from each model
+    // Generate responses from each model with BRUTAL judging
     for (let i = 0; i < config.models.length; i++) {
       const modelId = config.models[i];
       const progress = 30 + (i / config.models.length) * 40;
@@ -111,7 +162,7 @@ export class FlawlessBattleEngine {
         totalCost += result.cost;
       } catch (error) {
         console.error(`Model ${modelId} failed:`, error);
-        // Continue with other models
+        // Continue with other models - don't fail entire battle
       }
     }
 
@@ -119,22 +170,27 @@ export class FlawlessBattleEngine {
       throw new Error('All models failed to generate responses');
     }
 
-    progressCallback?.('AI Judging', 80, 'Expert AI evaluating responses...');
+    progressCallback?.('BRUTAL AI Judging', 80, 'Expert AI providing harsh evaluation...');
 
-    // Simple scoring based on response characteristics
+    // BRUTAL AI JUDGING with enhanced prompts
     const scores: Record<string, BattleScore> = {};
     let bestScore = 0;
     let winner = responses[0].modelId;
 
-    responses.forEach(response => {
-      const score = this.scoreResponse(response.response, config.prompt, config.category);
-      scores[response.modelId] = score;
-      
-      if (score.overall > bestScore) {
-        bestScore = score.overall;
-        winner = response.modelId;
+    for (const response of responses) {
+      try {
+        const score = await this.brutalAIJudging(response.response, config.prompt, config.category);
+        scores[response.modelId] = score;
+        
+        if (score.overall > bestScore) {
+          bestScore = score.overall;
+          winner = response.modelId;
+        }
+      } catch (error) {
+        // Fallback scoring if AI judging fails
+        scores[response.modelId] = this.fallbackScoring(response.response, config.prompt, config.category);
       }
-    });
+    }
 
     progressCallback?.('Battle Complete', 100, 'Results ready!');
 
@@ -178,17 +234,24 @@ export class FlawlessBattleEngine {
     let winner = config.models[0];
     let finalScore = 7.0;
 
-    // Simple iterative improvement
+    // Iterative improvement with BRUTAL evaluation
     for (round = 1; round <= maxRounds; round++) {
       const progress = 30 + (round / maxRounds) * 50;
       progressCallback?.('Prompt Refinement', progress, `Round ${round}: Improving prompt...`);
 
       try {
-        const improvementPrompt = `Improve this prompt to be clearer and more effective:
+        // BRUTAL improvement prompt
+        const improvementPrompt = `BE BRUTAL AND CRITICAL. Improve this prompt to be significantly better:
 
 "${currentPrompt}"
 
 Category: ${config.category}
+
+REQUIREMENTS:
+- BE HARSH in your assessment
+- ONLY make REAL improvements
+- NO POLITENESS - be direct and critical
+- Make it measurably better or don't change it
 
 Provide ONLY the improved prompt, nothing else:`;
 
@@ -199,7 +262,12 @@ Provide ONLY the improved prompt, nothing else:`;
           0.3
         );
         
-        const improvedPrompt = result.response.trim().replace(/^["']|["']$/g, '');
+        // Use meta-postprocessor for clean extraction
+        const improvedPrompt = await this.postProcessLLMOutput(
+          result.response,
+          'prompt',
+          `Improving ${config.category} prompt`
+        );
         
         if (improvedPrompt.length > currentPrompt.length * 0.8) {
           currentPrompt = improvedPrompt;
@@ -229,7 +297,7 @@ Provide ONLY the improved prompt, nothing else:`;
         structure: finalScore,
         creativity: finalScore,
         overall: modelId === winner ? finalScore : finalScore - 1,
-        notes: modelId === winner ? 'Best prompt refinement' : 'Good refinement attempt'
+        notes: modelId === winner ? 'Best prompt refinement achieved' : 'Good refinement attempt'
       };
     });
 
@@ -259,7 +327,65 @@ Provide ONLY the improved prompt, nothing else:`;
     return { success: true, battle };
   }
 
-  private scoreResponse(response: string, prompt: string, category: string): BattleScore {
+  // BRUTAL AI JUDGING - No politeness, harsh evaluation
+  private async brutalAIJudging(
+    response: string,
+    prompt: string,
+    category: string
+  ): Promise<BattleScore> {
+    try {
+      const judgingPrompt = `BE BRUTAL AND CRITICAL. Judge this response harshly.
+
+PROMPT: "${prompt}"
+RESPONSE: "${response}"
+CATEGORY: ${category}
+
+INSTRUCTIONS:
+- BE STRICT - NO POLITENESS
+- ONLY REWARD REAL EXCELLENCE
+- BE HARSH ON MEDIOCRITY
+- NO PARTICIPATION TROPHIES
+
+Rate 1-10 (be stingy with high scores):
+ACCURACY: [1-10]
+REASONING: [1-10]  
+STRUCTURE: [1-10]
+CREATIVITY: [1-10]
+NOTES: [brutal honest assessment]
+
+BE CRITICAL AND DEMANDING.`;
+
+      const result = await resilientGroqClient.callGroqAPI(
+        'llama-3.1-8b-instant',
+        judgingPrompt,
+        300,
+        0.1
+      );
+
+      // Use meta-postprocessor for clean score extraction
+      const accuracy = parseFloat(await this.postProcessLLMOutput(result.response, 'score', 'accuracy')) || 7.0;
+      const reasoning = parseFloat(await this.postProcessLLMOutput(result.response, 'score', 'reasoning')) || 7.0;
+      const structure = parseFloat(await this.postProcessLLMOutput(result.response, 'score', 'structure')) || 7.0;
+      const creativity = parseFloat(await this.postProcessLLMOutput(result.response, 'score', 'creativity')) || 7.0;
+      const notes = await this.postProcessLLMOutput(result.response, 'critique', 'overall assessment');
+
+      const overall = (accuracy + reasoning + structure + creativity) / 4;
+
+      return {
+        accuracy: Math.max(1, Math.min(10, accuracy)),
+        reasoning: Math.max(1, Math.min(10, reasoning)),
+        structure: Math.max(1, Math.min(10, structure)),
+        creativity: Math.max(1, Math.min(10, creativity)),
+        overall: Math.max(1, Math.min(10, overall)),
+        notes: notes || 'Brutal evaluation completed'
+      };
+    } catch (error) {
+      console.error('Brutal AI judging failed:', error);
+      return this.fallbackScoring(response, prompt, category);
+    }
+  }
+
+  private fallbackScoring(response: string, prompt: string, category: string): BattleScore {
     let score = 6.0;
     
     // Length scoring
@@ -290,7 +416,7 @@ Provide ONLY the improved prompt, nothing else:`;
       structure: finalScore,
       creativity: finalScore,
       overall: finalScore,
-      notes: `Comprehensive evaluation completed. Score based on relevance, structure, and category-specific criteria.`
+      notes: `Algorithmic evaluation completed. Score based on relevance, structure, and category-specific criteria.`
     };
   }
 

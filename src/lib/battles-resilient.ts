@@ -50,13 +50,16 @@ export class ResilientBattleEngine {
 
   private generateFallbackBattle(battleData: BattleData, battleId: string, errorMessage: string): Battle {
     // ALL REAL POLICY - HONEST FAILURE STATE WITH NO SYNTHETIC DATA
-    console.error(`[ResilientBattleEngine] Generating failed battle record for ${battleId}. Error: ${errorMessage}`);
-    console.error(`[ResilientBattleEngine] Battle type: ${battleData.battle_type}, Models: ${battleData.models.join(', ')}`);
-    console.error(`[ResilientBattleEngine] This is an honest API failure - no synthetic data will be generated`);
+    console.error(`💥 [ResilientBattleEngine] GENERATING HONEST FAILED BATTLE RECORD`);
+    console.error(`💥 [ResilientBattleEngine] Battle ID: ${battleId}`);
+    console.error(`💥 [ResilientBattleEngine] Battle Type: ${battleData.battle_type}`);
+    console.error(`💥 [ResilientBattleEngine] Models: ${battleData.models.join(', ')}`);
+    console.error(`💥 [ResilientBattleEngine] Error: ${errorMessage}`);
+    console.error(`💥 [ResilientBattleEngine] NO SYNTHETIC DATA GENERATED - HONEST API FAILURE`);
     
     const battle: Battle = {
       id: battleId,
-      userId: 'current-user-id',
+      userId: battleData.user_id || 'unknown-user',
       battleType: battleData.battle_type,
       prompt: battleData.prompt,
       finalPrompt: null,
@@ -75,10 +78,10 @@ export class ResilientBattleEngine {
       updatedAt: new Date().toISOString(),
       responses: [], // NO SYNTHETIC RESPONSES
       scores: {}, // NO SYNTHETIC SCORES
-      plateauReason: `Groq API Failure: ${errorMessage}. This battle could not be completed due to external API issues. No synthetic data was generated in accordance with ALL REAL policy.`
+      plateauReason: `HONEST API FAILURE: ${errorMessage}. This battle could not be completed due to external Groq API issues. No synthetic data was generated in accordance with ALL REAL policy. You can retry immediately as the issue is likely temporary.`
     };
 
-    console.log(`💾 [ResilientBattleEngine] Created honest failure battle record for ${battleId}`);
+    console.log(`💾 [ResilientBattleEngine] HONEST FAILED BATTLE CREATED: ${battleId}`);
     this.storeBattleInCache(battle);
     return battle;
   }

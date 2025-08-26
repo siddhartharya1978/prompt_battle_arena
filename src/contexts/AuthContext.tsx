@@ -161,30 +161,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthLoading(true);
     
     try {
-      // Clear user state immediately for responsive UI
+      // Step 1: Clear user state immediately for responsive UX
+      console.log('🔄 [Auth] STEP 1: Clearing user state for immediate UX response');
       setUser(null);
       
-      // Sign out from Supabase - this will trigger onAuthStateChange
-      await signOut();
+      // Step 2: Sign out from Supabase
+      console.log('🔄 [Auth] STEP 2: Signing out from Supabase auth service');
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('❌ [Auth] Supabase signOut error:', error);
+        // Continue with cleanup even if Supabase fails
+      } else {
+        console.log('✅ [Auth] Supabase signOut successful');
+      }
       
-      // Clear all cached data
-      localStorage.removeItem('demo_battles');
+      // Step 3: Clear ALL cached data thoroughly
+      console.log('🔄 [Auth] STEP 3: Clearing all cached data');
+      try {
+        localStorage.removeItem('demo_battles');
+        localStorage.removeItem('pba_theme');
+        
+        // Clear any pending operations
+        Object.keys(localStorage).forEach(key => {
+          if (key.includes('_profile_updates') || 
+              key.includes('_battles_used') || 
+              key.includes('checkpoint_') ||
+              key.includes('pba_') ||
+              key.includes('user_') ||
+              key.includes('demo_')) {
+            localStorage.removeItem(key);
+          }
+        });
+        console.log('✅ [Auth] All cached data cleared successfully');
+      } catch (storageError) {
+        console.error('❌ [Auth] Error clearing localStorage:', storageError);
+        // Continue - this is not critical
+      }
       
-      // Clear any pending operations
-      Object.keys(localStorage).forEach(key => {
-        if (key.includes('_profile_updates') || 
-            key.includes('_battles_used') || 
-            key.includes('checkpoint_') ||
-            key.includes('pba_')) {
-          localStorage.removeItem(key);
-        }
-      });
-      
-      console.log('✅ [Auth] Logout completed successfully');
+      console.log('🎉 [Auth] LOGOUT COMPLETED SUCCESSFULLY - User fully signed out');
     } catch (error) {
       console.error('❌ [Auth] Logout error:', error);
       // Even if logout fails, clear local state
       setUser(null);
+      toast.error('Logout encountered issues but you have been signed out locally');
     } finally {
       setAuthLoading(false);
     }

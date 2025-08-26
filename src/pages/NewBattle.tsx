@@ -476,12 +476,12 @@ export default function NewBattle() {
               )}
             </div>
           </div>
-
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
           {/* Advanced Settings */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+                    {battleProgress?.step || 'Creating Battle...'}
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center justify-between w-full mb-4"
+              className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg hover:shadow-xl min-w-[200px]"
             >
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 5. Advanced Settings (Optional)
@@ -536,7 +536,7 @@ export default function NewBattle() {
                       max="3"
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
-                  </div>
+              <p className="text-sm text-red-600 dark:text-red-400 mt-2 font-medium">
                 )}
               </div>
             )}

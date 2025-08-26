@@ -94,34 +94,59 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   const createBattle = async (battleData: BattleData): Promise<Battle> => {
     const progressCallback = (progress: BattleProgress) => {
       setBattleProgress(progress);
-      // No more toast spam - all progress shown in thinking interface
     };
     
     try {
+      console.log('🚀 [BattleContext] STARTING BATTLE CREATION');
+      console.log('🚀 [BattleContext] Battle Type:', battleData.battle_type);
+      console.log('🚀 [BattleContext] Models:', battleData.models);
+      console.log('🚀 [BattleContext] Prompt:', battleData.prompt.substring(0, 100) + '...');
+      
       const battleEngine = new ResilientBattleEngine(progressCallback);
       const battle = await battleEngine.createBattle(battleData);
+      
+      console.log('✅ [BattleContext] BATTLE CREATION SUCCESS');
+      console.log('✅ [BattleContext] Battle ID:', battle.id);
+      console.log('✅ [BattleContext] Winner:', battle.winner);
+      console.log('✅ [BattleContext] Status:', battle.status);
       
       // Save battle with resilient persistence
       const saveResult = await dataPersistenceManager.saveBattle(battle);
       if (!saveResult.success) {
-        console.warn('Battle save failed, but battle completed successfully');
+        console.warn('⚠️ [BattleContext] Battle save failed, but battle completed successfully');
+        toast.success('🏆 Battle completed! (Note: Save to database failed, but results are cached locally)', { duration: 4000 });
+      } else {
+        console.log('✅ [BattleContext] Battle saved successfully');
       }
       
       setBattleProgress(null);
       
-      // Show final success message
-      const winnerModel = AVAILABLE_MODELS.find(m => m.id === battle.winner);
-      const winnerScore = battle.scores[battle.winner]?.overall || 0;
-      
-      // Single success toast
-      toast.success(`🏆 Battle Complete! Winner: ${winnerModel?.name} (${winnerScore}/10)`, { duration: 3000 });
+      // Show success message only for completed battles
+      if (battle.status === 'completed' && battle.winner) {
+        const winnerModel = AVAILABLE_MODELS.find(m => m.id === battle.winner);
+        const winnerScore = battle.scores[battle.winner]?.overall || 0;
+        toast.success(`🏆 Battle Complete! Winner: ${winnerModel?.name} (${winnerScore.toFixed(1)}/10)`, { duration: 4000 });
+      } else if (battle.status === 'failed') {
+        toast.error('❌ Battle failed due to API issues. No synthetic data generated. You can retry immediately.', { duration: 5000 });
+      }
       
       await refreshBattles();
       return battle;
       
     } catch (error) {
+      console.error('💥 [BattleContext] BATTLE CREATION FAILED:', error);
       setBattleProgress(null);
-      toast.error(`Battle failed: ${error.message}`, { duration: 6000 });
+      
+      // Enhanced error messaging for better UX
+      if (error.message.includes('rate limit')) {
+        toast.error('🚫 API rate limit reached. Please wait 30 seconds and try again.', { duration: 6000 });
+      } else if (error.message.includes('timeout')) {
+        toast.error('⏱️ Request timed out. The API is slow - please try again.', { duration: 5000 });
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        toast.error('🌐 Network issue. Please check your connection and try again.', { duration: 5000 });
+      } else {
+        toast.error(`❌ Battle failed: ${error.message}`, { duration: 6000 });
+      }
       throw error;
     }
   };
