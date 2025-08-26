@@ -109,13 +109,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(profile);
         console.log('✅ [Auth] Profile loaded successfully:', profile.email);
       } else {
-        console.warn('⚠️ [Auth] No profile found for user:', authUser.id);
-        setUser(null);
+        console.warn('⚠️ [Auth] No profile found, creating one for user:', authUser.id);
+        // Create missing profile for existing auth user
+        const newProfile = {
+          id: authUser.id,
+          email: authUser.email!,
+          name: authUser.user_metadata?.name || authUser.email!.split('@')[0],
+          avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
+          plan: 'free' as const,
+          role: authUser.email === 'admin@pba.com' ? 'admin' as const : 'user' as const,
+          battles_used: 0,
+          battles_limit: authUser.email === 'admin@pba.com' ? 999 : 3,
+          last_reset_at: new Date().toISOString().split('T')[0],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        try {
+          const { error: insertError } = await supabase.from('profiles').insert(newProfile);
+          if (insertError) {
+            console.error('❌ [Auth] Failed to create profile:', insertError);
+            // Set user anyway with basic data
+            setUser({
+              id: authUser.id,
+              email: authUser.email!,
+              name: authUser.user_metadata?.name || authUser.email!.split('@')[0],
+              avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
+              plan: 'free',
+              role: 'user',
+              battlesUsed: 0,
+              battlesLimit: 3,
+              lastResetAt: new Date().toISOString().split('T')[0],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            });
+          } else {
+            console.log('✅ [Auth] Profile created successfully for existing user');
+            setUser({
+              id: authUser.id,
+              email: authUser.email!,
+              name: newProfile.name,
+              avatarUrl: newProfile.avatar_url,
+              plan: newProfile.plan,
+              role: newProfile.role,
+              battlesUsed: newProfile.battles_used,
+              battlesLimit: newProfile.battles_limit,
+              lastResetAt: newProfile.last_reset_at,
+              createdAt: newProfile.created_at,
+              updatedAt: newProfile.updated_at
+            });
+          }
+        } catch (profileCreateError) {
+          console.error('❌ [Auth] Profile creation failed:', profileCreateError);
+          // Set user anyway with basic data to prevent infinite loading
+          setUser({
+            id: authUser.id,
+            email: authUser.email!,
+            name: authUser.user_metadata?.name || authUser.email!.split('@')[0],
+            avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
+            plan: 'free',
+            role: 'user',
+            battlesUsed: 0,
+            battlesLimit: 3,
+            lastResetAt: new Date().toISOString().split('T')[0],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+        }
       }
     } catch (error) {
       console.error('❌ [Auth] Error loading profile:', error);
-      toast.error('Failed to load user profile');
-      setUser(null);
+      // Don't show error toast and don't set user to null - this causes infinite loading
+      // Instead, create a basic user profile to allow login to complete
+      console.log('🔄 [Auth] Creating fallback user profile due to error');
+      setUser({
+        id: authUser.id,
+        email: authUser.email!,
+        name: authUser.user_metadata?.name || authUser.email!.split('@')[0],
+        avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
+        plan: 'free',
+        role: 'user',
+        battlesUsed: 0,
+        battlesLimit: 3,
+        lastResetAt: new Date().toISOString().split('T')[0],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
     }
   };
 
