@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useBattle } from '../contexts/BattleContext';
 import { Battle, BattleScore } from '../types';
 import { systemMonitor, SystemHealth } from '../lib/system-monitor';
+import { AlertTriangle } from 'lucide-react';
 import Navigation from '../components/Navigation';
 import FeedbackWidget from '../components/FeedbackWidget';
 import { 

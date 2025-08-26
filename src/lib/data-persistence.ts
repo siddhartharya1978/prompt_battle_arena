@@ -113,7 +113,7 @@ export class DataPersistenceManager {
 
       // Attempt database save with retries for ALL users
       console.log(`🔄 [DataPersistence] STEP 2: Attempting Supabase save...`);
-      await this.retryOperation(async () => {
+      const saveResult = await this.retryOperation(async () => {
         console.log(`🔄 [DataPersistence] SUPABASE: Inserting main battle record...`);
         
         // Save main battle record
@@ -216,6 +216,7 @@ export class DataPersistenceManager {
         
         console.log(`🎉 [DataPersistence] ===== COMPLETE SUPABASE SAVE SUCCESS =====`);
         console.log(`🎉 [DataPersistence] Battle ${battle.id} and ALL related records saved to Supabase`);
+        return true;
       }, options);
 
       console.log(`🎉 [DataPersistence] ===== BATTLE SAVE COMPLETE SUCCESS =====`);
