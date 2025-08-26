@@ -14,6 +14,23 @@ export interface FlawlessBattleConfig {
   qualityThreshold?: number;
 }
 
+// Advanced Round Interface (for prompt battles)
+export interface AdvancedRound {
+  round: number;
+  phase: 'generation' | 'critique' | 'refinement' | 'consensus';
+  modelId: string;
+  input: string;
+  output: string;
+  metadata: {
+    tokens: number;
+    latency: number;
+    cost: number;
+    confidence?: number;
+    qualityScore?: number;
+  };
+  timestamp: number;
+}
+
 export interface BattlePhase {
   name: string;
   progress: number;
@@ -703,7 +720,7 @@ This is a high-stakes competition - make your improvement revolutionary!`;
           'improvement'
         );
 
-        cost += result.cost;
+        cost += result.cost; // Accumulate cost
         if (result.fallbackUsed) fallbacksUsed++;
 
         // ROBUST PARSING WITH MULTIPLE STRATEGIES
@@ -786,7 +803,7 @@ This is a competitive evaluation - showcase your absolute best capabilities!`;
           'response'
         );
 
-        cost += result.cost;
+        cost += result.cost; // Accumulate cost
         if (result.fallbackUsed) fallbacksUsed++;
 
         responses.push({
@@ -892,7 +909,7 @@ Be rigorous and honest in your evaluation.`;
             'judging'
           );
 
-          cost += result.cost;
+          cost += result.cost; // Accumulate cost
           const parsed = this.parseJudgingResponse(result.response);
           
           evaluations.push({
@@ -923,6 +940,40 @@ Be rigorous and honest in your evaluation.`;
     return { evaluations, cost, errorRecoveries };
   }
 
+  // NEW: LLM-Powered Meta-Postprocessor
+  private async postProcessLLMOutput(
+    rawOutput: string, 
+    targetType: 'prompt' | 'critique' | 'score' | 'analysis' | 'suggestions',
+    modelId: string
+  ): Promise<string> {
+    const processingPrompt = `You are an expert text extractor. Your task is to extract ONLY the clean, final, and complete ${targetType} from the provided raw AI output.
+
+RAW AI OUTPUT:
+"""
+${rawOutput}
+"""
+
+INSTRUCTIONS:
+- Extract only the relevant text for a ${targetType}.
+- Remove any conversational filler, incomplete sentences, or extraneous reasoning.
+- If the output is a prompt, ensure it is a standalone, complete prompt.
+- If the output is a score, extract only the numerical value.
+- If the output is an analysis or critique, ensure it is concise and directly addresses the point.
+- If the output is suggestions, extract them as a comma-separated list.
+- Do NOT add any new text, explanations, or quotes.
+- If no valid ${targetType} can be extracted, respond with "EXTRACTION_FAILED".
+
+EXTRACTED ${targetType.toUpperCase()}:`;
+
+    try {
+      const result = await this.callGroqAPIWithTimeout(modelId, processingPrompt, 300, 0.1, 30000);
+      return result.response.trim();
+    } catch (error) {
+      console.error(`Meta-postprocessing failed for ${targetType}:`, error);
+      return "EXTRACTION_FAILED";
+    }
+  }
+
   // GENIUS PARSING WITH MULTIPLE STRATEGIES
   private parseImprovementResponse(
     response: string,
@@ -945,8 +996,31 @@ Be rigorous and honest in your evaluation.`;
     const confidenceMatch = response.match(/CONFIDENCE:\s*(\d+(?:\.\d+)?)/i);
 
     if (thinkingMatch) reasoning = thinkingMatch[1].trim();
-    if (promptMatch) improvedPrompt = this.cleanPromptText(promptMatch[1].trim());
+    if (promptMatch) improvedPrompt = this.cleanPromptText(promptMatch[1].trim()); // Initial extraction
     if (confidenceMatch) confidence = Math.max(1, Math.min(10, parseFloat(confidenceMatch[1])));
+
+    // NEW: Use meta-postprocessor for robust extraction
+    if (reasoning && reasoning !== "EXTRACTION_FAILED") {
+      this.postProcessLLMOutput(reasoning, 'analysis', 'llama-3.1-8b-instant').then(cleaned => {
+        if (cleaned !== "EXTRACTION_FAILED") reasoning = cleaned;
+      });
+    }
+    if (improvedPrompt && improvedPrompt !== "EXTRACTION_FAILED") {
+      this.postProcessLLMOutput(improvedPrompt, 'prompt', 'llama-3.1-8b-instant').then(cleaned => {
+        if (cleaned !== "EXTRACTION_FAILED") improvedPrompt = cleaned;
+      });
+    } else {
+      // Fallback if initial extraction failed, try to extract from full response
+      this.postProcessLLMOutput(response, 'prompt', 'llama-3.1-8b-instant').then(cleaned => {
+        if (cleaned !== "EXTRACTION_FAILED") improvedPrompt = cleaned;
+      });
+    }
+    if (confidenceMatch) {
+      this.postProcessLLMOutput(confidenceMatch[1], 'score', 'llama-3.1-8b-instant').then(cleaned => {
+        const parsedScore = parseFloat(cleaned);
+        if (!isNaN(parsedScore)) confidence = Math.max(1, Math.min(10, parsedScore));
+      });
+    }
 
     // STRATEGY 2: Line-by-line state machine parsing
     if (!improvedPrompt || improvedPrompt.length < 20) {
@@ -1061,34 +1135,47 @@ Be rigorous and honest in your evaluation.`;
 
     let critique = '';
 
-    // Parse scores with enhanced patterns
+    // Initial extraction
     const scorePatterns = {
-      technical: /TECHNICAL_ACCURACY:\s*(\d+(?:\.\d+)?)/i,
-      creativity: /CREATIVE_EXCELLENCE:\s*(\d+(?:\.\d+)?)/i,
-      clarity: /STRUCTURAL_CLARITY:\s*(\d+(?:\.\d+)?)/i,
-      completeness: /COMPLETENESS:\s*(\d+(?:\.\d+)?)/i,
-      practical: /PRACTICAL_VALUE:\s*(\d+(?:\.\d+)?)/i
+      technical: response.match(/TECHNICAL_ACCURACY:\s*(\d+(?:\.\d+)?)/i)?.[1]?.trim(),
+      creativity: response.match(/CREATIVE_EXCELLENCE:\s*(\d+(?:\.\d+)?)/i)?.[1]?.trim(),
+      clarity: response.match(/STRUCTURAL_CLARITY:\s*(\d+(?:\.\d+)?)/i)?.[1]?.trim(),
+      completeness: response.match(/COMPLETENESS:\s*(\d+(?:\.\d+)?)/i)?.[1]?.trim(),
+      practical: response.match(/PRACTICAL_VALUE:\s*(\d+(?:\.\d+)?)/i)?.[1]?.trim()
     };
 
-    let foundScores = 0;
-    for (const [key, pattern] of Object.entries(scorePatterns)) {
-      const match = response.match(pattern);
-      if (match) {
-        const score = parseFloat(match[1]);
-        if (score >= 1 && score <= 10) {
-          scores[key as keyof typeof scores] = score;
-          foundScores++;
-        }
+    // NEW: Use meta-postprocessor for robust extraction
+    for (const key of Object.keys(scorePatterns)) {
+      const rawScore = scorePatterns[key as keyof typeof scorePatterns];
+      if (rawScore) {
+        this.postProcessLLMOutput(rawScore, 'score', 'llama-3.1-8b-instant').then(cleaned => {
+          const parsedScore = parseFloat(cleaned);
+          if (!isNaN(parsedScore)) scores[key as keyof typeof scores] = Math.max(1, Math.min(10, parsedScore));
+        });
       }
     }
 
-    // Parse critique
-    const critiqueMatch = response.match(/EXPERT_CRITIQUE:\s*([\s\S]*?)(?=TECHNICAL_ACCURACY:|$)/i);
+    const critiqueMatch = response.match(/EXPERT_EVALUATION:\s*([\s\S]*?)(?=TECHNICAL_ACCURACY:|$)/i)?.[1]?.trim();
+    const improvementsMatch = response.match(/IMPROVEMENT_RECOMMENDATIONS:\s*([\s\S]*?)$/i)?.[1]?.trim();
+
     if (critiqueMatch) {
-      critique = critiqueMatch[1].trim();
+      this.postProcessLLMOutput(critiqueMatch, 'critique', 'llama-3.1-8b-instant').then(cleaned => {
+        if (cleaned !== "EXTRACTION_FAILED") critique = cleaned;
+      });
+    }
+
+    // Parse critique
+    const critiqueMatch2 = response.match(/EXPERT_CRITIQUE:\s*([\s\S]*?)(?=TECHNICAL_ACCURACY:|$)/i);
+    if (critiqueMatch2) {
+      critique = critiqueMatch2[1].trim();
     }
 
     // Fallback if structured parsing failed
+    let foundScores = 0;
+    for (const key of Object.keys(scorePatterns)) {
+      if (scorePatterns[key as keyof typeof scorePatterns]) foundScores++;
+    }
+
     if (foundScores < 3 || !critique) {
       console.log('🔄 Judging parsing fallback activated');
       
@@ -1265,6 +1352,26 @@ CONFIDENCE:
   private getModelName(modelId: string): string {
     const model = AVAILABLE_MODELS.find(m => m.id === modelId);
     return model?.name || modelId;
+  }
+
+  private async assessQuality(prompt: string, category: string, originalPrompt: string): Promise<number> {
+    try {
+      const assessmentPrompt = `Rate this prompt's quality (1-10) for ${category} tasks:
+
+ORIGINAL PROMPT: "${originalPrompt}"
+IMPROVED PROMPT: "${prompt}"
+
+Consider: clarity, specificity, completeness, actionability.
+How much better is the improved version compared to the original?
+Respond with just a number from 1-10:`;
+
+      const result = await this.callGroqAPIWithTimeout('llama-3.1-8b-instant', assessmentPrompt, 50, 0.1, 30000);
+      const cleanedScore = await this.postProcessLLMOutput(result.response, 'score', 'llama-3.1-8b-instant');
+      return parseFloat(cleanedScore) || 7.0;
+    } catch (error) {
+      // Algorithmic fallback
+      return Math.min(10, 6 + (prompt.length / 200));
+    }
   }
 
   // PLACEHOLDER METHODS (would be fully implemented)
