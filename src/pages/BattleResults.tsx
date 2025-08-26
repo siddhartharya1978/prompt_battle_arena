@@ -226,7 +226,6 @@ export default function BattleResults() {
               Retrieving battle data and analysis
             </p>
           </div>
-          </div>
         </div>
       </div>
     );
@@ -830,101 +829,4 @@ export default function BattleResults() {
             {expandedSections.has('evolution') && (
               <div className="space-y-4">
                 {/* Show Original Prompt First */}
-                <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-700/50">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      Original Prompt
-                    </span>
-                    <span className="px-2 py-1 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-full text-xs font-medium">
-                      Starting Point
-                    </span>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
-                    <p className="text-sm text-gray-900 dark:text-white">
-                      "{battle.prompt}"
-                    </p>
-                  </div>
-                </div>
-
-                {battle.promptEvolution.map((evolution, index) => (
-                  <div key={evolution.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">
-                          Round {evolution.round}
-                        </span>
-                        <span className="text-sm text-gray-600 dark:text-gray-300">
-                          by {getModelInfo(evolution.modelId).name}
-                        </span>
-                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-full text-xs font-medium">
-                          {evolution.score}/10
-                        </span>
-                        {evolution.score >= 9.5 && (
-                          <span className="px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">
-                            🎯 Excellent!
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* AI Thinking Process */}
-                    {evolution.improvements.length > 0 && evolution.improvements[0] !== 'Original user prompt' && (
-                      <div className="mb-3">
-                        <h5 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                          AI Thinking Process:
-                        </h5>
-                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
-                          <p className="text-sm text-blue-900 dark:text-blue-100 italic">
-                            {evolution.improvements[0]}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Refined Prompt */}
-                    <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 mb-3 border border-green-200 dark:border-green-700">
-                      <h5 className="text-xs font-medium text-green-700 dark:text-green-300 mb-2">
-                        Refined Prompt:
-                      </h5>
-                      <p className="text-sm text-gray-900 dark:text-white">
-                        "{evolution.prompt}"
-                      </p>
-                      <button
-                        onClick={() => copyToClipboard(evolution.prompt, `Round ${evolution.round} prompt`)}
-                        className="mt-2 flex items-center space-x-1 text-xs text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
-                      >
-                        {copiedText === `Round ${evolution.round} prompt` ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                        <span>Copy This Version</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link
-            to="/battle/new"
-            className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Create New Battle
-          </Link>
-          
-          <Link
-            to="/history"
-            className="inline-flex items-center justify-center px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-          >
-            <Eye className="w-4 h-4 mr-2" />
-            View All Battles
-          </Link>
-        </div>
-      </div>
-
-      <FeedbackWidget />
-    </div>
-  );
-}
+                <div className="
