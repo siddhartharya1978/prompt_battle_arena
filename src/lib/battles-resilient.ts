@@ -47,12 +47,6 @@ export class ResilientBattleEngine {
     }
   }
 
-
-    }
-
-    return bestModel || Object.keys(scores)[0];
-  }
-
   private generateFallbackBattle(battleData: BattleData, battleId: string, errorMessage: string): Battle {
     const responses: BattleResponse[] = [];
     const scores: Record<string, BattleScore> = {};
