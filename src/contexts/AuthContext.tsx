@@ -41,18 +41,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       try {
         console.log('🔍 [Auth] Checking existing session...');
-        const session = await bulletproofSupabase.getSession();
+        const client = bulletproofSupabase.getClient();
+        if (!client) {
+          console.log('📝 [Auth] Supabase not initialized');
+          if (mounted) {
+            setUser(null);
+            setLoading(false);
+          }
+          return;
+        }
+        
+        const { data: sessionData } = await client.auth.getSession();
+        const session = sessionData.session;
         
         if (session?.user && mounted) {
           console.log('✅ [Auth] Found Supabase session for user:', session.user.email);
-          // Directly fetch profile for existing session - no re-authentication needed
-          const profile = await bulletproofSupabase.getProfile(session.user.id);
-          if (profile) {
-            setUser(profile);
-            console.log('✅ [Auth] Profile loaded for existing session');
-          } else {
-            console.log('📝 [Auth] No profile found, user needs to complete setup');
-            setUser(null);
+          
+          try {
+            const profile = await bulletproofSupabase.getProfile(session.user.id);
+            if (profile && mounted) {
+              setUser(profile);
+              console.log('✅ [Auth] Profile loaded for existing session');
+            } else if (mounted) {
+              console.log('📝 [Auth] No profile found, creating one...');
+              
+              // Create profile for existing auth user
+              const newProfile = await bulletproofSupabase.updateProfile(session.user.id, {
+                name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+                avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'
+              });
+              
+              if (newProfile && mounted) {
+                setUser(newProfile);
+                console.log('✅ [Auth] Profile created for existing user');
+              } else if (mounted) {
+                setUser(null);
+              }
+            }
+          } catch (profileError) {
+            console.error('❌ [Auth] Profile handling failed:', profileError);
+            if (mounted) {
+              setUser(null);
+            }
           }
         } else {
           console.log('📝 [Auth] No active Supabase session found');
@@ -88,26 +118,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('🔄 [Auth] Auth state changed:', event, session?.user?.email || 'no user');
       
       if (event === 'SIGNED_IN' && session?.user) {
-        setAuthLoading(true);
         try {
-          // For auth state changes, just fetch the profile - don't re-authenticate
           const profile = await bulletproofSupabase.getProfile(session.user.id);
-          if (profile) {
+          if (profile && mounted) {
             setUser(profile);
             console.log('✅ [Auth] Profile loaded from auth state change');
-          } else {
+          } else if (mounted) {
             console.log('📝 [Auth] No profile found during auth state change');
-            setUser(null);
+            
+            // Create profile for new auth user
+            try {
+              const newProfile = await bulletproofSupabase.updateProfile(session.user.id, {
+                name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+                avatarUrl: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face'
+              });
+              
+              if (newProfile && mounted) {
+                setUser(newProfile);
+                console.log('✅ [Auth] Profile created during auth state change');
+              } else if (mounted) {
+                setUser(null);
+              }
+            } catch (createError) {
+              console.error('❌ [Auth] Failed to create profile during auth state change:', createError);
+              if (mounted) {
+                setUser(null);
+              }
+            }
           }
         } catch (error) {
           console.error('❌ [Auth] Profile fetch failed during auth state change:', error);
-          setUser(null);
+          if (mounted) {
+            setUser(null);
+          }
         }
-        setAuthLoading(false);
       } else if (event === 'SIGNED_OUT') {
         console.log('🚪 [Auth] User signed out, clearing state');
-        setUser(null);
-        setAuthLoading(false);
+        if (mounted) {
+          setUser(null);
+        }
       } else if (event === 'TOKEN_REFRESHED') {
         console.log('🔄 [Auth] Token refreshed');
       }

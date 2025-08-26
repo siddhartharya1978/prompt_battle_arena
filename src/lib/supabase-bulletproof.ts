@@ -326,6 +326,45 @@ class BulletproofSupabase {
     if (!this.client || !userId) return null;
     
     try {
+      // First check if profile exists
+      const { data: existingProfile } = await this.client
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      if (!existingProfile) {
+        // Create new profile
+        const newProfileData = {
+          id: userId,
+          email: updates.email || 'unknown@example.com',
+          name: updates.name || 'User',
+          avatar_url: updates.avatarUrl || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop&crop=face',
+          plan: 'free',
+          role: 'user',
+          battles_used: 0,
+          battles_limit: 3,
+          last_reset_at: new Date().toISOString().split('T')[0],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        const { data: insertedProfile, error: insertError } = await this.client
+          .from('profiles')
+          .insert(newProfileData)
+          .select()
+          .single();
+        
+        if (insertError) {
+          console.error('❌ [Supabase] Profile creation failed:', insertError);
+          return null;
+        }
+        
+        console.log('✅ [Supabase] New profile created for user:', userId);
+        return transformProfileFromDB(insertedProfile);
+      }
+      
+      // Update existing profile
       const dbUpdates: any = {};
       if (updates.name !== undefined) dbUpdates.name = updates.name;
       if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
@@ -345,7 +384,7 @@ class BulletproofSupabase {
       return transformProfileFromDB(data);
     } catch (error) {
       console.error('Profile update failed:', error);
-      throw error;
+      return null;
     }
   }
 
